@@ -14,7 +14,7 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## Install
 
-This is an **early development build**. It has passed portable validation, and the screenshot above shows it running on an Omarchy desktop. Broader live testing is still pending. If you want to try it on Omarchy Quattro with plugin support, review the source and run:
+This is an **early development build**. It has passed portable validation, and the screenshot above shows it running on an Omarchy desktop. Broader live testing is still pending. It needs Omarchy Quattro with plugin support, Hyprland, Quickshell, Python 3 and `hyprctl`. If you want to try it, review the source and run:
 
 ```bash
 omarchy plugin add https://github.com/tcballard/omarchy-plugin-familiar-desktop.git --enable
@@ -64,13 +64,13 @@ omarchy plugin update io.github.tcballard.familiar-desktop
 omarchy plugin remove io.github.tcballard.familiar-desktop
 ```
 
-The plugin owns `~/.config/omarchy/familiar-desktop-settings.json` and `~/.config/omarchy/familiar-desktop-pinned.json`. Removing it leaves those preferences in place; it does not alter the original dock's configuration. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
+The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Adding a bar widget to the dock removes that widget from the bar by editing `~/.config/omarchy/shell.json`; removing it from the dock attempts to restore its prior bar placement. Back up `shell.json` before trying dock widgets. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
 ## Development and status
 
 The manifest declares a hosted service and bar widget under `io.github.tcballard.familiar-desktop`. The source derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit `467070386fe60e173295020d3911176202b3e0c9` (MIT). This project has separate identity and settings while retaining that dock's window, monitor, folder and theme handling. See [the product record](PRODUCT.md) for the current scope and next milestones.
 
-Portable plugin validation and 26 Python window-helper tests pass. Live checks remain: initial load, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload and removal. This repository has no release or marketplace verification yet.
+Portable plugin validation and the tests in `tests/run` pass. The preview shows an on-device layout, but live checks remain: initial installation, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload, dock widget restoration and removal. This repository has no release or marketplace verification yet. Report bugs through [GitHub issues](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues); report sensitive security issues privately through the repository's GitHub security advisory feature.
 
 On Omarchy, validate and test the checkout with:
 

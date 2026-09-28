@@ -11,7 +11,7 @@ Item {
     property var shell: null
     property var knownWindows: []
 
-    readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy/dock-badges.json"
+    readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy/familiar-desktop-badges.json"
 
     // In-memory canonical state backed by PersistentProperties
     property var canonicalCounts: ({})
@@ -20,7 +20,7 @@ Item {
 
     PersistentProperties {
         id: persisted
-        reloadableId: "omarchy-dock-notification-tracker"
+        reloadableId: "familiar-desktop-notification-tracker"
         property var counts: ({})
         property var urgent: ({})
     }

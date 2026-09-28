@@ -13,8 +13,9 @@ should answer: what is open, which window is mine, and how do I get back to it?
 - Kinds: `service` (`DockPanel.qml`) and `bar-widget` (`BarWidget.qml`).
 - Process: hosted in the existing Omarchy Quickshell process. No second shell.
 - Settings: plugin-owned JSON in `~/.config/omarchy/`; pins are separate and
-  shared by all three presets. The plugin does not modify themes, global bar
-  position, shortcuts, or install packages.
+  shared by all three presets. Moving a bar widget into the dock changes
+  `~/.config/omarchy/shell.json` and removal attempts to restore its placement.
+  The plugin does not modify themes, global bar position, shortcuts, or install packages.
 - External operations: the inherited `scripts/dock-minimize.py` uses
   `hyprctl` for window activation and minimization; inherited icon/CLI scans
   use local desktop files. No network calls or privileged commands are added.
@@ -40,12 +41,13 @@ and Windows names denote layout starting points, not pixel-perfect emulation.
 4. Add a reversible, opt-in setup experience for companion theme/apps once
    those projects have stable package identities. Do not make a shell plugin
    perform installation or privilege changes.
-5. Capture actual screenshots and test 200% scale, light/dark themes, tiled,
+5. Test 200% scale, light/dark themes, tiled,
    floating, fullscreen, monitor hotplug, reload, disable, and removal before
    opening a release or marketplace submission.
 
 ## Current evidence
 
-Portable manifest/path validation passes. The container has no Omarchy
-session, Quickshell imports, or QML runner, so no UI behavior has been observed
-live. No GitHub repository or release has been created for this prototype.
+Portable manifest/path validation and unit tests pass. An on-device screenshot
+of the General layout is in the README. The audit environment has no Omarchy
+session, Quickshell imports, or QML runner, so lifecycle behavior is unverified
+here. The public GitHub repository exists; no release has been created.

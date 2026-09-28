@@ -2818,7 +2818,7 @@ Item {
                     window: dockLayer
                 }
 
-                WlrLayershell.namespace: "omarchy-dock"
+                WlrLayershell.namespace: "familiar-desktop-dock"
                 // Fullscreen windows stack above the Top layer, which would
                 // leave an autohidden dock unreachable exactly when it is
                 // summoned. Overlay keeps it callable there. In "always" mode
@@ -3458,7 +3458,7 @@ Item {
                          && root.screenSlidesOut(modelData)
                          && root.screenShowsDock(modelData)
 
-                WlrLayershell.namespace: "omarchy-dock-edge"
+                WlrLayershell.namespace: "familiar-desktop-dock-edge"
                 // The reveal trigger only exists while autohide is on, and it
                 // has to catch the pointer over a fullscreen window.
                 WlrLayershell.layer: WlrLayer.Overlay

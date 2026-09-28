@@ -191,13 +191,13 @@ function switchDockWidgetInBar(shell, newWidgetId, prevWidgetIds, savedPositions
         }
     };
 
+    var shellHandledWrite = false;
     if (shell && typeof shell.mutateShellConfig === "function") {
-        // Omarchy 4.0.3 answers false for third-party plugins and skips the
-        // write; the file branch below is what persists on a scoped host.
-        if (shell.mutateShellConfig(mutator) === false)
-            console.warn("dock: shell declined the config write, editing shell.json directly");
+        // Scoped third-party hosts may decline this write. Use the file only
+        // when the host did not persist it; never apply the mutator twice.
+        shellHandledWrite = shell.mutateShellConfig(mutator) !== false;
     }
-    if (shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
+    if (!shellHandledWrite && shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
         try {
             var raw = shellConfigFile.text();
             if (raw) {
@@ -273,13 +273,13 @@ function removeWidgetFromBar(shell, widgetId, savedPositions, shellConfigFile) {
         }
     };
 
+    var shellHandledWrite = false;
     if (shell && typeof shell.mutateShellConfig === "function") {
-        // Omarchy 4.0.3 answers false for third-party plugins and skips the
-        // write; the file branch below is what persists on a scoped host.
-        if (shell.mutateShellConfig(mutator) === false)
-            console.warn("dock: shell declined the config write, editing shell.json directly");
+        // Scoped third-party hosts may decline this write. Use the file only
+        // when the host did not persist it; never apply the mutator twice.
+        shellHandledWrite = shell.mutateShellConfig(mutator) !== false;
     }
-    if (shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
+    if (!shellHandledWrite && shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
         try {
             var raw = shellConfigFile.text();
             if (raw) {
@@ -472,13 +472,13 @@ function returnWidgetToBar(shell, widgetId, savedPositions, defaultRegion, shell
         }
     };
 
+    var shellHandledWrite = false;
     if (shell && typeof shell.mutateShellConfig === "function") {
-        // Omarchy 4.0.3 answers false for third-party plugins and skips the
-        // write; the file branch below is what persists on a scoped host.
-        if (shell.mutateShellConfig(mutator) === false)
-            console.warn("dock: shell declined the config write, editing shell.json directly");
+        // Scoped third-party hosts may decline this write. Use the file only
+        // when the host did not persist it; never apply the mutator twice.
+        shellHandledWrite = shell.mutateShellConfig(mutator) !== false;
     }
-    if (shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
+    if (!shellHandledWrite && shellConfigFile && typeof shellConfigFile.text === "function" && typeof shellConfigFile.setText === "function") {
         try {
             var raw = shellConfigFile.text();
             if (raw) {

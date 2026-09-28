@@ -8,6 +8,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 import urllib.parse
 
 def normalize(s):
@@ -182,19 +183,41 @@ def get_hypr_socket():
 
 def hypr_cmd(sock_path, cmd):
     try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(sock_path)
-        s.sendall(cmd.encode())
-        res = b""
-        while True:
-            data = s.recv(4096)
-            if not data:
-                break
-            res += data
-        s.close()
-        return res.decode()
+        deadline = time.monotonic() + 2.0
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(2.0)
+            s.connect(sock_path)
+            s.sendall(cmd.encode())
+            chunks = []
+            size = 0
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return ""
+                s.settimeout(remaining)
+                data = s.recv(4096)
+                if not data:
+                    break
+                size += len(data)
+                if size > 8 * 1024 * 1024:
+                    return ""
+                chunks.append(data)
+            return b"".join(chunks).decode()
     except Exception:
         return ""
+
+def lua_string(value):
+    """Quote a compositor value as one Lua string, including control bytes."""
+    out = []
+    for char in str(value):
+        if char in ('"', "\\"):
+            out.append("\\" + char)
+        elif ord(char) < 32 or ord(char) == 127:
+            out.append("\\" + format(ord(char), "03d"))
+        else:
+            out.append(char)
+    return '"' + "".join(out) + '"'
+
 
 def close_any_special(sock_path):
     try:
@@ -205,7 +228,7 @@ def close_any_special(sock_path):
             sw_name = str(sw.get("name", ""))
             if sw_name and sw_name != "":
                 clean_name = sw_name.replace("special:", "")
-                hypr_cmd(sock_path, f'dispatch hl.dsp.workspace.toggle_special({{ workspace = "{clean_name}" }})')
+                hypr_cmd(sock_path, f'dispatch hl.dsp.workspace.toggle_special({{ workspace = {lua_string(clean_name)} }})')
     except Exception:
         pass
 
@@ -677,12 +700,12 @@ def main():
             if str(target_ws).startswith("special:"):
                 target_ws = "1"
 
-            cmd_move = f'dispatch hl.dsp.window.move({{ window = "address:{addr}", workspace = "{target_ws}" }})'
+            cmd_move = f'dispatch hl.dsp.window.move({{ window = {lua_string("address:" + str(addr))}, workspace = {lua_string(target_ws)} }})'
             res = hypr_cmd(sock_path, cmd_move)
             if "error" in res.lower():
                 hypr_cmd(sock_path, f"dispatch movetoworkspacesilent {target_ws},address:{addr}")
 
-            cmd_focus = f'dispatch hl.dsp.focus({{ window = "address:{addr}" }})'
+            cmd_focus = f'dispatch hl.dsp.focus({{ window = {lua_string("address:" + str(addr))} }})'
             res_focus = hypr_cmd(sock_path, cmd_focus)
             if "error" in res_focus.lower():
                 hypr_cmd(sock_path, f"dispatch focuswindow address:{addr}")
@@ -690,7 +713,7 @@ def main():
             close_any_special(sock_path)
         else:
             # MINIMIZE target_c
-            cmd = f'dispatch hl.dsp.window.move({{ window = "address:{addr}", workspace = "special:minimized" }})'
+            cmd = f'dispatch hl.dsp.window.move({{ window = {lua_string("address:" + str(addr))}, workspace = "special:minimized" }})'
             res = hypr_cmd(sock_path, cmd)
             if "error" in res.lower():
                 hypr_cmd(sock_path, f"dispatch movetoworkspacesilent special:minimized,address:{addr}")
@@ -700,7 +723,7 @@ def main():
             other_visible = [c for c in visible_windows if str(c.get("address", "")).lower() != str(addr).lower()]
             if other_visible:
                 target_addr = other_visible[0]["address"]
-                cmd_focus = f'dispatch hl.dsp.focus({{ window = "address:{target_addr}" }})'
+                cmd_focus = f'dispatch hl.dsp.focus({{ window = {lua_string("address:" + str(target_addr))} }})'
                 res_focus = hypr_cmd(sock_path, cmd_focus)
                 if "error" in res_focus.lower():
                     hypr_cmd(sock_path, f"dispatch focuswindow address:{target_addr}")
@@ -713,7 +736,7 @@ def main():
                 ]
                 if remaining:
                     target_addr = remaining[0]["address"]
-                    hypr_cmd(sock_path, f'dispatch hl.dsp.focus({{ window = "address:{target_addr}" }})')
+                    hypr_cmd(sock_path, f'dispatch hl.dsp.focus({{ window = {lua_string("address:" + str(target_addr))} }})')
         return
 
     elif mode in ("activate-instance", "activate", "restore", "restore-or-launch"):
@@ -734,19 +757,19 @@ def main():
             if str(target_ws).startswith("special:"):
                 target_ws = "1"
 
-            cmd_move = f'dispatch hl.dsp.window.move({{ window = "address:{addr}", workspace = "{target_ws}" }})'
+            cmd_move = f'dispatch hl.dsp.window.move({{ window = {lua_string("address:" + str(addr))}, workspace = {lua_string(target_ws)} }})'
             res = hypr_cmd(sock_path, cmd_move)
             if "error" in res.lower():
                 hypr_cmd(sock_path, f"dispatch movetoworkspacesilent {target_ws},address:{addr}")
 
-            cmd_focus = f'dispatch hl.dsp.focus({{ window = "address:{addr}" }})'
+            cmd_focus = f'dispatch hl.dsp.focus({{ window = {lua_string("address:" + str(addr))} }})'
             res_focus = hypr_cmd(sock_path, cmd_focus)
             if "error" in res_focus.lower():
                 hypr_cmd(sock_path, f"dispatch focuswindow address:{addr}")
 
             close_any_special(sock_path)
         else:
-            cmd_focus = f'dispatch hl.dsp.focus({{ window = "address:{addr}" }})'
+            cmd_focus = f'dispatch hl.dsp.focus({{ window = {lua_string("address:" + str(addr))} }})'
             res_focus = hypr_cmd(sock_path, cmd_focus)
             if "error" in res_focus.lower():
                 hypr_cmd(sock_path, f"dispatch focuswindow address:{addr}")

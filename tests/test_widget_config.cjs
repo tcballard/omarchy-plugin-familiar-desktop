@@ -1,31 +1,29 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-
-const source = fs.readFileSync('DockWidgets.js', 'utf8').replace(/^\.pragma library\s*/, '');
-const context = { console };
-vm.createContext(context);
-vm.runInContext(source, context);
-
-const initial = { bar: { layout: { left: [], center: [], right: [{ id: 'example.clock' }] } }, plugins: [] };
-
-function run(hostResult) {
-  let hostCalls = 0;
-  let fileWrites = 0;
-  let disk = JSON.stringify(initial);
-  const shell = { mutateShellConfig(mutator) { hostCalls++; if (hostResult) mutator(JSON.parse(disk)); return hostResult; } };
-  const file = { text: () => disk, setText(value) { fileWrites++; disk = value; } };
-  context.switchDockWidgetInBar(shell, 'example.clock', [], {}, file);
-  return { hostCalls, fileWrites, disk: JSON.parse(disk) };
+const { execFileSync } = require('node:child_process');
+function load(file) {
+  const source = fs.readFileSync(file, 'utf8').replace(/^\.pragma library\s*/, '');
+  const context = { console };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  return context;
 }
-
-const handled = run(true);
-assert.equal(handled.hostCalls, 1);
-assert.equal(handled.fileWrites, 0, 'successful host write must not be repeated against shell.json');
-
-const declined = run(false);
-assert.equal(declined.hostCalls, 1);
-assert.equal(declined.fileWrites, 1, 'declined host write must use the file fallback');
-assert.equal(declined.disk.bar.layout.right.length, 0);
-assert.equal(declined.disk.plugins[0].id, 'example.clock');
-console.log('widget config fallback: passed');
+const widgets = load('DockWidgets.js');
+const commands = load('DockCommands.js');
+const plain = value => JSON.parse(JSON.stringify(value));
+assert.deepEqual(plain(widgets.normalizeDockWidgets(['omarchy.apps', 'omarchy.clock', 'omarchy.audio'])), ['omarchy.apps', 'omarchy.audio']);
+assert.deepEqual(plain(widgets.normalizeDockWidgets(['../../evil', 'x; touch /tmp/evil', 'io.github.tcballard.familiar-desktop'])), []);
+assert.deepEqual(plain(widgets.normalizeDockWidgets([])), []);
+const selection = ['omarchy.apps', 'omarchy.clock'];
+assert.deepEqual(plain(widgets.getDockWidgetLayout(true, 'left', false, selection, 'right')), { leftWidgets: [], rightWidgets: [] });
+assert.deepEqual(selection, ['omarchy.apps', 'omarchy.clock']);
+assert.deepEqual(plain(widgets.getDockWidgetLayout(true, 'left', true, selection, 'right')), { leftWidgets: ['omarchy.apps'], rightWidgets: ['omarchy.clock'] });
+const args = ['printf', '%s', "spaces ' quotes \" $HOME $(printf INJECTED) `printf INJECTED`\nnext line"];
+let received;
+commands.run({ execArgv(argv) { received = plain(argv); } }, args);
+assert.deepEqual(received, args);
+commands.run({ execDetached(cmd) { received = cmd; } }, args);
+assert.equal(execFileSync('/bin/sh', ['-c', received], { encoding: 'utf8' }), args[2]);
+assert.equal(commands.run({ execArgv() { throw Error('must reject NUL'); } }, ['x', '\x00']), false);
+console.log('widget selection and literal command arguments: passed');

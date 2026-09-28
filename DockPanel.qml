@@ -10,6 +10,7 @@ import qs.Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 import "DockSettings.js" as DockSettings
+import "DockCommands.js" as DockCommands
 import "components"
 
 Item {
@@ -409,7 +410,7 @@ Item {
     property string appMenuPosition: "left"
     property bool widgetsEnabled: true
     property string widgetPosition: "right"
-    property var dockWidgets: []
+    property var dockWidgets: ["omarchy.apps"]
     property var widgetSavedPositions: ({})
     property bool isDockHovered: false
     property bool isStackHovered: false
@@ -996,36 +997,12 @@ Item {
                 if (s.widgetsEnabled !== undefined) {
                     root.widgetsEnabled = (s.widgetsEnabled === true)
                 }
-                if (s.dockWidgets !== undefined && Array.isArray(s.dockWidgets)) {
-                    if (!root.widgetsEnabled) {
-                        root.dockWidgets = []
-                    } else {
-                        var newDockWidgets = s.dockWidgets.slice(0, 2)
-                        var oldDockWidgets = Array.isArray(root.dockWidgets) ? root.dockWidgets.slice() : []
-                        var removedWidgets = []
-                        for (var owi = 0; owi < oldDockWidgets.length; owi++) {
-                            var ow = oldDockWidgets[owi]
-                            if (ow && ow !== "omarchy.apps" && newDockWidgets.indexOf(ow) === -1) {
-                                removedWidgets.push(ow)
-                            }
-                        }
-                        if (removedWidgets.length > 0) {
-                            root.widgetSavedPositions = DockModel.switchDockWidgetInBar(root.shell, "", removedWidgets, root.widgetSavedPositions || {}, shellConfigFile)
-                        }
-                        for (var nwi = 0; nwi < newDockWidgets.length; nwi++) {
-                            var nw = newDockWidgets[nwi]
-                            if (nw && nw !== "omarchy.apps") {
-                                root.widgetSavedPositions = DockModel.switchDockWidgetInBar(root.shell, nw, [], root.widgetSavedPositions || {}, shellConfigFile)
-                            }
-                        }
-                        root.dockWidgets = newDockWidgets
-                    }
-                } else if (root.widgetsEnabled) {
+                if (Array.isArray(s.dockWidgets)) {
+                    root.dockWidgets = DockModel.normalizeDockWidgets(s.dockWidgets)
+                } else {
                     root.dockWidgets = ["omarchy.apps"]
                 }
-                if (s.widgetSavedPositions !== undefined && typeof s.widgetSavedPositions === "object") {
-                    root.widgetSavedPositions = s.widgetSavedPositions
-                }
+
             }
         } catch(e) {}
     }
@@ -1049,7 +1026,7 @@ Item {
             widgetsEnabled: root.widgetsEnabled,
             appMenuPosition: root.appMenuPosition || "left",
             widgetPosition: root.widgetPosition || "right",
-            dockWidgets: (root.widgetsEnabled && root.dockWidgets) ? root.dockWidgets.slice(0, 2) : [],
+            dockWidgets: DockModel.normalizeDockWidgets(root.dockWidgets),
             widgetSavedPositions: root.widgetSavedPositions || {}
         }, null, 2)
         settingsFile.setText(jsonStr + "\n")
@@ -1131,35 +1108,15 @@ Item {
     }
 
     function addDockWidget(widgetId) {
+        if (!DockModel.validWidgetId(widgetId)) return
+        if (widgetId !== "omarchy.apps" && !root.getWidgetComponent(widgetId) && !root.getWidgetSource(widgetId)) return
         root.widgetsEnabled = true
-        var currentSaved = JSON.parse(JSON.stringify(root.widgetSavedPositions || {}))
-
-        if (widgetId !== "omarchy.apps") {
-            var prevIds = []
-            if (root.dockWidgets && root.dockWidgets.length > 0) {
-                for (var i = 0; i < root.dockWidgets.length; i++) {
-                    var prevId = root.dockWidgets[i]
-                    if (prevId && prevId !== "omarchy.apps" && prevId !== widgetId) {
-                        prevIds.push(prevId)
-                    }
-                }
-            }
-            currentSaved = DockModel.switchDockWidgetInBar(root.shell, widgetId, prevIds, currentSaved, shellConfigFile)
-        }
-
         root.dockWidgets = DockModel.addWidgetToDockList(root.dockWidgets, widgetId)
-        root.widgetSavedPositions = currentSaved
         saveSettings()
     }
 
     function removeDockWidget(widgetId, targetRegion) {
-        var next = DockModel.removeWidgetFromDockList(root.dockWidgets, widgetId)
-        root.dockWidgets = next.slice()
-        if (widgetId !== "omarchy.apps") {
-            var currentSaved = JSON.parse(JSON.stringify(root.widgetSavedPositions || {}))
-            currentSaved = DockModel.switchDockWidgetInBar(root.shell, "", [widgetId], currentSaved, shellConfigFile)
-            root.widgetSavedPositions = currentSaved
-        }
+        root.dockWidgets = DockModel.removeWidgetFromDockList(root.dockWidgets, widgetId)
         saveSettings()
     }
 
@@ -1168,7 +1125,7 @@ Item {
     // enabled bar-widget plugin. Returns null when the widget is not registered,
     // leaving getWidgetSource() to cover the hardcoded first-party panels.
     function getWidgetComponent(widgetId) {
-        if (!widgetId || widgetId === "omarchy.apps") return null
+        if (!DockModel.validWidgetId(widgetId) || widgetId === "omarchy.apps") return null
         if (!root.barWidgetRegistry) return null
         var widgets = root.barWidgetRegistry.widgets || {}
         var entry = widgets[widgetId]
@@ -1176,14 +1133,14 @@ Item {
     }
 
     function getWidgetSource(widgetId) {
-        if (!widgetId || widgetId === "omarchy.apps") return ""
+        if (!DockModel.validWidgetId(widgetId) || widgetId === "omarchy.apps") return ""
         var manifest = (root.shell && root.shell.pluginRegistry && root.shell.pluginRegistry.installedPlugins) ? root.shell.pluginRegistry.installedPlugins[widgetId] : null
         if (manifest && root.shell && root.shell.pluginRegistry) {
             var ep = root.shell.pluginRegistry.entryPointUrl(manifest, "barWidget")
             if (ep && ep.length > 0) return ep
         }
-        var parts = widgetId.split(".")
-        var name = parts.length > 1 ? parts[1] : parts[0]
+        if (!/^omarchy\.[a-z0-9-]+$/.test(widgetId)) return ""
+        var name = widgetId.slice(8)
 
         // 1. Built-in bar widgets in plugins/bar/widgets/
         if (name === "indicators") return "file:///usr/share/omarchy/shell/plugins/bar/widgets/Indicators.qml"
@@ -1213,7 +1170,7 @@ Item {
         if (manifest && (!manifest.entryPoints || !manifest.entryPoints.barWidget)) {
             return ""
         }
-        return "file:///usr/share/omarchy/shell/plugins/panels/" + name + "/BarWidget.qml"
+        return ""
     }
 
     function configureHostedWidget(item, widgetId, anchorItem) {
@@ -1495,7 +1452,8 @@ Item {
         }
 
         // Reliable toggle for all other plugins and overlays:
-        Util.execDetached("omarchy-shell shell toggle " + widgetId)
+        if (DockModel.validWidgetId(widgetId))
+            DockCommands.run(Util, ["omarchy-shell", "shell", "toggle", widgetId])
     }
 
     function activateWidget(widgetId, target, slotRoot, mouse) {
@@ -1918,16 +1876,7 @@ Item {
             args.push("--index=" + targetIndex)
         }
         var scriptPath = Qt.resolvedUrl("scripts/dock-minimize.py").toString().replace(/^file:\/\//, "")
-        if (typeof Util !== "undefined" && typeof Util.execArgv === "function") {
-            Util.execArgv(["python3", scriptPath].concat(args))
-        } else {
-            var cmd = "python3 " + (typeof Util !== "undefined" && Util.shellQuote ? Util.shellQuote(scriptPath) : ("\"" + scriptPath + "\""))
-            for (var i = 0; i < args.length; i++) {
-                var a = String(args[i])
-                cmd += " " + (typeof Util !== "undefined" && Util.shellQuote ? Util.shellQuote(a) : ("\"" + a.replace(/"/g, "\\\"") + "\""))
-            }
-            Util.execDetached(cmd)
-        }
+        DockCommands.run(Util, ["python3", scriptPath].concat(args))
         root.updateDockItems()
         minimizeRefreshTimer.restart()
     }
@@ -1955,16 +1904,7 @@ Item {
         var launchId = itemData.desktopId || itemData.appId || ""
         root.requestFocusOnLaunch(launchId)
         DockModel.setPendingCliHint(itemData.appId || itemData.desktopId || "", root.knownWindows)
-        if (typeof Util !== "undefined" && typeof Util.execArgv === "function") {
-            Util.execArgv(["python3", scriptPath].concat(args))
-        } else {
-            var cmd = "python3 " + (typeof Util !== "undefined" && Util.shellQuote ? Util.shellQuote(scriptPath) : ("\"" + scriptPath + "\""))
-            for (var i = 0; i < args.length; i++) {
-                var a = String(args[i])
-                cmd += " " + (typeof Util !== "undefined" && Util.shellQuote ? Util.shellQuote(a) : ("\"" + a.replace(/"/g, "\\\"") + "\""))
-            }
-            Util.execDetached(cmd)
-        }
+        DockCommands.run(Util, ["python3", scriptPath].concat(args))
         root.updateDockItems()
         minimizeRefreshTimer.restart()
     }
@@ -2460,7 +2400,8 @@ Item {
                         if (winClass === pending || (normPending.length > 0 && (normClass.indexOf(normPending) !== -1 || normPending.indexOf(normClass) !== -1))) {
                             root.pendingFocusAppId = ""
                             var cleanAddr = (addr.indexOf("0x") === 0) ? addr : ("0x" + addr)
-                            Util.execDetached("hyprctl dispatch focuswindow address:" + cleanAddr)
+                            if (/^0x[0-9a-f]+$/i.test(cleanAddr))
+                                DockCommands.run(Util, ["hyprctl", "dispatch", "focuswindow", "address:" + cleanAddr])
                         }
                     }
                 }

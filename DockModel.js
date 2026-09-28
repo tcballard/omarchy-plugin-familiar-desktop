@@ -64,10 +64,9 @@ var getDiskIcon = Matcher.getDiskIcon;
 // =========================================================================
 // 4. Dock Widget Management (DockWidgets.js)
 // =========================================================================
-var switchDockWidgetInBar = Widgets.switchDockWidgetInBar;
-var removeWidgetFromBar = Widgets.removeWidgetFromBar;
-var returnWidgetToBar = Widgets.returnWidgetToBar;
 var addWidgetToDockList = Widgets.addWidgetToDockList;
+var validWidgetId = Widgets.validWidgetId;
+var normalizeDockWidgets = Widgets.normalizeDockWidgets;
 var removeWidgetFromDockList = Widgets.removeWidgetFromDockList;
 var getDockWidgetLayout = Widgets.getDockWidgetLayout;
 

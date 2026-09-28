@@ -13,8 +13,8 @@ should answer: what is open, which window is mine, and how do I get back to it?
 - Kinds: `service` (`DockPanel.qml`) and `bar-widget` (`BarWidget.qml`).
 - Process: hosted in the existing Omarchy Quickshell process. No second shell.
 - Settings: plugin-owned JSON in `~/.config/omarchy/`; pins are separate and
-  shared by all three presets. Moving a bar widget into the dock changes
-  `~/.config/omarchy/shell.json` and removal attempts to restore its placement.
+  shared by all three presets. Dock widgets leave the bar layout unchanged;
+  `~/.config/omarchy/shell.json` is read-only.
   The plugin does not modify themes, global bar position, shortcuts, or install packages.
 - External operations: the inherited `scripts/dock-minimize.py` uses
   `hyprctl` for window activation and minimization; inherited icon/CLI scans

@@ -7,6 +7,8 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "DockSettings.js" as DockSettings
+import "DockWidgets.js" as DockWidgets
+import "DockCommands.js" as DockCommands
 import "components"
 
 BarWidget {
@@ -95,7 +97,7 @@ BarWidget {
           root.widgetPosition = s.widgetPosition
         }
         if (s && s.dockWidgets !== undefined && Array.isArray(s.dockWidgets)) {
-          root.dockWidgets = s.dockWidgets
+          root.dockWidgets = DockWidgets.normalizeDockWidgets(s.dockWidgets)
         }
         if (s && s.widgetSavedPositions !== undefined && typeof s.widgetSavedPositions === "object") {
           root.widgetSavedPositions = s.widgetSavedPositions
@@ -128,15 +130,8 @@ BarWidget {
     s.appMenuPosition = root.appMenuPosition || s.appMenuPosition || "left"
     s.widgetPosition = root.widgetPosition || s.widgetPosition || "right"
     s.widgetSavedPositions = root.widgetSavedPositions || s.widgetSavedPositions || {}
-    if (!root.widgetsEnabled) {
-      s.dockWidgets = []
-    } else if (Array.isArray(s.dockWidgets) && s.dockWidgets.length > 0) {
-      s.dockWidgets = s.dockWidgets.slice(0, 2)
-    } else if (Array.isArray(root.dockWidgets) && root.dockWidgets.length > 0) {
-      s.dockWidgets = root.dockWidgets.slice(0, 2)
-    } else {
-      s.dockWidgets = ["omarchy.apps"]
-    }
+    s.dockWidgets = DockWidgets.normalizeDockWidgets(root.dockWidgets)
+
 
     settingsFile.setText(JSON.stringify(s, null, 2) + "\n")
   }
@@ -152,6 +147,7 @@ BarWidget {
   function setProfile(value) {
     var selected = DockSettings.normalizeProfile(value)
     root.profile = selected
+    root.dockEnabled = true
     var defaults = DockSettings.profileDefaults(selected)
     root.visibilityMode = defaults.visibilityMode
     root.overlayMode = defaults.overlayMode
@@ -216,7 +212,7 @@ BarWidget {
     root.visibleWorkspace = DockSettings.normalizeVisibleWorkspace(workspace)
     saveSettings()
     if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setVisibleWorkspace " + root.visibleWorkspace)
+      DockCommands.run(Util, ["omarchy-shell", "io.github.tcballard.familiar-desktop", "setVisibleWorkspace", root.visibleWorkspace])
     }
   }
 

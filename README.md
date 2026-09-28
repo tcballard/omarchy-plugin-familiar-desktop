@@ -1,56 +1,53 @@
-# Familiar Desktop for Omarchy
+<h1 align="center">Familiar Desktop</h1>
 
-A mouse-friendly way to launch apps, see what is open, and choose the exact
-window you want. The same dock has three starting layouts: **General** for
-ordinary day-to-day use, **Windows** for a persistent bottom app strip, and
-**Mac** for a bottom dock that reveals on hover. All three share the same
-pinned apps, folders, window matching, and settings.
+<p align="center">
+  <a href="https://github.com/tcballard/omarchy-badges"><img src="https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg" alt="Built for Omarchy: Plugin" height="24"></a>
+</p>
 
-This is a development prototype. It is derived from
-[rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit
-`467070386fe60e173295020d3911176202b3e0c9` under the MIT license.
-The source is retained so its existing monitor, window, widget, and theme
-handling can be tested as the product evolves. It has a distinct plugin ID and
-configuration paths; it can be removed without changing the original dock's
-files. A live Omarchy test is required before release.
+**Find your apps and the right window without learning a new desktop first.**
 
-## First slice
+Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or return to an app with a click; right-click to see its open windows by name and choose exactly where to go. General, Windows and Mac starting layouts share your pinned apps, so you can choose what feels comfortable and adjust it later.
 
-- Left-click launches or switches to an app; middle-click opens a new window.
-- Right-click an app opens a menu of **named windows**, with an active marker,
-  plus New Window, Pin/Unpin, Minimize Current Window, and Close Current Window.
-  The list scrolls when an app has more than eight windows.
-- The bar widget offers General, Windows, and Mac presets. Applying a preset
-  changes visibility and overlay behavior. Windows and Mac prefer the bottom
-  edge unless an existing bottom bar would overlap; General follows the bar's
-  opposite edge. Subsequent manual changes to the controls remain in effect
-  until another preset is chosen.
-- Folder, widget, badge, multi-monitor, and workspace behavior from the
-  original implementation remains available for evaluation.
+*Preview pending: an on-device screenshot of Familiar Desktop on Omarchy.*
 
-| Preset | Edge | Visibility | Window layout |
-| --- | --- | --- | --- |
-| General | Opposite the bar | Always shown | Reserves space |
-| Windows | Bottom when free | Always shown | Reserves space |
-| Mac | Bottom when free | Reveal on hover | Overlays windows |
+## Install
 
-These are starting layouts, not a claim of complete Windows or macOS behavior.
-The Familiar theme, Task Manager, and OmaStore are separate optional projects;
-this shell plugin does not install or change them.
-
-## Development checkout
-
-On an Omarchy Quattro machine, validate the checkout first:
+This is an **early development build**. It has passed portable validation, but the interface has not yet been tested on a live Omarchy desktop. If you want to try it on Omarchy Quattro with plugin support, review the source and run:
 
 ```bash
-omarchy plugin validate ./familiar-desktop
+omarchy plugin add https://github.com/tcballard/omarchy-plugin-familiar-desktop.git --enable
 ```
 
-Then install from a Git repository containing this folder at its root, using
-`omarchy plugin add <repository-url> --enable`. The permanent plugin ID is
-`io.github.tcballard.familiar-desktop`. Do not install the local archive as if
-it were a Git repository. Use the bar's **Familiar Desktop** widget to select a
-preset; it can also be changed through IPC:
+The plugin adds a **Familiar Desktop** control to the bar. Open it to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
+
+## Made for everyday use
+
+- **See what is running.** Pinned apps and running windows stay within reach, with indicators and notification badges from the dock implementation.
+- **Choose a window by name.** Right-click an app for a scrollable window list, New Window, Pin or Unpin, Minimize Current Window and Close Current Window.
+- **Use the mouse or keyboard.** Left-click launches or switches, middle-click opens a new window, and the existing dock supports keyboard selection and window cycling.
+- **Keep your setup.** Pins and folders are shared between layouts; changing a preset does not install applications, themes or global shortcuts.
+
+### Choose a layout
+
+| Starting layout | Placement | Visibility | Window space |
+| --- | --- | --- | --- |
+| **General** | Opposite the Omarchy bar | Always visible | Reserves space |
+| **Windows** | Bottom when the bar is elsewhere | Always visible | Reserves space |
+| **Mac** | Bottom when the bar is elsewhere | Reveals on hover | Overlays windows |
+
+If your Omarchy bar is already at the bottom, the dock uses the opposite edge to avoid an overlap. The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
+
+## Controls
+
+| Action | How |
+| --- | --- |
+| Launch or switch to an app | Left-click its icon |
+| See and select named windows | Right-click its icon, then click a window |
+| Open another window | Middle-click its icon or choose **New Window** |
+| Pin, unpin, minimize or close | Right-click its icon and choose the action |
+| Change layout and settings | Open **Familiar Desktop** in the bar |
+
+For scripting, the preset switch is also available through Omarchy shell IPC:
 
 ```bash
 omarchy-shell io.github.tcballard.familiar-desktop setProfile general
@@ -58,19 +55,25 @@ omarchy-shell io.github.tcballard.familiar-desktop setProfile windows
 omarchy-shell io.github.tcballard.familiar-desktop setProfile mac
 ```
 
-Settings and pins are stored in `~/.config/omarchy/familiar-desktop-settings.json`
-and `~/.config/omarchy/familiar-desktop-pinned.json`. Removing this plugin does
-not remove those user preferences or edit the original dock's files. The two
-docks should not be enabled together because they would occupy the same edge.
+## Update and remove
 
-## Verification needed on Omarchy
+```bash
+omarchy plugin update io.github.tcballard.familiar-desktop
+omarchy plugin remove io.github.tcballard.familiar-desktop
+```
 
-Test initial loading, preset switching, window menus, a minimized window,
-bar at top and bottom, two monitors, workspace switching, light/dark themes,
-200% scale, shell reload, disable, and removal. In particular, verify menu
-placement and dismissal against tiled and fullscreen windows before release.
+The plugin owns `~/.config/omarchy/familiar-desktop-settings.json` and `~/.config/omarchy/familiar-desktop-pinned.json`. Removing it leaves those preferences in place; it does not alter the original dock's configuration. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
-## License
+## Development and status
 
-MIT. Original work © 2026 rosakodu; Familiar Desktop changes © 2026 Tom
-Ballard. See [LICENSE](LICENSE).
+The manifest declares a hosted service and bar widget under `io.github.tcballard.familiar-desktop`. The source derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit `467070386fe60e173295020d3911176202b3e0c9` (MIT). This project has separate identity and settings while retaining that dock's window, monitor, folder and theme handling. See [the product record](PRODUCT.md) for the current scope and next milestones.
+
+Portable plugin validation and 26 Python window-helper tests pass. Live checks remain: initial load, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload and removal. This repository has no release or marketplace verification yet.
+
+On Omarchy, validate and test the checkout with:
+
+```bash
+omarchy plugin validate .
+```
+
+MIT licensed. Original work © 2026 rosakodu; Familiar Desktop changes © 2026 Tom Ballard. See [LICENSE](LICENSE).

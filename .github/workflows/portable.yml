@@ -23,3 +23,8 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           QT_QUICK_BACKEND: software
         run: /usr/lib/qt6/bin/qmltestrunner -input tests
+      - name: Parse plugin QML
+        run: |
+          for file in *.qml components/*.qml; do
+            /usr/lib/qt6/bin/qmlformat "$file" > /dev/null
+          done

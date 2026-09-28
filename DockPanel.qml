@@ -1002,7 +1002,9 @@ Item {
                 } else {
                     root.dockWidgets = ["omarchy.apps"]
                 }
-
+                // Keep old placement metadata available for manual recovery.
+                if (s.widgetSavedPositions && typeof s.widgetSavedPositions === "object")
+                    root.widgetSavedPositions = s.widgetSavedPositions
             }
         } catch(e) {}
     }

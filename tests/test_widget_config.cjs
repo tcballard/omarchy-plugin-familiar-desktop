@@ -27,3 +27,35 @@ commands.run({ execDetached(cmd) { received = cmd; } }, args);
 assert.equal(execFileSync('/bin/sh', ['-c', received], { encoding: 'utf8' }), args[2]);
 assert.equal(commands.run({ execArgv() { throw Error('must reject NUL'); } }, ['x', '\x00']), false);
 console.log('widget selection and literal command arguments: passed');
+
+// Execute the actual settings handlers, without a Quickshell UI, to exercise
+// both writers/readers when widgets are disabled and after a reload.
+const settings = load('DockSettings.js');
+for (const filename of ['DockPanel.qml', 'BarWidget.qml']) {
+  const source = fs.readFileSync(filename, 'utf8');
+  const indent = filename === 'DockPanel.qml' ? '    ' : '  ';
+  const root = { isSavingSettings: false, widgetsEnabled: false, dockWidgets: selection.slice() };
+  let disk = JSON.stringify({ widgetsEnabled: false, dockWidgets: selection });
+  const context = {
+    root, DockSettings: settings, DockModel: widgets, DockWidgets: widgets,
+    settingsFile: { text: () => disk, setText: value => { disk = value; } },
+    saveSettingsTimer: { restart() {} }
+  };
+  vm.createContext(context);
+  for (const name of ['readSettings', 'saveSettings']) {
+    const start = source.indexOf(indent + 'function ' + name + '() {');
+    assert.ok(start >= 0);
+    const end = source.indexOf('\n' + indent + '}', start) + indent.length + 2;
+    vm.runInContext(source.slice(start, end), context);
+  }
+  context.readSettings();
+  assert.equal(root.widgetsEnabled, false);
+  assert.deepEqual(plain(root.dockWidgets), selection);
+  context.saveSettings();
+  assert.deepEqual(JSON.parse(disk).dockWidgets, selection);
+  root.isSavingSettings = false;
+  root.dockWidgets = [];
+  context.readSettings();
+  assert.deepEqual(plain(root.dockWidgets), selection);
+}
+console.log('both QML settings handlers preserve disabled widget selections: passed');

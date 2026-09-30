@@ -108,5 +108,5 @@ Record the exact plugin SHA and installed Omarchy/Hyprland versions. Verify:
 `preview.png` and the README image are the same unmodified screenshot supplied
 by Tom Ballard on 28 September 2026: General layout on Omarchy, 2048 × 1151.
 The precise Omarchy revision and scale were not recorded. This screenshot
-predates title bars and the Rust migration. Capture a current on-device preview
-before release or marketplace submission. No tag or release is created here.
+predates title bars and the Rust migration. Version 0.0.1 is an early preview. A current on-device capture and the live
+checks above remain outstanding before a desktop-verified release or marketplace submission.

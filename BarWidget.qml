@@ -20,6 +20,7 @@ BarWidget {
   property string profile: "general"
   property bool dockEnabled: true
   property bool titlebarsEnabled: false
+  property string titlebarMode: "theme"
   property string titlebarStyle: "windows"
   property string titlebarExclusions: ""
   property string titlebarStatusText: ""
@@ -75,6 +76,7 @@ BarWidget {
         var normalized = DockSettings.normalize(s)
         root.profile = normalized.profile
         root.titlebarsEnabled = normalized.titlebarsEnabled
+        root.titlebarMode = normalized.titlebarMode
         root.titlebarStyle = normalized.titlebarStyle
         root.titlebarExclusions = normalized.titlebarExclusions
         root.visibilityMode = normalized.visibilityMode
@@ -130,6 +132,7 @@ BarWidget {
     s.dockEnabled = root.dockEnabled
     s.profile = root.profile
     s.titlebarsEnabled = root.titlebarsEnabled
+    s.titlebarMode = root.titlebarMode
     s.titlebarStyle = root.titlebarStyle
     s.titlebarExclusions = root.titlebarExclusions
     s.visibilityMode = root.visibilityMode
@@ -165,6 +168,7 @@ BarWidget {
     root.visibilityMode = defaults.visibilityMode
     root.overlayMode = defaults.overlayMode
     root.titlebarStyle = defaults.titlebarStyle
+    if (root.titlebarMode !== "theme" && root.titlebarMode !== "off") root.titlebarMode = defaults.titlebarStyle
     if (root.bar && typeof root.bar.run === "function") {
       root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setProfile " + selected)
     }
@@ -436,7 +440,7 @@ BarWidget {
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            text: (root.titlebarsEnabled ? "On" : "Off") + (root.titlebarOptionsOpen ? "  ▴" : "  ▾")
+            text: (root.titlebarMode === "theme" ? "Theme" : root.titlebarMode === "off" ? "Off" : "On") + (root.titlebarOptionsOpen ? "  ▴" : "  ▾")
             font.family: Style.font.family
             font.pixelSize: 12
             color: Color.popups.text
@@ -465,10 +469,10 @@ BarWidget {
           RowLayout {
             Layout.fillWidth: true
             Repeater {
-              model: [ { key: "off", title: "Off" }, { key: "mac", title: "Mac" }, { key: "windows", title: "Windows" } ]
+              model: [ { key: "theme", title: "Theme" }, { key: "off", title: "Off" }, { key: "mac", title: "Mac" }, { key: "windows", title: "Windows" } ]
               delegate: Rectangle {
                 required property var modelData
-                readonly property bool selected: modelData.key === "off" ? !root.titlebarsEnabled : root.titlebarsEnabled && root.titlebarStyle === modelData.key
+                readonly property bool selected: root.titlebarMode === modelData.key
                 Layout.fillWidth: true
                 height: 32
                 radius: 7
@@ -487,8 +491,9 @@ BarWidget {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
                     root.titlebarsEnabled = modelData.key !== "off"
+                    root.titlebarMode = modelData.key
                     if (root.titlebarsEnabled) {
-                      root.titlebarStyle = modelData.key
+                      if (modelData.key !== "theme") root.titlebarStyle = modelData.key
                       root.dockEnabled = true
                     }
                     root.saveSettings()
@@ -536,7 +541,7 @@ BarWidget {
             }
           }
           Text {
-            visible: root.titlebarsEnabled
+            visible: root.titlebarMode !== "off"
             text: "Skip apps with their own title bars (window classes, comma-separated)"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -545,7 +550,7 @@ BarWidget {
             color: Color.muted
           }
           Rectangle {
-            visible: root.titlebarsEnabled
+            visible: root.titlebarMode !== "off"
             Layout.fillWidth: true
             height: 32
             radius: 6

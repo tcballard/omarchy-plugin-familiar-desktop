@@ -71,3 +71,12 @@ Lua config hooks; Hyprland's hl.plugin.load, window dispatchers and config reloa
 Hyprbars' Lua add_button, configuration options and button layout. These source
 checks and portable mocks do not establish compatibility with the user's exact
 Hyprland build. The existing preview predates this feature.
+
+Theme-policy checks cover enable/disable on theme switches, manual precedence,
+shared shell font/palette fallbacks, exclusion merging, migration of explicit
+preferences, rejected schema/geometry/unsafe values and recovery through Off.
+Both actual QML settings handlers preserve the new mode across save/reload.
+Local validation passes 51 Python tests, 110 Qt tests, Node handler tests, QML
+parsing, generated Lua syntax and the portable plugin validator.
+On the desktop, also switch between Familiar and a theme without this policy,
+edit its sizing/font/colour options, and confirm Off and manual styles persist.

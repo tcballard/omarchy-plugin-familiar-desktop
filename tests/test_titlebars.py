@@ -25,7 +25,11 @@ class TitlebarsTest(unittest.TestCase):
         self.library.touch()
         self.args = argparse.Namespace(operation="apply", owner="200-new", if_owner=False,
                                        style="mac", background="#202020", foreground="#ffffff",
-                                       exclude="", library=str(self.library), install_dependency=False, enable=False)
+                                       exclude="", library=str(self.library), install_dependency=False, enable=False,
+                                       mode=None, font_family="Sans", font_size=13)
+        home = patch.object(tb.Path, "home", return_value=Path(self.temp.name))
+        home.start()
+        self.addCleanup(home.stop)
         self.loaded = False
         self.errors = ""
         self.calls = []
@@ -173,6 +177,73 @@ class TitlebarsTest(unittest.TestCase):
             with self.assertRaises(tb.Failure):
                 tb.window_action("minimize")
             run.assert_not_called()
+
+    def write_theme(self, options):
+        path = Path(self.temp.name) / ".local/state/omarchy/current/theme/familiar-desktop.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"schemaVersion": 1, "titlebars": options}))
+        return path
+
+    def test_theme_switch_changes_enablement_and_styling(self):
+        self.setup()
+        self.args.mode = "theme"
+        self.assertEqual(self.reconcile()["state"], "off")
+        self.write_theme(dict(enabled=True, style="windows", height=40, fontSize=16,
+                              fontFamily="Inter", background="#fafafa", foreground="#121212",
+                              closeColour="#b42318", minimizeColour="#62666c", maximizeColour="#0067b8",
+                              buttonSize=20, buttonPadding=12, edgePadding=14, textAlign="left"))
+        self.assertEqual(self.reconcile()["state"], "active")
+        text = (self.directory / "titlebars.lua").read_text()
+        for fragment in ['bar_height = 40', 'bar_text_size = 16', 'bar_text_font = "Inter"',
+                         'bar_buttons_alignment = "right"', 'rgb(fafafa)', 'rgb(b42318)',
+                         'size = 20', 'bar_button_padding = 12', 'bar_padding = 14']:
+            self.assertIn(fragment, text)
+        self.write_theme(dict(enabled=False, style="mac"))
+        self.assertEqual(self.reconcile()["state"], "off")
+        self.assertFalse(self.loaded)
+
+    def test_manual_style_overrides_theme_layout_and_enablement(self):
+        self.write_theme(dict(enabled=False, style="windows", height=42))
+        self.args.mode = "mac"
+        policy = tb.theme_policy(self.args)
+        self.assertTrue(policy["enabled"])
+        self.assertEqual(policy["style"], "mac")
+        self.assertEqual(policy["height"], 42)
+        self.assertEqual(policy["minimizeColour"], "#ffbd44")
+
+    def test_shared_shell_font_and_palette_are_fallbacks(self):
+        self.args.font_family = "Theme Sans"
+        self.args.font_size = 15
+        self.args.background = "#eeeeee"
+        policy = tb.theme_policy(self.args)
+        self.assertEqual(policy["fontFamily"], "Theme Sans")
+        self.assertEqual(policy["fontSize"], 15)
+        self.assertEqual(policy["background"], "#eeeeee")
+
+    def test_theme_and_user_exclusions_merge_without_duplicates(self):
+        self.write_theme(dict(exclusions=["kitty", "org.gnome.Nautilus"]))
+        self.args.exclude = "kitty,firefox"
+        self.assertEqual(tb.theme_policy(self.args)["exclusions"], ["kitty", "org.gnome.Nautilus", "firefox"])
+
+    def test_invalid_theme_fails_closed_and_can_be_disabled(self):
+        self.setup()
+        self.reconcile()
+        self.write_theme(dict(enabled=True, height=5))
+        with self.assertRaisesRegex(tb.Failure, "height"):
+            self.reconcile()
+        self.assertFalse(self.loaded)
+        self.args.operation = "disable"
+        self.assertEqual(self.reconcile()["state"], "off")
+
+    def test_invalid_theme_values_cannot_inject_lua_or_clip_controls(self):
+        cases = [dict(enabled="true"), dict(style="bad"), dict(height=True), dict(buttonSize=36, height=24),
+                 dict(background="red"), dict(fontFamily="Sans\nwrong"), dict(exclusions="kitty"),
+                 dict(buttonPadding=1000), dict(unknown="value")]
+        for options in cases:
+            with self.subTest(options=options):
+                self.write_theme(options)
+                with self.assertRaises(tb.Failure):
+                    tb.theme_policy(self.args)
 
 
 if __name__ == "__main__":

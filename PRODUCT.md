@@ -49,7 +49,7 @@ and Windows names denote layout starting points, not pixel-perfect emulation.
 
 Portable manifest/path validation and unit tests pass. An on-device screenshot
 of the General layout is in the README. The audit environment has no Omarchy
-session, Quickshell imports, or QML runner, so lifecycle behavior is unverified
+session or Quickshell imports, so lifecycle behavior is unverified
 here. The public GitHub repository exists; no release has been created.
 
 
@@ -58,8 +58,14 @@ here. The public GitHub repository exists; no release has been created.
 Familiar remains one Omarchy plugin. Optional Hyprbars decorations provide a
 visible window title and mouse controls, Mac/Windows placement, dragging and
 double-click maximise. Minimise and restore share the existing dock helper.
-Controls follow theme background/text colours and expose per-class exclusions.
+Controls inherit shell background/text colours and fonts. Theme mode reads
+`familiar-desktop.json` from the active theme for enablement, placement, geometry,
+button colours and exclusions; explicit Off/Mac/Windows choices take precedence.
+Theme switches and local policy edits queue serialized refreshes. Invalid policy
+fails closed. The Familiar theme provides Windows defaults for desktop tuning.
 A terminal installer owns the one-time dependency/config setup; runtime QML
-only reconciles local configuration. Existing users opt in. Title bars require
+only reconciles local configuration. One-time dependency setup remains required.
+Existing explicit choices are preserved; other installations default to Theme.
+Title bars require
 live Hyprland verification before release, especially grouping, CSD apps,
 fullscreen, mixed scales, upgrade and removal behaviour.

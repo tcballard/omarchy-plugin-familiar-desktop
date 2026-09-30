@@ -65,12 +65,22 @@ function normalize(raw) {
     return {
         profile: normalizeProfile(settings.profile),
         titlebarsEnabled: settings.titlebarsEnabled === true,
+        titlebarMode: normalizeTitlebarMode(settings),
         titlebarStyle: settings.titlebarStyle === "mac" ? "mac" : "windows",
         titlebarExclusions: typeof settings.titlebarExclusions === "string" ? settings.titlebarExclusions.slice(0, 6400) : "",
         visibilityMode: normalizeVisibilityMode(settings.visibilityMode, settings.autohide),
         overlayMode: normalizeOverlayMode(settings.overlayMode, settings.spaceMode),
         visibleWorkspace: normalizeVisibleWorkspace(settings.visibleWorkspace)
     }
+}
+
+function normalizeTitlebarMode(settings) {
+    var mode = settings.titlebarMode
+    if (["theme", "off", "mac", "windows"].indexOf(mode) !== -1) return mode
+    // Migrate an explicit choice from the first title-bar implementation.
+    if (settings.titlebarsEnabled !== undefined)
+        return settings.titlebarsEnabled === true ? (settings.titlebarStyle === "mac" ? "mac" : "windows") : "off"
+    return "theme"
 }
 
 function legacyAutohide(visibilityMode) {

@@ -385,6 +385,7 @@ Item {
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
     property bool titlebarsEnabled: false
+    property string titlebarMode: "theme"
     property string titlebarStyle: "windows"
     property string titlebarExclusions: ""
     readonly property string titlebarState: titlebars.state
@@ -393,11 +394,14 @@ Item {
     function refreshTitlebars() { titlebars.refresh() }
     TitlebarController {
         id: titlebars
-        enabled: root.titlebarsEnabled && root.pluginEnabled && root.dockEnabled
+        enabled: root.titlebarMode !== "off" && root.pluginEnabled && root.dockEnabled
+        mode: root.titlebarMode
         style: root.titlebarStyle
         exclusions: root.titlebarExclusions
         background: Color.background
         foreground: Color.text
+        fontFamily: Style.font.family
+        fontSize: Math.max(8, Math.min(32, Style.font.subtitle))
     }
     property string profile: "general"
     property bool dockEnabled: true
@@ -977,6 +981,7 @@ Item {
                 var normalized = DockSettings.normalize(s)
                 root.profile = normalized.profile
                 root.titlebarsEnabled = normalized.titlebarsEnabled
+                root.titlebarMode = normalized.titlebarMode
                 root.titlebarStyle = normalized.titlebarStyle
                 root.titlebarExclusions = normalized.titlebarExclusions
                 root.visibilityMode = normalized.visibilityMode
@@ -1035,6 +1040,7 @@ Item {
         var jsonStr = JSON.stringify({
             profile: root.profile,
             titlebarsEnabled: root.titlebarsEnabled,
+            titlebarMode: root.titlebarMode,
             titlebarStyle: root.titlebarStyle,
             titlebarExclusions: root.titlebarExclusions,
             dockEnabled: root.dockEnabled,
@@ -1070,6 +1076,7 @@ Item {
         root.visibilityMode = defaults.visibilityMode
         root.overlayMode = defaults.overlayMode
         root.titlebarStyle = defaults.titlebarStyle
+        if (root.titlebarMode !== "theme" && root.titlebarMode !== "off") root.titlebarMode = defaults.titlebarStyle
         root.contextAppId = ""
         root.activeMenuItem = null
         root.activeStackItem = null

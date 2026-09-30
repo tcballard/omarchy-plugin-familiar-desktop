@@ -39,9 +39,13 @@ builds or privilege prompts run inside the shell service.
 
 If Familiar is already installed, open **Window controls** in its bar settings,
 copy the one-time setup command, run it in a terminal, then select **Mac** or
-**Windows** and press **Refresh window controls**. Existing installations keep
-title bars off until enabled. Layout presets choose button placement but preserve
-whether title bars are enabled. Enabling controls also enables the dock so
+**Windows**, or **Theme**, and press **Refresh window controls**. Theme mode reads
+the active theme's [window-control defaults](docs/TITLEBAR-THEMES.md), including
+enablement, placement, font, sizes, colours and exclusions. The Familiar theme
+provides Windows defaults; themes without an enabled declaration leave bars off.
+Explicit Off/Mac/Windows choices take precedence. Existing explicit title-bar
+preferences are preserved; otherwise Theme is the default. Layout presets preserve
+Theme and Off choices. Enabling controls also enables the dock so
 minimised windows have a way back; disabling the dock disables its controls.
 
 Setup needs Omarchy's Lua Hyprland configuration and a compatible Hyprbars build

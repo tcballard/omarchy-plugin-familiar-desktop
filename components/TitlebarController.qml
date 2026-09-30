@@ -6,6 +6,9 @@ Item {
     id: root
     property bool enabled: false
     property string style: "mac"
+    property string mode: "theme"
+    property string fontFamily: "Sans"
+    property int fontSize: 13
     property string exclusions: ""
     property color background: "#202020"
     property color foreground: "#ffffff"
@@ -34,15 +37,32 @@ Item {
         requestedRevision = revision
         adapter.command = ["python3", helper, enabled ? "apply" : "disable", "--owner", ownerToken,
                            "--style", style, "--background", hexColour(background),
-                           "--foreground", hexColour(foreground), "--exclude", exclusions]
+                           "--foreground", hexColour(foreground), "--exclude", exclusions,
+                           "--mode", mode, "--font-family", fontFamily, "--font-size", String(fontSize)]
         adapter.running = true
     }
     onEnabledChanged: schedule()
     onStyleChanged: schedule()
+    onModeChanged: schedule()
+    onFontFamilyChanged: schedule()
+    onFontSizeChanged: schedule()
     onExclusionsChanged: schedule()
     onBackgroundChanged: schedule()
     onForegroundChanged: schedule()
     Component.onCompleted: schedule()
+    FileView {
+        id: themeOptions
+        path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/familiar-desktop.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: { reload(); root.schedule() }
+    }
+    FileView {
+        path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: { themeOptions.reload(); root.schedule() }
+    }
     Component.onDestruction: {
         disposed = true
         // A session token prevents an old instance's teardown undoing a newer

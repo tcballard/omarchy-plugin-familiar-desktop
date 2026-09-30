@@ -18,6 +18,8 @@ TestCase {
         var item = makeController()
         var adapter = adapterFor(item)
         tryCompare(adapter, "running", true)
+        compare(adapter.command[0], item.helper)
+        compare(adapter.command[1], "titlebars")
         compare(adapter.starts, 1)
         item.mode = "windows"
         item.refresh()

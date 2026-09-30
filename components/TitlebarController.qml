@@ -15,7 +15,7 @@ Item {
     property string state: "checking"
     property string message: "Checking window controls…"
     readonly property bool busy: adapter.running
-    readonly property string helper: Qt.resolvedUrl("../scripts/familiar-titlebars.py").toString().replace(/^file:\/\//, "")
+    readonly property string helper: Qt.resolvedUrl("../bin/familiar-desktop").toString().replace(/^file:\/\//, "")
     readonly property string ownerToken: String(Date.now()) + "-" + String(Math.random()).slice(2)
     property int revision: 0
     property int requestedRevision: 0
@@ -35,7 +35,7 @@ Item {
     function reconcile() {
         if (disposed || adapter.running) return
         requestedRevision = revision
-        adapter.command = ["python3", helper, enabled ? "apply" : "disable", "--owner", ownerToken,
+        adapter.command = [helper, "titlebars", enabled ? "apply" : "disable", "--owner", ownerToken,
                            "--style", style, "--background", hexColour(background),
                            "--foreground", hexColour(foreground), "--exclude", exclusions,
                            "--mode", mode, "--font-family", fontFamily, "--font-size", String(fontSize)]
@@ -69,7 +69,7 @@ Item {
         disposed = true
         // A session token prevents an old instance's teardown undoing a newer
         // instance after hot reload. The adapter serializes writes with flock.
-        Quickshell.execDetached(["python3", helper, "disable", "--owner", ownerToken, "--if-owner"])
+        Quickshell.execDetached([helper, "titlebars", "disable", "--owner", ownerToken, "--if-owner"])
     }
     Timer {
         id: reconcileTimer
@@ -94,7 +94,7 @@ Item {
                 root.message = String(result.message || "Window-control update failed.").slice(0, 300)
             } catch (error) {
                 root.state = "failed"
-                root.message = "Window-control helper failed. Check that python3 and hyprctl are installed."
+                root.message = "Window-control helper failed. Build the Rust helper and check that hyprctl is installed."
             }
         }
         onRunningChanged: if (running) watchdog.restart()

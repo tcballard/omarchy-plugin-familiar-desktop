@@ -14,11 +14,15 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## Install
 
-This is an **early development build**. It has passed portable validation, and the screenshot above shows it running on an Omarchy desktop. Broader live testing is still pending. It needs Omarchy Quattro with plugin support, Hyprland, Quickshell, Python 3 and `hyprctl`. If you want to try it, review the source and run:
+This is an **early development build**. It has passed portable validation, and the screenshot above shows it running on an Omarchy desktop. Broader live testing is still pending. It needs Omarchy Quattro with plugin support, Hyprland, Quickshell and `hyprctl`. The backend is Rust; building it needs Rust/Cargo 1.88 or newer. If you want to try it, review the source and run:
 
 ```bash
 omarchy plugin add https://github.com/tcballard/omarchy-plugin-familiar-desktop.git --enable
+bash ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/build.sh
+omarchy-shell io.github.tcballard.familiar-desktop refresh
 ```
+
+The shared `bin/familiar-desktop` binary handles window actions, title-bar setup, theme parsing, CLI/icon scans and atomic badge writes. Runtime never compiles or downloads code. After updating this development checkout, rerun `build.sh`, then refresh the dock and window controls. CI also supplies a Linux x86_64 binary artifact; other architectures can build the same locked source. The `./install.sh` route includes the build.
 
 The plugin adds a **Familiar Desktop** control to the bar. Open it to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
 
@@ -32,7 +36,7 @@ by the app, rather than a separate desktop-entry app name.
 
 Run `./install.sh mac` from a checkout of a release containing window controls
 (`./install.sh windows` chooses the other style). The installer adds or updates
-Familiar, sets up Hyprbars through its supported `hyprpm` installer, and enables
+Familiar, builds the shared Rust helper, sets up Hyprbars through its supported `hyprpm` installer, and enables
 controls. This is one Familiar plugin with a compositor dependency. Hyprpm can
 ask for build dependencies/privilege in the terminal. No dependency downloads,
 builds or privilege prompts run inside the shell service.
@@ -65,7 +69,7 @@ the next shell start or explicit cleanup. Before removing Familiar, remove its
 configuration hook:
 
 ```bash
-python3 ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/scripts/familiar-titlebars.py remove
+~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop titlebars remove
 ```
 
 This removes only Familiar's marked block and generated configuration; it leaves

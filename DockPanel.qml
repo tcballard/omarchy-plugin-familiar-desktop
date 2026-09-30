@@ -1908,8 +1908,8 @@ Item {
         } else if (typeof targetIndex === "number" && targetIndex >= 0) {
             args.push("--index=" + targetIndex)
         }
-        var scriptPath = Qt.resolvedUrl("scripts/dock-minimize.py").toString().replace(/^file:\/\//, "")
-        DockCommands.run(Util, ["python3", scriptPath].concat(args))
+        var scriptPath = Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, "")
+        DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
         minimizeRefreshTimer.restart()
     }
@@ -1933,11 +1933,11 @@ Item {
         } else if (typeof targetIndex === "number" && targetIndex >= 0) {
             args.push("--index=" + targetIndex)
         }
-        var scriptPath = Qt.resolvedUrl("scripts/dock-minimize.py").toString().replace(/^file:\/\//, "")
+        var scriptPath = Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, "")
         var launchId = itemData.desktopId || itemData.appId || ""
         root.requestFocusOnLaunch(launchId)
         DockModel.setPendingCliHint(itemData.appId || itemData.desktopId || "", root.knownWindows)
-        DockCommands.run(Util, ["python3", scriptPath].concat(args))
+        DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
         minimizeRefreshTimer.restart()
     }
@@ -2308,7 +2308,7 @@ Item {
     Process {
         id: cliScannerProc
         running: false
-        command: ["python3", Qt.resolvedUrl("scripts/dock-minimize.py").toString().replace(/^file:\/\//, ""), "scan-cli"]
+        command: [Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "dock", "scan-cli"]
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
@@ -2326,13 +2326,13 @@ Item {
     Process {
         id: iconScannerProc
         running: false
-        command: ["python3", Qt.resolvedUrl("scripts/dock-minimize.py").toString().replace(/^file:\/\//, ""), "scan-icons"]
+        command: [Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "dock", "scan-icons"]
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
                 try {
                     var icons = JSON.parse(text)
-                    if (icons && typeof icons === "object") {
+                    if (icons && typeof icons === "object" && icons.state !== "failed") {
                         DockModel.setDiskIcons(icons)
                         root.iconRevision++
                         root.updateDockItems()

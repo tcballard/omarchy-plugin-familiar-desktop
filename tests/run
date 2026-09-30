@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-python3 -m unittest discover -s tests -p 'test_*.py'
+cargo test --manifest-path backend/Cargo.toml --locked
 node tests/test_widget_config.cjs

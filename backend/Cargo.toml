@@ -1,0 +1,17 @@
+[package]
+name = "familiar-desktop"
+version = "0.1.0-dev"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+
+[dependencies]
+libc = "0.2.186"
+regex = "1.13.1"
+serde_json = "1.0.150"
+tempfile = "3.27.0"
+url = "2.5.8"
+
+[profile.release]
+lto = "thin"
+strip = true

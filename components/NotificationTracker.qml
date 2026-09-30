@@ -48,9 +48,8 @@ Item {
                     counts: tracker.canonicalCounts,
                     urgent: tracker.canonicalUrgent
                 })
-                saveProc.command = ["python3", "-c",
-                    "import sys, pathlib; p = pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(sys.argv[2], encoding='utf-8')",
-                    tracker.statePath, jsonStr]
+                if (saveProc.running) { saveDebounceTimer.restart(); return }
+                saveProc.command = [Qt.resolvedUrl("../bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "badges", "save", jsonStr]
                 saveProc.running = true
             } catch (e) {}
         }

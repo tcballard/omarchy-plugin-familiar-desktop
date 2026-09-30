@@ -18,8 +18,8 @@ should answer: what is open, which window is mine, and how do I get back to it?
   The hosted runtime does not modify themes, global bar position or shortcuts,
   or install packages. Optional title-bar dependency setup is an explicit
   terminal operation, described below.
-- External operations: the inherited `scripts/dock-minimize.py` uses
-  `hyprctl` for window activation and minimization; inherited icon/CLI scans
+- External operations: the shared Rust `bin/familiar-desktop` backend uses
+  `hyprctl` for window activation and minimization, title-bar setup, policy and actions; icon/CLI scans
   use local desktop files. No network calls or privileged commands are added.
 - IPC: existing dock methods plus `setProfile general|windows|mac`.
 - Disable/remove: hosted surfaces disappear; plugin settings and pins persist.

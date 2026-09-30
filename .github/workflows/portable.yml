@@ -9,13 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: tests/run
+      - run: cargo fmt --manifest-path backend/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path backend/Cargo.toml --all-targets --locked -- -D warnings
+      - run: ./build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: familiar-desktop-linux-x86_64
+          path: bin/familiar-desktop
       - name: Install Qt test runner
         run: sudo apt-get update && sudo apt-get install -y qt6-declarative-dev-tools qml6-module-qttest qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml-workerscript
       - name: Run QML unit tests

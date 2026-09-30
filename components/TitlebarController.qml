@@ -54,14 +54,16 @@ Item {
         id: themeOptions
         path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/familiar-desktop.json"
         watchChanges: true
+        preload: false
         printErrors: false
-        onFileChanged: { reload(); root.schedule() }
+        onFileChanged: root.schedule()
     }
     FileView {
         path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
         watchChanges: true
+        preload: false
         printErrors: false
-        onFileChanged: { themeOptions.reload(); root.schedule() }
+        onFileChanged: root.schedule()
     }
     Component.onDestruction: {
         disposed = true
@@ -71,11 +73,13 @@ Item {
     }
     Timer {
         id: reconcileTimer
+        objectName: "titlebarReconcileTimer"
         interval: 200
         onTriggered: root.reconcile()
     }
     Process {
         id: adapter
+        objectName: "titlebarAdapter"
         stdout: StdioCollector { id: resultCollector; waitForEnd: true }
         onExited: (exitCode, exitStatus) => {
             watchdog.stop()
@@ -97,6 +101,7 @@ Item {
     }
     Timer {
         id: watchdog
+        objectName: "titlebarWatchdog"
         interval: 30000
         onTriggered: {
             adapter.running = false

@@ -15,7 +15,9 @@ should answer: what is open, which window is mine, and how do I get back to it?
 - Settings: plugin-owned JSON in `~/.config/omarchy/`; pins are separate and
   shared by all three presets. Dock widgets leave the bar layout unchanged;
   `~/.config/omarchy/shell.json` is read-only.
-  The plugin does not modify themes, global bar position, shortcuts, or install packages.
+  The hosted runtime does not modify themes, global bar position or shortcuts,
+  or install packages. Optional title-bar dependency setup is an explicit
+  terminal operation, described below.
 - External operations: the inherited `scripts/dock-minimize.py` uses
   `hyprctl` for window activation and minimization; inherited icon/CLI scans
   use local desktop files. No network calls or privileged commands are added.

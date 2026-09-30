@@ -4,7 +4,7 @@
 
 Run `tests/run` with Python 3 and Node.js. It covers the window helper, socket
 timeouts and response limits, Lua quoting, widget selection, and literal command
-arguments. CI additionally runs the four QtTest suites with Qt 6 offscreen and
+arguments. CI additionally runs the five QtTest suites with Qt 6 offscreen and
 parses all plugin QML files. QML parsing does not validate Omarchy's runtime imports.
 
 The 28 September audit checked the portable manifest/path validator and manually
@@ -76,7 +76,64 @@ Theme-policy checks cover enable/disable on theme switches, manual precedence,
 shared shell font/palette fallbacks, exclusion merging, migration of explicit
 preferences, rejected schema/geometry/unsafe values and recovery through Off.
 Both actual QML settings handlers preserve the new mode across save/reload.
-Local validation passes 51 Python tests, 110 Qt tests, Node handler tests, QML
+Local validation passes 55 Python tests, 117 Qt tests, Node handler tests, QML
 parsing, generated Lua syntax and the portable plugin validator.
 On the desktop, also switch between Familiar and a theme without this policy,
 edit its sizing/font/colour options, and confirm Off and manual styles persist.
+
+## Plugin-skills audit (30 September)
+
+Reviewed the title-bar change using plugin design, bar-widget, service/IPC,
+QML patterns, debug, test and release-preflight skills. Source before the audit:
+`07e140c4bb1d4a00ba59231fc30f107abed6a803`; the audit commit adds the fixes and
+tests described below. Read-only source contracts were checked against the
+local Omarchy quattro checkout at
+`8b4eae66da2938ba9559f103b18dbf85cdf28a70`.
+
+The portable skill validator reports no schema errors, quality warnings or
+advisory security findings. It reports review-required capabilities for local
+processes, file/stdio collection, the explicit terminal installer and CI's Qt
+package installation. These are manually reviewed capabilities, not a security
+certification or marketplace approval. Existing dock settings, notification and
+other inherited file collectors remain subject to the host APIs' limits.
+
+The audit replaced post-completion temporary-file size checks with bounded pipe
+reads and a whole-operation deadline. Stdout and stderr each cap at 1 MiB;
+failures stop and reap the original child/session before its identity can be
+reused. Settings/theme reads now cap the opened regular file at 256 KiB instead
+of checking a pathname and then reading without a limit. Theme FileViews only
+watch changes, with preloading disabled; the bounded Python helper owns reads.
+
+New tests execute real flooding and stalled subprocesses, verify descendant
+cleanup, reject oversized files/FIFOs and preserve supported theme symlinks.
+QtTest loads the actual TitlebarController with narrow Quickshell stubs that
+never execute commands. It verifies serialization, stale-result rejection,
+disable during apply, failure/retry, the watchdog and conditional teardown.
+
+Reproduction commands from this checkout:
+
+```bash
+git rev-parse HEAD
+git -C ../omarchy rev-parse HEAD
+tests/run
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  qmltestrunner -input tests -import tests/imports -o -,txt
+bash -n install.sh
+git diff --check
+```
+
+The loaded plugin-test skill's `scripts/validate_plugin.py` runs both normally
+and with `--json --security --publish --strict`. Omarchy's checked-out
+`bin/omarchy-plugin-validate .` also passes; this is source-contract validation,
+not validation against an installed host. All product QML parses with qmlformat.
+Generated Mac and Windows Lua parses with Lua 5.4's luac.
+
+The debug doctor confirms Omarchy, omarchy-shell and Quickshell are unavailable.
+The release helper initially cannot locate its sibling validator because this
+environment installs skills under opaque directory names. Running the same
+helper with only `validator_path()` redirected to the actual loaded test skill
+allows the preflight to run. This does not alter validation rules or skill files.
+Static preflight is separate from the unrun release gates: live discovery,
+enable/disable/reload, horizontal/vertical bars, multiple monitors, fresh Git
+installation/update/removal and a current title-bar preview. No tag or release
+is created by this audit.

@@ -2,8 +2,11 @@
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
+import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -244,6 +247,48 @@ class TitlebarsTest(unittest.TestCase):
                 self.write_theme(options)
                 with self.assertRaises(tb.Failure):
                     tb.theme_policy(self.args)
+
+
+class AdapterLimitsTest(unittest.TestCase):
+    def test_stdout_and_stderr_overflow_are_stopped_while_receiving(self):
+        for descriptor in (1, 2):
+            with self.subTest(descriptor=descriptor):
+                started = time.monotonic()
+                with self.assertRaisesRegex(tb.Failure, "exceeded"):
+                    tb.run([sys.executable, "-c", f"import os;\nwhile True: os.write({descriptor}, b'x'*65536)"], timeout=3)
+                self.assertLess(time.monotonic() - started, 3)
+
+    def test_stalled_descendant_is_terminated_with_original_child(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "descendant-survived"
+            code = "import os,time,pathlib;\nif os.fork() == 0:\n time.sleep(0.5); pathlib.Path(" + repr(str(marker)) + ").touch()\nelse:\n time.sleep(5)"
+            with self.assertRaisesRegex(tb.Failure, "timed out"):
+                tb.run([sys.executable, "-c", code], timeout=0.1)
+            time.sleep(0.6)
+            self.assertFalse(marker.exists())
+
+    def test_nonzero_stderr_is_bounded_and_reported(self):
+        with self.assertRaises(tb.Failure) as error:
+            tb.run([sys.executable, "-c", "import sys; sys.stderr.write('e'*1000); sys.exit(1)"])
+        self.assertEqual(len(str(error.exception)), 300)
+        self.assertEqual(tb.run([sys.executable, "-c", "print('ok')"]), "ok\n")
+
+    def test_settings_reads_are_bounded_and_reject_nonregular_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            self.assertEqual(tb.read_json(path), {})
+            path.write_bytes(b' ' * (256 * 1024 + 1))
+            with self.assertRaisesRegex(tb.Failure, "exceeds"):
+                tb.read_json(path)
+            path.unlink()
+            os.mkfifo(path)
+            with self.assertRaisesRegex(tb.Failure, "regular file"):
+                tb.read_json(path)
+            path.unlink()
+            target = Path(directory) / "theme.json"
+            target.write_text('{"schemaVersion":1}')
+            path.symlink_to(target)
+            self.assertEqual(tb.read_json(path), {"schemaVersion": 1})
 
 
 if __name__ == "__main__":

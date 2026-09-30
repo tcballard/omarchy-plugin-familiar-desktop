@@ -11,11 +11,15 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
+import signal
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import stat
 
 PLUGIN_ID = "io.github.tcballard.familiar-desktop"
 REPOSITORY = "https://github.com/hyprwm/hyprland-plugins"
@@ -29,17 +33,52 @@ class Failure(Exception):
 
 
 def run(argv, timeout=8):
-    # Spool to disk so a misbehaving CLI cannot fill the shell's memory.
-    with tempfile.TemporaryFile() as output:
-        try:
-            result = subprocess.run(argv, stdout=output, stderr=output, timeout=timeout)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise Failure(str(exc)) from exc
-        if output.tell() > 1024 * 1024:
-            raise Failure("Command response exceeded 1 MiB")
-        output.seek(0)
-        text = output.read().decode("utf-8", errors="replace")
-    if result.returncode:
+    # Bound stdout and stderr while receiving, with one whole-operation deadline.
+    # These are local CLI calls, never dependency installers or shell pipelines.
+    try:
+        child = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    except OSError as exc:
+        raise Failure(str(exc)) from exc
+    deadline = time.monotonic() + timeout
+    buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
+    completed = False
+    try:
+        with selectors.DefaultSelector() as selector:
+            for stream in buffers:
+                selector.register(stream, selectors.EVENT_READ)
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise Failure("Command timed out")
+                for key, _ in selector.select(remaining):
+                    chunk = os.read(key.fileobj.fileno(), 65536)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    if len(buffers[key.fileobj]) + len(chunk) > 1024 * 1024:
+                        raise Failure("Command response exceeded 1 MiB")
+                    buffers[key.fileobj].extend(chunk)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise Failure("Command timed out")
+            child.wait(timeout=remaining)
+            completed = True
+    except subprocess.TimeoutExpired as exc:
+        raise Failure("Command timed out") from exc
+    finally:
+        if not completed:
+            # Keep the original child unreaped until signalling its session.
+            # This prevents PID reuse and also stops children holding a pipe.
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        child.wait()
+        for stream in buffers:
+            stream.close()
+    text = buffers[child.stdout].decode("utf-8", errors="replace")
+    if child.returncode:
+        text = buffers[child.stderr].decode("utf-8", errors="replace") or text
         raise Failure(text.strip()[:300] or "Command failed")
     return text
 
@@ -67,12 +106,19 @@ def atomic(path, text):
 
 
 def read_json(path):
-    if not path.exists():
-        return {}
-    if path.stat().st_size > 256 * 1024:
-        raise Failure("Settings file exceeds 256 KiB")
     try:
-        value = json.loads(path.read_text())
+        # The active theme is a symlink by design. Validate the opened object,
+        # avoiding a stat/read race and rejecting FIFOs/devices before reading.
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise Failure("Settings must be a regular file")
+            content = stream.read(256 * 1024 + 1)
+        if len(content) > 256 * 1024:
+            raise Failure("Settings file exceeds 256 KiB")
+        value = json.loads(content)
+    except FileNotFoundError:
+        return {}
     except (ValueError, OSError) as exc:
         raise Failure("Could not read title-bar settings") from exc
     if not isinstance(value, dict):

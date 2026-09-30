@@ -22,7 +22,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QT_QUICK_BACKEND: software
-        run: /usr/lib/qt6/bin/qmltestrunner -input tests
+        run: /usr/lib/qt6/bin/qmltestrunner -input tests -import tests/imports
       - name: Parse plugin QML
         run: |
           for file in *.qml components/*.qml; do

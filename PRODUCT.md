@@ -51,3 +51,15 @@ Portable manifest/path validation and unit tests pass. An on-device screenshot
 of the General layout is in the README. The audit environment has no Omarchy
 session, Quickshell imports, or QML runner, so lifecycle behavior is unverified
 here. The public GitHub repository exists; no release has been created.
+
+
+## Integrated window controls
+
+Familiar remains one Omarchy plugin. Optional Hyprbars decorations provide a
+visible window title and mouse controls, Mac/Windows placement, dragging and
+double-click maximise. Minimise and restore share the existing dock helper.
+Controls follow theme background/text colours and expose per-class exclusions.
+A terminal installer owns the one-time dependency/config setup; runtime QML
+only reconciles local configuration. Existing users opt in. Title bars require
+live Hyprland verification before release, especially grouping, CSD apps,
+fullscreen, mixed scales, upgrade and removal behaviour.

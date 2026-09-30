@@ -124,6 +124,8 @@ Item {
         function setAutohide(val: string): string { root.setAutohide(val === "true" || val === "1"); return "ok" }
         function setVisibilityMode(mode: string): string { root.setVisibilityMode(mode); return "ok" }
         function setProfile(profile: string): string { root.setProfile(profile); return root.profile }
+        function titlebarStatus(): string { return JSON.stringify({ state: titlebars.state, message: titlebars.message, busy: titlebars.busy }) }
+        function refreshTitlebars(): string { titlebars.refresh(); return "ok" }
         function setVisibleWorkspace(workspace: string): string { root.setVisibleWorkspace(workspace); return "ok" }
         function toggleReveal(): string { return root.toggleReveal() }
         function setAutohideEdgeDepth(val: string): string { var n = parseInt(val, 10); if (!isNaN(n) && n >= 1 && n <= 64) { root.autohideEdgeDepth = n; root.saveSettings(); } return "ok" }
@@ -382,6 +384,21 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
+    property bool titlebarsEnabled: false
+    property string titlebarStyle: "windows"
+    property string titlebarExclusions: ""
+    readonly property string titlebarState: titlebars.state
+    readonly property string titlebarMessage: titlebars.message
+    readonly property bool titlebarBusy: titlebars.busy
+    function refreshTitlebars() { titlebars.refresh() }
+    TitlebarController {
+        id: titlebars
+        enabled: root.titlebarsEnabled && root.pluginEnabled && root.dockEnabled
+        style: root.titlebarStyle
+        exclusions: root.titlebarExclusions
+        background: Color.background
+        foreground: Color.text
+    }
     property string profile: "general"
     property bool dockEnabled: true
     property string visibilityMode: "always"
@@ -959,6 +976,9 @@ Item {
                 if (!s || typeof s !== "object") return
                 var normalized = DockSettings.normalize(s)
                 root.profile = normalized.profile
+                root.titlebarsEnabled = normalized.titlebarsEnabled
+                root.titlebarStyle = normalized.titlebarStyle
+                root.titlebarExclusions = normalized.titlebarExclusions
                 root.visibilityMode = normalized.visibilityMode
                 if (s.preferredVisibilityMode !== undefined) {
                     var pvm = String(s.preferredVisibilityMode).trim().toLowerCase()
@@ -1014,6 +1034,9 @@ Item {
         saveSettingsTimer.restart()
         var jsonStr = JSON.stringify({
             profile: root.profile,
+            titlebarsEnabled: root.titlebarsEnabled,
+            titlebarStyle: root.titlebarStyle,
+            titlebarExclusions: root.titlebarExclusions,
             dockEnabled: root.dockEnabled,
             visibilityMode: root.visibilityMode,
             preferredVisibilityMode: root.preferredVisibilityMode,
@@ -1046,6 +1069,7 @@ Item {
         root.dockEnabled = true
         root.visibilityMode = defaults.visibilityMode
         root.overlayMode = defaults.overlayMode
+        root.titlebarStyle = defaults.titlebarStyle
         root.contextAppId = ""
         root.activeMenuItem = null
         root.activeStackItem = null

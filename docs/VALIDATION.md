@@ -13,7 +13,9 @@ reports capabilities for QML processes and collected local input. Its package
 manager and privilege matches are the Qt installation step in GitHub CI.
 These checks are not a marketplace verification or a security certification.
 
-The plugin writes only its own settings, pins and badge data. It reads shell.json
+The dock writes its own settings, pins and badge data. Optional title-bar setup
+adds a marked, removable hook to the user's looknfeel.lua and generated
+configuration under ~/.config/omarchy/familiar-titlebars; see README cleanup. It reads shell.json
 for bar placement. Adding, removing or disabling dock widgets does not change
 the bar layout or enable other plugins. Application commands use argument arrays,
 with literal shell quoting on older host utilities. Window operations use local
@@ -46,3 +48,26 @@ version. Run `omarchy plugin validate .` from that checkout, then verify:
 The audit environment has no live Omarchy session. CI success does not mark these
 desktop checks as passed. Marketplace submission also needs the owner's code
 and preview permission attestation and the marketplace's exact-commit review.
+
+## Window-control integration (30 September)
+
+Portable tests exercise setup/disable idempotence, ownership collisions, stale
+instance teardown and late apply, reload/configuration/ABI-load failures, exact
+window-address actions, theme-colour validation and class escaping. The shell
+adapter has an operation watchdog and one queued follow-up when settings change.
+It never installs dependencies. The terminal installer delegates dependency
+builds/version selection to hyprpm, then probes load and Lua button support.
+
+Record on-device evidence before release: click close/minimise/maximise on both
+focused and unfocused windows; restore each from the dock; drag tiled/floating
+windows; double-click title bars; switch themes and styles; test grouped and
+fullscreen windows, app exclusions, two monitors and mixed scales. Disable the
+dock/plugin, restart/hot-reload the shell, remove the integration, and confirm
+personal looknfeel.lua overrides and unrelated compositor plugins survive.
+An abrupt shell crash can defer cleanup; use the documented remove command.
+
+Source contracts inspected: Omarchy quattro's plugin registry/bar injection and
+Lua config hooks; Hyprland's hl.plugin.load, window dispatchers and config reload;
+Hyprbars' Lua add_button, configuration options and button layout. These source
+checks and portable mocks do not establish compatibility with the user's exact
+Hyprland build. The existing preview predates this feature.

@@ -16,8 +16,15 @@ BarWidget {
   moduleName: "io.github.tcballard.familiar-desktop"
 
   property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
+  property var shell: root.bar ? root.bar.shell : null
   property string profile: "general"
   property bool dockEnabled: true
+  property bool titlebarsEnabled: false
+  property string titlebarStyle: "windows"
+  property string titlebarExclusions: ""
+  property string titlebarStatusText: ""
+  property bool titlebarOptionsOpen: false
+  readonly property var desktopService: root.shell && typeof root.shell.serviceFor === "function" ? root.shell.serviceFor(moduleName) : null
   property string visibilityMode: "always"
   readonly property bool autohide: root.visibilityMode !== "always"
   property bool overlayMode: false
@@ -67,6 +74,9 @@ BarWidget {
         var s = JSON.parse(txt)
         var normalized = DockSettings.normalize(s)
         root.profile = normalized.profile
+        root.titlebarsEnabled = normalized.titlebarsEnabled
+        root.titlebarStyle = normalized.titlebarStyle
+        root.titlebarExclusions = normalized.titlebarExclusions
         root.visibilityMode = normalized.visibilityMode
         if (s && s.preferredVisibilityMode !== undefined) {
           var pvm = String(s.preferredVisibilityMode).trim().toLowerCase()
@@ -119,6 +129,9 @@ BarWidget {
 
     s.dockEnabled = root.dockEnabled
     s.profile = root.profile
+    s.titlebarsEnabled = root.titlebarsEnabled
+    s.titlebarStyle = root.titlebarStyle
+    s.titlebarExclusions = root.titlebarExclusions
     s.visibilityMode = root.visibilityMode
     s.preferredVisibilityMode = root.preferredVisibilityMode
     s.autohide = DockSettings.legacyAutohide(root.visibilityMode)
@@ -151,6 +164,7 @@ BarWidget {
     var defaults = DockSettings.profileDefaults(selected)
     root.visibilityMode = defaults.visibilityMode
     root.overlayMode = defaults.overlayMode
+    root.titlebarStyle = defaults.titlebarStyle
     if (root.bar && typeof root.bar.run === "function") {
       root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setProfile " + selected)
     }
@@ -398,6 +412,180 @@ BarWidget {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.setProfile(modelData.key)
               }
+            }
+          }
+        }
+
+        // Window controls share this plugin's settings and minimise/restore path.
+        Rectangle {
+          Layout.fillWidth: true
+          height: 34
+          radius: 7
+          color: titlebarHeaderMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Window controls"
+            font.family: Style.font.family
+            font.pixelSize: 12
+            font.bold: true
+            color: Color.popups.text
+          }
+          Text {
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: (root.titlebarsEnabled ? "On" : "Off") + (root.titlebarOptionsOpen ? "  ▴" : "  ▾")
+            font.family: Style.font.family
+            font.pixelSize: 12
+            color: Color.popups.text
+          }
+          MouseArea {
+            id: titlebarHeaderMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.titlebarOptionsOpen = !root.titlebarOptionsOpen
+          }
+        }
+        ColumnLayout {
+          visible: root.titlebarOptionsOpen
+          Layout.fillWidth: true
+          spacing: 6
+          Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            textFormat: Text.PlainText
+            text: "Title bars with close, minimise and maximise. Restore minimised windows from the dock."
+            font.family: Style.font.family
+            font.pixelSize: 11
+            color: Color.popups.text
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Repeater {
+              model: [ { key: "off", title: "Off" }, { key: "mac", title: "Mac" }, { key: "windows", title: "Windows" } ]
+              delegate: Rectangle {
+                required property var modelData
+                readonly property bool selected: modelData.key === "off" ? !root.titlebarsEnabled : root.titlebarsEnabled && root.titlebarStyle === modelData.key
+                Layout.fillWidth: true
+                height: 32
+                radius: 7
+                color: selected ? Color.accent : "transparent"
+                border.width: selected ? 0 : 1
+                border.color: Color.popups.border
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.title
+                  font.family: Style.font.family
+                  font.pixelSize: 12
+                  color: parent.selected ? Color.background : Color.popups.text
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.titlebarsEnabled = modelData.key !== "off"
+                    if (root.titlebarsEnabled) {
+                      root.titlebarStyle = modelData.key
+                      root.dockEnabled = true
+                    }
+                    root.saveSettings()
+                  }
+                }
+              }
+            }
+          }
+          Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            textFormat: Text.PlainText
+            text: root.desktopService ? root.desktopService.titlebarMessage : "Window controls require the Familiar Desktop service."
+            font.family: Style.font.family
+            font.pixelSize: 10
+            color: Color.muted
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            height: 32
+            radius: 6
+            color: titlebarSetupMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            border.width: 1
+            border.color: Color.popups.border
+            Text {
+              anchors.centerIn: parent
+              text: root.titlebarStatusText || "Copy one-time setup command"
+              font.family: Style.font.family
+              font.pixelSize: 11
+              color: Color.popups.text
+            }
+            MouseArea {
+              id: titlebarSetupMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                var helper = Qt.resolvedUrl("scripts/familiar-titlebars.py").toString().replace(/^file:\/\//, "")
+                // Copy literal text via argv. Setup runs in the user's terminal,
+                // outside the shell, because hyprpm may require interactive setup.
+                var command = "python3 " + DockCommands.quote(helper) + " setup --install-dependency"
+                DockCommands.run(Util, ["wl-copy", "--", command])
+                root.titlebarStatusText = "Copied — run in your terminal"
+              }
+            }
+          }
+          Text {
+            visible: root.titlebarsEnabled
+            text: "Skip apps with their own title bars (window classes, comma-separated)"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            font.family: Style.font.family
+            font.pixelSize: 10
+            color: Color.muted
+          }
+          Rectangle {
+            visible: root.titlebarsEnabled
+            Layout.fillWidth: true
+            height: 32
+            radius: 6
+            color: "transparent"
+            border.width: 1
+            border.color: titlebarExclusionsInput.activeFocus ? Color.accent : Color.popups.border
+            TextInput {
+              id: titlebarExclusionsInput
+              anchors.fill: parent
+              anchors.margins: 7
+              text: root.titlebarExclusions
+              maximumLength: 6400
+              clip: true
+              font.family: Style.font.family
+              font.pixelSize: 11
+              color: Color.popups.text
+              selectByMouse: true
+              onEditingFinished: {
+                root.titlebarExclusions = text
+                root.saveSettings()
+              }
+            }
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            height: 28
+            radius: 6
+            color: "transparent"
+            Text {
+              anchors.centerIn: parent
+              text: root.desktopService && root.desktopService.titlebarBusy ? "Applying…" : "Refresh window controls"
+              font.family: Style.font.family
+              font.pixelSize: 11
+              color: Color.popups.text
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              enabled: root.desktopService && !root.desktopService.titlebarBusy
+              onClicked: root.desktopService.refreshTitlebars()
             }
           }
         }

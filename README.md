@@ -14,15 +14,17 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## Install
 
-This is an **early development build**. It has passed portable validation, and the screenshot above shows it running on an Omarchy desktop. Broader live testing is still pending. It needs Omarchy Quattro with plugin support, Hyprland, Quickshell and `hyprctl`. The backend is Rust; building it needs Rust/Cargo 1.88 or newer. If you want to try it, review the source and run:
+Version **0.0.2 is an early preview** for Omarchy Quattro. Live desktop testing remains outstanding. Run this single command in your Omarchy terminal for Mac-style controls:
 
 ```bash
-omarchy plugin add https://github.com/tcballard/omarchy-plugin-familiar-desktop.git --enable
-bash ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/build.sh
-omarchy-shell io.github.tcballard.familiar-desktop refresh
+bash <(curl -fsSL https://raw.githubusercontent.com/tcballard/omarchy-plugin-familiar-desktop/v0.0.2/install.sh) mac
 ```
 
-The shared `bin/familiar-desktop` binary handles window actions, title-bar setup, theme parsing, CLI/icon scans and atomic badge writes. Runtime never compiles or downloads code. After updating this development checkout, rerun `build.sh`, then refresh the dock and window controls. CI also supplies a Linux x86_64 binary artifact; other architectures can build the same locked source. The `./install.sh` route includes the build.
+Use `windows` instead of `mac` for controls on the right. The same command handles fresh installs and updates, checks out **v0.0.2**, installs missing build tools through pacman, builds the Rust backend and enables the dock and controls. It refuses to overwrite tracked local source changes. Rustup users get the stable toolchain; system Rust must be 1.88 or newer.
+
+Setup first tries to reuse a compatible Hyprbars installation. If that fails, it runs Hyprpm to prepare or update the dependency. **Hyprpm may clone Hyprland to build matching headers and take several minutes; this does not replace your installed compositor.** Package installation may ask for your password. The installer prints five progress stages and stops if a stage fails; rerun the same command after resolving the reported error. An interrupted setup may leave downloaded dependencies or a built plugin, but it does not proceed to enablement after failure.
+
+The shared `bin/familiar-desktop` Rust binary handles window actions, title-bar setup, theme parsing, app/icon scans and badge writes. Downloads, builds and privilege prompts happen in your terminal during explicit setup. The hosted shell never compiles or downloads code.
 
 The plugin adds a **Familiar Desktop** control to the bar. Open it to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
 
@@ -34,12 +36,7 @@ Windows controls sit on the right. Minimise uses the dock's existing window
 helper, so the window can be restored from the same dock. The title is supplied
 by the app, rather than a separate desktop-entry app name.
 
-Run `./install.sh mac` from a checkout of a release containing window controls
-(`./install.sh windows` chooses the other style). The installer adds or updates
-Familiar, builds the shared Rust helper, sets up Hyprbars through its supported `hyprpm` installer, and enables
-controls. This is one Familiar plugin with a compositor dependency. Hyprpm can
-ask for build dependencies/privilege in the terminal. No dependency downloads,
-builds or privilege prompts run inside the shell service.
+The installer above sets up both the dock and window controls. Hyprbars is a compositor dependency managed by Hyprpm.
 
 If Familiar is already installed, open **Window controls** in its bar settings,
 copy the one-time setup command, run it in a terminal, then select **Mac** or
@@ -115,8 +112,12 @@ omarchy-shell io.github.tcballard.familiar-desktop setProfile mac
 
 ## Update and remove
 
+Rerun the installation command above to install or repair v0.0.2. This checkout stays pinned to its release; use the installer from a newer release when upgrading.
+
+To remove it:
+
 ```bash
-omarchy plugin update io.github.tcballard.familiar-desktop
+~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop titlebars remove
 omarchy plugin remove io.github.tcballard.familiar-desktop
 ```
 
@@ -128,7 +129,7 @@ If you moved bar widgets into the dock using an earlier development build, add t
 
 The manifest declares a hosted service and bar widget under `io.github.tcballard.familiar-desktop`. The source derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit `467070386fe60e173295020d3911176202b3e0c9` (MIT). This project has separate identity and settings while retaining that dock's window, monitor, folder and theme handling. See [the product record](PRODUCT.md) for the current scope and next milestones.
 
-Portable plugin validation and the tests in `tests/run` pass. The preview shows an on-device layout, but live checks remain: initial installation, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload, dock widget persistence and removal. Version 0.0.1 is an early preview; live desktop and marketplace verification remain outstanding. Report bugs through [GitHub issues](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues); report sensitive security issues privately through the repository's GitHub security advisory feature.
+Portable plugin validation and the tests in `tests/run` pass. The preview shows an on-device layout, but live checks remain: initial installation, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload, dock widget persistence and removal. Version 0.0.2 is an early preview; live desktop and marketplace verification remain outstanding. Report bugs through [GitHub issues](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues); report sensitive security issues privately through the repository's GitHub security advisory feature.
 
 On Omarchy, validate and test the checkout with:
 

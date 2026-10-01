@@ -110,3 +110,12 @@ by Tom Ballard on 28 September 2026: General layout on Omarchy, 2048 × 1151.
 The precise Omarchy revision and scale were not recorded. This screenshot
 predates title bars and the Rust migration. Version 0.0.1 is an early preview. A current on-device capture and the live
 checks above remain outstanding before a desktop-verified release or marketplace submission.
+
+## v0.0.2 installer
+
+`node tests/test_install.cjs` verifies seven scenarios using mock external tools:
+fresh installation, existing installation, dependency repair with Windows controls,
+refusal of tracked local changes, repair failure, unavailable compositor, and invalid style.
+Assertions cover the pinned release, reuse without dependency refresh, and stopping
+before enablement on failure. These fixtures do not install packages or run Hyprpm.
+Live package prompts, Hyprbars compilation and desktop activation remain unverified.

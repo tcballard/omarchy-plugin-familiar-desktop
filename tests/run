@@ -3,3 +3,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 cargo test --manifest-path backend/Cargo.toml --locked
 node tests/test_widget_config.cjs
+
+node tests/test_install.cjs

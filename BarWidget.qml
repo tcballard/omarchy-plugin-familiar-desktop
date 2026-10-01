@@ -531,11 +531,10 @@ BarWidget {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                var helper = Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, "")
                 // Copy literal text via argv. Setup runs in the user's terminal,
                 // outside the shell, because hyprpm may require interactive setup.
-                var build = Qt.resolvedUrl("build.sh").toString().replace(/^file:\/\//, "")
-                var command = "bash " + DockCommands.quote(build) + " && " + DockCommands.quote(helper) + " titlebars setup --install-dependency"
+                var installer = Qt.resolvedUrl("install.sh").toString().replace(/^file:\/\//, "")
+                var command = "bash " + DockCommands.quote(installer) + " " + DockCommands.quote(root.titlebarStyle)
                 DockCommands.run(Util, ["wl-copy", "--", command])
                 root.titlebarStatusText = "Copied — run in your terminal"
               }

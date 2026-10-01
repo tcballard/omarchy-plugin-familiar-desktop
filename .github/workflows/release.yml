@@ -1,0 +1,61 @@
+name: Release binaries
+on:
+  pull_request:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Verify tag identity
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: test "$TAG" = "v$(node -p 'require("./manifest.json").version')"
+      - name: Test and build static backend
+        run: |
+          cargo test --manifest-path backend/Cargo.toml --locked --target x86_64-unknown-linux-musl
+          cargo build --manifest-path backend/Cargo.toml --locked --release --target x86_64-unknown-linux-musl
+          if ldd backend/target/x86_64-unknown-linux-musl/release/familiar-desktop; then
+            echo 'Release binary unexpectedly requires shared libraries' >&2
+            exit 1
+          fi
+      - run: node scripts/prepare-release.cjs backend/target/x86_64-unknown-linux-musl/release/familiar-desktop
+      - run: node tests/test_release_install.cjs
+      - name: Verify complete checksums
+        working-directory: release-assets
+        run: sha256sum --check SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: familiar-desktop-release
+          path: release-assets/*
+          if-no-files-found: error
+  publish:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: familiar-desktop-release
+          path: release-assets
+      - name: Upload immutable versioned assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" release-assets/*

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Release binary installer. Development builds remain explicit in build.sh.
+set -Eeuo pipefail
+main() {
+  local release='v0.0.3'
+  local root_dir architecture asset base expected actual version
+  root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  [[ "$(uname -s)" == Linux ]] || { echo 'Familiar requires Linux.' >&2; return 1; }
+  architecture="$(uname -m)"
+  [[ "$architecture" == x86_64 ]] || { echo "No Familiar $release binary for $architecture. Supported: Linux x86_64." >&2; return 1; }
+  for tool in curl sha256sum; do
+    command -v "$tool" >/dev/null || { echo "Missing $tool; install curl and coreutils." >&2; return 1; }
+  done
+  asset='familiar-desktop-linux-x86_64'
+  base="https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/download/$release"
+  mkdir -p "$root_dir/bin"
+  backend_staging="$(mktemp -d "$root_dir/bin/.download.XXXXXX")"
+  trap 'rm -rf -- "$backend_staging"' EXIT
+  echo "Downloading Familiar $release backend (no Rust toolchain required)."
+  curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/SHA256SUMS" -o "$backend_staging/SHA256SUMS"
+  expected="$(awk -v name="$asset" '$2 == name {print $1}' "$backend_staging/SHA256SUMS")"
+  [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo 'Missing or ambiguous backend checksum in release.' >&2; return 1; }
+  curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/$asset" -o "$backend_staging/$asset"
+  actual="$(sha256sum "$backend_staging/$asset")"
+  [[ "${actual%% *}" == "$expected" ]] || { echo 'Backend checksum mismatch; existing backend kept.' >&2; return 1; }
+  chmod 755 "$backend_staging/$asset"
+  version="$("$backend_staging/$asset" --version)"
+  [[ "$version" == "familiar-desktop ${release#v}" ]] || { echo "Wrong backend version: $version; existing backend kept." >&2; return 1; }
+  mv -f -- "$backend_staging/$asset" "$root_dir/bin/familiar-desktop"
+  echo "$version installed and SHA-256 verified."
+}
+main "$@"

@@ -1,3 +1,5 @@
 /backend/target/
 /bin/familiar-desktop
 /bin/.familiar-desktop.*
+/bin/.download.*/
+/release-assets/

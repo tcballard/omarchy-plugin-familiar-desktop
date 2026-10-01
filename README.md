@@ -4,13 +4,13 @@
   <a href="https://github.com/tcballard/omarchy-badges"><img src="https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg" alt="Built for Omarchy: Plugin" height="24"></a>
 </p>
 
-**Find your apps and the right window without learning a new desktop first.**
+<p align="center"><strong>Find your apps and the right window without learning a new desktop first.</strong></p>
 
 Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or return to an app with a click; right-click to see its open windows by name and choose exactly where to go. General, Windows and Mac starting layouts share your pinned apps, so you can choose what feels comfortable and adjust it later.
 
 ![Rendered preview of the centred Familiar Desktop settings modal with the General layout selected](docs/images/familiar-settings-modal.png)
 
-*Rendered QML preview of the upcoming settings modal, using illustrative colours. A live Omarchy screenshot will replace this preview after on-device testing.*
+*Rendered QML preview of the upcoming settings modal, using illustrative colours. The modal is not included in v0.0.4. A live Omarchy screenshot will replace this preview after on-device testing.*
 
 ## Install
 
@@ -38,7 +38,7 @@ Windows controls sit on the right. Minimise uses the dock's existing window
 helper, so the window can be restored from the same dock. The title is supplied
 by the app, rather than a separate desktop-entry app name.
 
-The installer above sets up both the dock and window controls. Hyprbars is a compositor dependency managed by Hyprpm.
+The installer above sets up both the dock and window controls. The installer downloads a verified prebuilt Hyprbars library for the supported Hyprland version; Hyprpm is not required.
 
 If Familiar is already installed, open **Window controls** in its bar settings,
 copy the one-time setup command, run it in a terminal, then select **Mac** or

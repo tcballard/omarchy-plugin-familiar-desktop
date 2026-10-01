@@ -24,6 +24,8 @@ Use `windows` instead of `mac` for controls on the right. The same command handl
 
 Setup first tries to reuse a compatible Hyprbars installation. If that fails, it runs Hyprpm to prepare or update the dependency. **Hyprpm may clone Hyprland to build matching headers and take several minutes; this does not replace your installed compositor.** Package installation may ask for your password. The installer prints five progress stages and stops if a stage fails; rerun the same command after resolving the reported error. An interrupted setup may leave downloaded dependencies or a built plugin, but it does not proceed to enablement after failure.
 
+For a fresh installation, the installer registers Familiar using the standard `omarchy plugin add https://github.com/tcballard/omarchy-plugin-familiar-desktop.git --yes` command, then pins the release and completes setup before enabling it. You do not need to run that registration separately.
+
 The shared `bin/familiar-desktop` Rust binary handles window actions, title-bar setup, theme parsing, app/icon scans and badge writes. Downloads, builds and privilege prompts happen in your terminal during explicit setup. The hosted shell never compiles or downloads code.
 
 The plugin adds a **Familiar Desktop** control to the bar. Open it to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.

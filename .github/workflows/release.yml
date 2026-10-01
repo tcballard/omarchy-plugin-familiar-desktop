@@ -26,7 +26,7 @@ jobs:
         run: test "$TAG" = "v$(node -p 'require("./manifest.json").version')"
       - name: Test and build static backend
         run: |
-          cargo test --manifest-path backend/Cargo.toml --locked --target x86_64-unknown-linux-musl
+          cargo test --manifest-path backend/Cargo.toml --locked --release --target x86_64-unknown-linux-musl
           cargo build --manifest-path backend/Cargo.toml --locked --release --target x86_64-unknown-linux-musl
           readelf -l -d backend/target/x86_64-unknown-linux-musl/release/familiar-desktop > /tmp/familiar-elf.txt
           if awk '/NEEDED|INTERP/ {found=1} END {exit !found}' /tmp/familiar-elf.txt; then

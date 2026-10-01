@@ -8,7 +8,24 @@ on:
 permissions:
   contents: read
 jobs:
+  hyprbars:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    steps:
+      - name: Install pinned Arch build environment
+        run: |
+          echo 'Server = https://archive.archlinux.org/repos/2026/09/30/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm
+          pacman -S --needed --noconfirm base-devel git hyprland glaze
+      - uses: actions/checkout@v4
+      - run: bash scripts/build-hyprbars.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: familiar-hyprbars
+          path: hyprbars-assets/*
+          if-no-files-found: error
   build:
+    needs: hyprbars
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +50,10 @@ jobs:
             echo 'Release binary unexpectedly requires shared libraries' >&2
             exit 1
           fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: familiar-hyprbars
+          path: hyprbars-assets
       - run: node scripts/prepare-release.cjs backend/target/x86_64-unknown-linux-musl/release/familiar-desktop
       - run: node tests/test_release_install.cjs
       - name: Verify complete checksums

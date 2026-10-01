@@ -3,3 +3,5 @@
 /bin/.familiar-desktop.*
 /bin/.download.*/
 /release-assets/
+/bin/hyprbars/
+/hyprbars-assets/

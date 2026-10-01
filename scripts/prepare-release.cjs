@@ -17,5 +17,12 @@ const notices=metadata.packages.filter(p=>p.source&&reachable.has(p.id)).map(p=>
 fs.writeFileSync(path.join(dir,'THIRD-PARTY-NOTICES.txt'),notices.join('\n\n==================================================\n\n')+'\n');
 write('SBOM.spdx.json',{spdxVersion:'SPDX-2.3',dataLicense:'CC0-1.0',SPDXID:'SPDXRef-DOCUMENT',name:`familiar-desktop-${version}`,documentNamespace:`${source.repository}/spdx/${source.commit}`,creationInfo:{creators:['Tool: Familiar release CI'],created:git('show','-s','--format=%cI','HEAD').replace('+00:00','Z')},packages:[{SPDXID:'SPDXRef-Familiar',name:'familiar-desktop',versionInfo:version,downloadLocation:`git+${source.repository}.git@${source.commit}`,filesAnalyzed:false,licenseConcluded:'NOASSERTION',licenseDeclared:'MIT',copyrightText:'NOASSERTION',comment:'Source package inventory. Rust dependency versions and checksums are recorded in backend/Cargo.lock; see THIRD-PARTY-NOTICES.txt for dependency licenses.'}],relationships:[{spdxElementId:'SPDXRef-DOCUMENT',relationshipType:'DESCRIBES',relatedSpdxElement:'SPDXRef-Familiar'}]});
 write('RELEASE-MANIFEST.json',{schemaVersion:1,version,source,artifacts:[item(binary),item(archive)],releaseDocuments:[item('SOURCE-MANIFEST.json'),item('SBOM.spdx.json'),item('THIRD-PARTY-NOTICES.txt')]});
+const hyprbarsDir=path.resolve('hyprbars-assets');
+const hyprbarsNames=fs.readdirSync(hyprbarsDir);
+if(!hyprbarsNames.some(n=>n.startsWith('hyprbars-linux-x86_64-')&&n.endsWith('.so')))throw Error('Missing prebuilt Hyprbars; refusing incomplete release');
+for(const name of hyprbarsNames)fs.copyFileSync(path.join(hyprbarsDir,name),path.join(dir,name));
+const releaseManifest=JSON.parse(fs.readFileSync(path.join(dir,'RELEASE-MANIFEST.json')));
+releaseManifest.artifacts.push(...hyprbarsNames.map(item));
+write('RELEASE-MANIFEST.json',releaseManifest);
 const names=fs.readdirSync(dir).sort();fs.writeFileSync(path.join(dir,'SHA256SUMS'),names.map(name=>`${item(name).sha256}  ${name}\n`).join(''));
 console.log(`Prepared ${names.length+1} release assets for ${version} at ${source.commit}`);

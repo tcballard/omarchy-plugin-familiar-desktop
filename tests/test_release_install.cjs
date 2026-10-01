@@ -9,6 +9,6 @@ try {
  const p=spawnSync('/bin/bash',[path.join(root,'install-backend.sh')],{encoding:'utf8',env:{HOME:root,PATH:tools+':/usr/bin:/bin',ASSETS:path.resolve('release-assets')}});
  assert.equal(p.status,0,p.stderr);assert.match(p.stdout,/0\.0\.3 installed and SHA-256 verified/);
  const installed=spawnSync(path.join(root,'bin/familiar-desktop'),['--version'],{encoding:'utf8',env:{HOME:root,PATH:'/usr/bin:/bin'}});
- assert.equal(installed.status,0,installed.stderr);assert.equal(installed.stdout.trim(),'familiar-desktop 0.0.3');
+ assert.equal(installed.status,0,installed.stderr);assert.equal(installed.stdout.trim(),'familiar-desktop 0.0.4');
  console.log('Real static release binary installed and executed without development tools.');
 }finally{fs.rmSync(root,{recursive:true,force:true});}

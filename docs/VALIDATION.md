@@ -6,7 +6,7 @@ The backend is one Rust executable, `bin/familiar-desktop`. Python helpers,
 inline Python badge writes and Python tests are removed. QML remains hosted
 inside Omarchy's shell. No second shell is launched. The explicit terminal
 `build.sh` compiles locked source and atomically installs the executable;
-`install.sh` includes this build. The hosted runtime never runs Cargo or hyprpm.
+`install.sh` downloads release binaries and never invokes this build. The hosted runtime never runs Cargo or hyprpm.
 Rebuild after a development checkout update. CI uploads an x86_64 Linux binary.
 
 The source before migration is `d5004d365d4844db99edc43db4d2571cb2ae3e3d`.
@@ -93,14 +93,14 @@ sandbox against a malicious same-user process.
 
 Record the exact plugin SHA and installed Omarchy/Hyprland versions. Verify:
 
-1. Fresh Git install, terminal build, discovery, enablement and both entry points.
+1. Fresh Git install, verified binary downloads, discovery, enablement and both entry points.
 2. Dock launch, minimise, restore, explicit window selection and sibling focus.
 3. Title-bar close/minimise/maximise on focused and unfocused windows; dragging
    and double-click; CSD exclusions, grouped/fullscreen windows and mixed scales.
 4. Theme policy edits and switches, malformed policy recovery through Off,
    manual overrides and settings persistence across restart/reload.
 5. Horizontal/vertical bars, two monitors, workspaces and 200% scale.
-6. Fast-forward update plus rebuild, disable/re-enable, removal and preservation
+6. Pinned release update, disable/re-enable, removal and preservation
    of personal Hyprland config and unrelated compositor plugins.
 
 ## Preview provenance
@@ -119,3 +119,17 @@ refusal of tracked local changes, repair failure, unavailable compositor, and in
 Assertions cover the pinned release, reuse without dependency refresh, and stopping
 before enablement on failure. These fixtures do not install packages or run Hyprpm.
 Live package prompts, Hyprbars compilation and desktop activation remain unverified.
+
+
+## Prebuilt Hyprbars regression checks (v0.0.4 candidate)
+
+`node tests/test_install.cjs` exercises fresh install/update, both styles,
+unsupported ABI, missing/corrupt downloads, duplicate checksums, backend version
+mismatch and loader rejection using a mock desktop and real SHA-256 checks.
+Source-build tools must never run. This is not a live Hyprland load test.
+Release CI builds the upstream-pinned Hyprbars revision using the 2026-09-30
+Arch snapshot. A compiled header probe must produce the target ABI before
+building. Release packaging requires the shared library and records its
+checksum, upstream license and complete build package inventory.
+
+The XPS runtime load, buttons and compositor restart still need live testing.

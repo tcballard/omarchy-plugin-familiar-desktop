@@ -9,13 +9,21 @@ trap 'rm -rf -- "$work_dir"' EXIT
 # This is the installed package, including generated headers, rather than a
 # locally fabricated version.h or an override of Hyprland's compatibility check.
 test "$(pkg-config --modversion hyprland)" = 0.56.2
-cat > "$work_dir/abi.cpp" <<'CPP'
-#include <hyprland/src/plugins/PluginAPI.hpp>
-#include <iostream>
-int main() { std::cout << __hyprland_api_get_client_hash(); }
-CPP
+# Preprocess the real plugin header, then compile only its ABI function. Including
+# the whole header in an executable also instantiates compositor-only globals.
+printf '#include <hyprland/src/plugins/PluginAPI.hpp>\n' > "$work_dir/header.cpp"
 # shellcheck disable=SC2046
-c++ -std=c++23 $(pkg-config --cflags hyprland) "$work_dir/abi.cpp" -o "$work_dir/abi"
+c++ -std=c++23 $(pkg-config --cflags hyprland) -dM -E "$work_dir/header.cpp" > "$work_dir/macros"
+{
+  echo '#include <format>'
+  echo '#include <string>'
+  echo '#include <string_view>'
+  echo '#include <iostream>'
+  grep -E '^#define (GIT_COMMIT_HASH|AQUAMARINE_VERSION|HYPRUTILS_VERSION|HYPRGRAPHICS_VERSION|HYPRCURSOR_VERSION|HYPRLANG_VERSION) ' "$work_dir/macros"
+  sed -n '/^APICALL inline EXPORT const char\* __hyprland_api_get_client_hash()/,/^}/p' /usr/include/hyprland/src/plugins/PluginAPI.hpp | sed 's/APICALL inline EXPORT //'
+  echo 'int main() { std::cout << __hyprland_api_get_client_hash(); }'
+} > "$work_dir/abi.cpp"
+c++ -std=c++23 "$work_dir/abi.cpp" -o "$work_dir/abi"
 test "$("$work_dir/abi")" = "$expected_abi"
 git init "$work_dir/plugins"
 git -C "$work_dir/plugins" remote add origin https://github.com/hyprwm/hyprland-plugins.git

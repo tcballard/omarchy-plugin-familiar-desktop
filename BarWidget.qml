@@ -309,7 +309,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "···"
+    text: "󰟀" // Nerd Fonts: desktop-classic (CRT computer)
     tooltipText: "Familiar Desktop"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) {
@@ -347,7 +347,7 @@ BarWidget {
           DockGlyph {
             width: 16
             height: 16
-            text: "⚙"
+            text: "󰟀"
             fontFamily: Style.font.family
             fontSize: 14
             color: Color.accent

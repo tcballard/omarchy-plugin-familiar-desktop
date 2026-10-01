@@ -10,17 +10,17 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ![Rendered preview of the centred Familiar Desktop settings modal with the General layout selected](docs/images/familiar-settings-modal.png)
 
-*Rendered QML preview of the upcoming settings modal, using illustrative colours. The modal is not included in v0.0.4. A live Omarchy screenshot will replace this preview after on-device testing.*
+*Rendered QML preview of the settings modal, using illustrative colours. A live Omarchy screenshot will replace this preview after on-device testing.*
 
 ## Install
 
-Version **0.0.4 is an early preview** for Omarchy Quattro. Live desktop testing remains outstanding. Run this single command in your Omarchy terminal for Mac-style controls:
+Version **0.0.5 is an early preview** for Omarchy Quattro. Live desktop testing remains outstanding. Run this single command in your Omarchy terminal for Mac-style controls:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tcballard/omarchy-plugin-familiar-desktop/v0.0.4/install.sh) mac
+bash <(curl -fsSL https://raw.githubusercontent.com/tcballard/omarchy-plugin-familiar-desktop/v0.0.5/install.sh) mac
 ```
 
-Use `windows` instead of `mac` for controls on the right. The same command handles fresh installs and updates, checks out **v0.0.4**, downloads the prebuilt Linux x86_64 Rust backend, verifies its SHA-256 checksum and version, then enables the dock and controls. Cargo, Rustup and Clippy are not needed or installed. Other architectures stop with an explicit error; installation never falls back to a source build. It refuses to overwrite tracked local source changes. Failed backend downloads or verification leave the previous executable intact.
+Use `windows` instead of `mac` for controls on the right. The same command handles fresh installs and updates, checks out **v0.0.5**, downloads the prebuilt Linux x86_64 Rust backend, verifies its SHA-256 checksum and version, then enables the dock and controls. Cargo, Rustup and Clippy are not needed or installed. Other architectures stop with an explicit error; installation never falls back to a source build. It refuses to overwrite tracked local source changes. Failed backend downloads or verification leave the previous executable intact.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
 
@@ -114,7 +114,7 @@ omarchy-shell io.github.tcballard.familiar-desktop setProfile mac
 
 ## Update and remove
 
-Rerun the installation command above to install or repair v0.0.4. This checkout stays pinned to its release; use the installer from a newer release when upgrading.
+Rerun the installation command above to install or repair v0.0.5. This checkout stays pinned to its release; use the installer from a newer release when upgrading.
 
 To remove it:
 
@@ -131,7 +131,7 @@ If you moved bar widgets into the dock using an earlier development build, add t
 
 The manifest declares a hosted service and bar widget under `io.github.tcballard.familiar-desktop`. The source derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit `467070386fe60e173295020d3911176202b3e0c9` (MIT). This project has separate identity and settings while retaining that dock's window, monitor, folder and theme handling. See [the product record](PRODUCT.md) for the current scope and next milestones.
 
-Portable plugin validation and the tests in `tests/run` pass. The preview is an isolated QML render; live checks remain: initial installation, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload, dock widget persistence and removal. Version 0.0.4 is an early preview; live desktop and marketplace verification remain outstanding. Report bugs through [GitHub issues](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues); report sensitive security issues privately through the repository's GitHub security advisory feature.
+Portable plugin validation and the tests in `tests/run` pass. The preview is an isolated QML render; live checks remain: initial installation, preset switching, menu focus and dismissal, minimized windows, two monitors, workspace changes, light and dark themes, 200% scale, shell reload, dock widget persistence and removal. Version 0.0.5 is an early preview; live desktop and marketplace verification remain outstanding. Report bugs through [GitHub issues](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues); report sensitive security issues privately through the repository's GitHub security advisory feature.
 
 On Omarchy, validate and test the checkout with:
 

@@ -105,11 +105,24 @@ Record the exact plugin SHA and installed Omarchy/Hyprland versions. Verify:
 
 ## Preview provenance
 
-`preview.png` and the README image are the same unmodified screenshot supplied
-by Tom Ballard on 28 September 2026: General layout on Omarchy, 2048 × 1151.
-The precise Omarchy revision and scale were not recorded. This screenshot
-predates title bars and the Rust migration. Version 0.0.1 is an early preview. A current on-device capture and the live
-checks above remain outstanding before a desktop-verified release or marketplace submission.
+The README image, `docs/images/familiar-settings-modal.png`, is a Qt offscreen
+render of the settings QML from PR #8, captured on 1 October 2026. Window-layer
+integration was replaced with an Item for capture; shell services and theme
+values were isolated fixtures. It demonstrates layout, not live compositor
+focus, dismissal or monitor selection. The user approved it as an interim preview.
+
+The root `preview.png` remains Tom Ballard's unmodified 28 September 2026
+Omarchy screenshot (2048 × 1151), predating title bars and the Rust migration.
+A current on-device capture and the live checks above remain outstanding before
+a desktop-verified release or marketplace submission.
+
+## v0.0.5 settings modal
+
+The computer icon opens a centred overlay on the invoking bar's monitor.
+It includes a dimmed backdrop, Escape/outside-click/close-button dismissal,
+scrollable settings, and keyboard focus only while open. Portable CI checks
+QML parsing and the existing unit tests. The isolated render does not replace
+live lifecycle, multi-monitor, scaling or keyboard-focus checks.
 
 ## v0.0.2 installer
 

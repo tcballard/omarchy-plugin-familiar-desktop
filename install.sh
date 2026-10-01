@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Interactive terminal entry point, including when downloaded from a release.
-set -euo pipefail
+set -Eeuo pipefail
 trap 'printf "\nFamiliar setup stopped at line %s. Fix the error above and rerun this command.\n" "$LINENO" >&2' ERR
 main() {
 export PATH="$HOME/.cargo/bin:$PATH"

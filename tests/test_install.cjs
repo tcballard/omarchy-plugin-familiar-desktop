@@ -34,7 +34,7 @@ for(const existing of [false,true]) {
 }
 let r=run({repair:true,style:'windows'}); assert.equal(r.status,0,r.stderr); assert.match(r.log,/setup --install-dependency --enable --style windows/); assert.match(r.stdout,/does not replace/); passed++;
 r=run({existing:true,dirty:true}); assert.notEqual(r.status,0); assert.doesNotMatch(r.log,/checkout|helper|plugin enable/); passed++;
-r=run({repair:true,failRepair:true}); assert.notEqual(r.status,0); assert.doesNotMatch(r.log,/plugin enable/); passed++;
+r=run({repair:true,failRepair:true}); assert.notEqual(r.status,0); assert.doesNotMatch(r.log,/plugin enable/); assert.match(r.stderr,/Familiar setup stopped/); passed++;
 r=run({missing:true}); assert.notEqual(r.status,0); assert.doesNotMatch(r.log,/plugin add|checkout/); passed++;
 r=run({style:'bogus'}); assert.notEqual(r.status,0); assert.equal(r.log,''); passed++;
 console.log(`${passed} installer scenarios passed (mock tools; no live desktop).`);

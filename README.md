@@ -102,7 +102,7 @@ If your Omarchy bar is already at the bottom, the dock uses the opposite edge to
 | See and select named windows | Right-click its icon, then click a window |
 | Open another window | Middle-click its icon or choose **New Window** |
 | Pin, unpin, minimize or close | Right-click its icon and choose the action |
-| Change layout and settings | Open **Familiar Desktop** in the bar |
+| Change layout and settings | Click the computer icon in the bar to open centred settings |
 
 For scripting, the preset switch is also available through Omarchy shell IPC:
 

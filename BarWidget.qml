@@ -318,19 +318,13 @@ BarWidget {
     }
   }
 
-  // Standard Omarchy KeyboardPanel (Exact same screen level, gap, and animation as Weather & Audio),
-  // anchored under this widget's own button rather than centered on the bar.
-  KeyboardPanel {
+  SettingsModal {
     id: settingsWindow
     anchorItem: button
     owner: root
     bar: root.bar
-    // Anchor to the widget itself (left/center/right section) instead of the bar's
-    // midpoint; KeyboardPanel still clamps the card on-screen via its margin.
-    centerOnBar: false
-    contentWidth: (Style && typeof Style.space === "function") ? Style.space(410) : 410
-    contentHeight: settingsWindow.fittedContentHeight(cardColumn.implicitHeight + 6)
-    borderSpec: Border.localOrSurfaceSpec("popups", "border", Color.accent, Color.accent, Math.max(1, Style.space(2)))
+    contentWidth: Style.space(410)
+    contentHeight: cardColumn.implicitHeight
 
     ColumnLayout {
       id: cardColumn
@@ -338,38 +332,6 @@ BarWidget {
       anchors.right: parent.right
       anchors.top: parent.top
       spacing: 10
-
-        // Header Row
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 8
-
-          DockGlyph {
-            width: 16
-            height: 16
-            text: "󰟀"
-            fontFamily: Style.font.family
-            fontSize: 14
-            color: Color.accent
-          }
-
-          Text {
-            text: "Familiar Desktop"
-            textFormat: Text.PlainText
-            font.family: Style.font.family
-            font.pixelSize: 13
-            font.bold: true
-            color: Color.popups.text
-            Layout.fillWidth: true
-          }
-        }
-
-        // Divider
-        Rectangle {
-          Layout.fillWidth: true
-          height: 1
-          color: Color.composed("popups.border", "popups.border-alpha", Color.border, 0.35)
-        }
 
         Text {
           text: "Choose a starting layout. You can adjust the controls below."

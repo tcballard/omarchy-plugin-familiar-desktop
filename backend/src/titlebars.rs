@@ -72,8 +72,8 @@ impl Args {
                 "--if-owner" => a.if_owner = true,
                 "--enable" => a.enable = true,
                 "--install-dependency" => a.install_dependency = true,
-                "--owner" | "--style" | "--mode" | "--background" | "--foreground"
-                | "--size" | "--font-family" | "--font-size" | "--exclude" | "--library" => {
+                "--owner" | "--style" | "--mode" | "--background" | "--foreground" | "--size"
+                | "--font-family" | "--font-size" | "--exclude" | "--library" => {
                     let value = argv
                         .get(i)
                         .ok_or_else(|| format!("Missing value for {key}"))?
@@ -180,9 +180,17 @@ pub fn theme_policy(document: &Value, args: &Args) -> Result<Value> {
         _ => return Err("Unknown window-control mode".into()),
     }
     match args.size.as_str() {
-        "default" => {},
-        "large" => { options["height"] = json!(44); options["buttonSize"] = json!(26); options["fontSize"] = json!(15); },
-        "extra-large" => { options["height"] = json!(52); options["buttonSize"] = json!(32); options["fontSize"] = json!(17); },
+        "default" => {}
+        "large" => {
+            options["height"] = json!(44);
+            options["buttonSize"] = json!(26);
+            options["fontSize"] = json!(15);
+        }
+        "extra-large" => {
+            options["height"] = json!(52);
+            options["buttonSize"] = json!(32);
+            options["fontSize"] = json!(17);
+        }
         _ => return Err("Unknown title-bar size".into()),
     }
     for (key, min, max) in [

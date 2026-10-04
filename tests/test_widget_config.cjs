@@ -35,7 +35,7 @@ for (const filename of ['DockPanel.qml', 'BarWidget.qml']) {
   const source = fs.readFileSync(filename, 'utf8');
   const indent = filename === 'DockPanel.qml' ? '    ' : '  ';
   const root = { isSavingSettings: false, widgetsEnabled: false, dockWidgets: selection.slice() };
-  let disk = JSON.stringify({ widgetsEnabled: false, dockWidgets: selection, titlebarsEnabled: true, titlebarStyle: "mac", titlebarExclusions: "org.gnome.Nautilus,kitty" });
+  let disk = JSON.stringify({ widgetsEnabled: false, dockWidgets: selection, dockSize: "large", titlebarSize: "extra-large", titlebarsEnabled: true, titlebarStyle: "mac", titlebarExclusions: "org.gnome.Nautilus,kitty" });
   const context = {
     root, DockSettings: settings, DockModel: widgets, DockWidgets: widgets,
     settingsFile: { text: () => disk, setText: value => { disk = value; } },
@@ -55,7 +55,11 @@ for (const filename of ['DockPanel.qml', 'BarWidget.qml']) {
   assert.equal(root.titlebarMode, "mac");
   assert.equal(root.titlebarExclusions, "org.gnome.Nautilus,kitty");
   assert.deepEqual(plain(root.dockWidgets), selection);
+  assert.equal(root.dockSize, "large");
+  assert.equal(root.titlebarSize, "extra-large");
   context.saveSettings();
+  assert.equal(JSON.parse(disk).dockSize, "large");
+  assert.equal(JSON.parse(disk).titlebarSize, "extra-large");
   assert.deepEqual(JSON.parse(disk).dockWidgets, selection);
   assert.equal(JSON.parse(disk).titlebarsEnabled, true);
   assert.equal(JSON.parse(disk).titlebarStyle, "mac");

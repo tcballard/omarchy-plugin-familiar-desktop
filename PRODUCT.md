@@ -71,3 +71,15 @@ Existing explicit choices are preserved; other installations default to Theme.
 Title bars require
 live Hyprland verification before release, especially grouping, CSD apps,
 fullscreen, mixed scales, upgrade and removal behaviour.
+
+## v0.1.0-rc.1 candidate
+
+Implemented on the candidate branch: Getting Started with live described
+Hyprland shortcuts and installed companion links; Show Desktop and journaled
+Restore windows; Default/Large/Extra large dock and title-bar sizes; graceful
+same-process Quit and pidfd-based Force Quit with explicit confirmation.
+The test bundle installer pins its source SHA and verifies prebuilt assets.
+
+Getting Started opens existing tools only. Companion installation, a true
+Windows taskbar, Mac previews and Familiar Paint are outside this desktop
+candidate. Live XPS acceptance in docs/XPS-TEST.md remains the next gate.

@@ -161,3 +161,25 @@ integration and shell data were substituted for this check; it is not a live
 Hyprland test. Live placement (including app minimum sizes and decorations),
 monitor switching, focus, menu scrolling and file-manager activation remain
 unverified. Arrangement is explicitly per-window, with no global floating rule.
+
+## v0.1.0-rc.1 candidate evidence
+
+New Rust fixtures cover visible-workspace selection, journal-before-move,
+interrupted/failed restore, compositor-session changes, reused window addresses,
+manual window movement, malformed journals, exact process graceful quit, and
+active shortcut parsing. A force-quit fixture uses only disposable child
+processes and verifies confirmation and unrelated-process preservation.
+
+The shared DesktopActions component tests serialized commands, errors/retry,
+shortcuts and companion availability with Quickshell stubs. Both actual QML
+settings handlers preserve size preferences and v0.0.6 widget/title-bar state.
+The candidate installer has 11 mock-host scenarios: fresh/existing installation,
+ABI/checksum/version failure, dirty/untracked/ignored files, unmanaged directory,
+source mismatch and title-bar setup failure. Real file/checksum operations run;
+no fixture installs packages or controls a live compositor.
+
+Qt 6.4.2 offscreen tests and QML syntax parsing are run in the preparation
+workspace; Rust tests, clippy, static musl builds and packaged executable checks
+run in GitHub Actions for the PR SHA. See the exact run on PR #12 for final counts.
+No live Omarchy, focus, hotplug, application size constraints, installation,
+update or removal acceptance has been observed for this candidate.

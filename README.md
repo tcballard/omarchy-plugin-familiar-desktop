@@ -12,7 +12,21 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 *Rendered QML preview of the settings modal, using illustrative colours. A live Omarchy screenshot will replace this preview after on-device testing.*
 
-## Install
+## v0.1.0 test candidate
+
+This branch prepares **v0.1.0-rc.1** for XPS testing. It adds Show Desktop/Restore
+windows, Getting Started with active shortcuts and companion-app entry points,
+larger dock/title-bar controls, and separate Quit/confirmed Force Quit actions.
+
+Use the prebuilt candidate bundle from [PR #12](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/12)
+and run `bash install-candidate.sh windows` from its extracted folder (`mac` for
+left-side controls). The bundle installer pins the exact tested commit; no tag
+or stable v0.1.0 release is implied. See [the XPS test and rollback guide](docs/XPS-TEST.md).
+
+Live Omarchy acceptance remains outstanding. Restore windows before disabling,
+removing or downgrading the candidate. Familiar Paint remains a separate project.
+
+## Published v0.0.6 install
 
 Version **0.0.6 is an early preview** for Omarchy Quattro. Live desktop testing remains outstanding. Run this single command in your Omarchy terminal for Mac-style controls:
 

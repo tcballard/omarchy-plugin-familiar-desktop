@@ -5,3 +5,5 @@ cargo test --manifest-path backend/Cargo.toml --locked
 node tests/test_widget_config.cjs
 
 node tests/test_install.cjs
+
+node tests/test_candidate_install.cjs

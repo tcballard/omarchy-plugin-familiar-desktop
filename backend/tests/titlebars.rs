@@ -505,13 +505,20 @@ fn option_parser_preserves_literal_font_and_class_values() {
 
 #[test]
 fn larger_controls_override_geometry_without_enabling_disabled_bars() {
-    let mut args = familiar_desktop::titlebars::Args { mode: "theme".into(), size: "large".into(), ..Default::default() };
+    let mut args = familiar_desktop::titlebars::Args {
+        mode: "theme".into(),
+        size: "large".into(),
+        ..Default::default()
+    };
     let p = familiar_desktop::titlebars::theme_policy(&serde_json::json!({}), &args).unwrap();
     assert_eq!(p["enabled"], false);
     assert_eq!(p["height"], 44);
     assert_eq!(p["buttonSize"], 26);
     args.size = "extra-large".into();
-    assert_eq!(familiar_desktop::titlebars::theme_policy(&serde_json::json!({}), &args).unwrap()["height"], 52);
+    assert_eq!(
+        familiar_desktop::titlebars::theme_policy(&serde_json::json!({}), &args).unwrap()["height"],
+        52
+    );
     args.size = "huge".into();
     assert!(familiar_desktop::titlebars::theme_policy(&serde_json::json!({}), &args).is_err());
 }

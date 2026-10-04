@@ -34,7 +34,7 @@ fn confirmed_force_quit_targets_only_the_selected_process() {
     assert!(!unconfirmed.status.success());
     assert!(target.try_wait().unwrap().is_none());
     let confirmed = invoke(true);
-    let result = (|| {
+    let result = || {
         assert!(
             confirmed.status.success(),
             "{}",
@@ -48,7 +48,7 @@ fn confirmed_force_quit_targets_only_the_selected_process() {
             thread::sleep(Duration::from_millis(10));
         }
         panic!("Target child was not stopped");
-    });
+    };
     // Reap/clean up both fixture processes even if the assertion fails.
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(result));
     let untouched = other.try_wait().unwrap().is_none();

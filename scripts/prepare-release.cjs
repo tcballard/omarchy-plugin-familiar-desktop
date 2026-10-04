@@ -24,5 +24,9 @@ for(const name of hyprbarsNames)fs.copyFileSync(path.join(hyprbarsDir,name),path
 const releaseManifest=JSON.parse(fs.readFileSync(path.join(dir,'RELEASE-MANIFEST.json')));
 releaseManifest.artifacts.push(...hyprbarsNames.map(item));
 write('RELEASE-MANIFEST.json',releaseManifest);
+fs.writeFileSync(path.join(dir,'install-candidate.sh'),fs.readFileSync('scripts/install-candidate.sh','utf8').replace('@SOURCE_SHA@',source.commit).replace('@VERSION@',version));
+fs.copyFileSync('docs/XPS-TEST.md',path.join(dir,'XPS-TEST.md'));
+releaseManifest.releaseDocuments.push(item('install-candidate.sh'),item('XPS-TEST.md'));
+write('RELEASE-MANIFEST.json',releaseManifest);
 const names=fs.readdirSync(dir).sort();fs.writeFileSync(path.join(dir,'SHA256SUMS'),names.map(name=>`${item(name).sha256}  ${name}\n`).join(''));
 console.log(`Prepared ${names.length+1} release assets for ${version} at ${source.commit}`);

@@ -64,6 +64,8 @@ function normalize(raw) {
     var settings = raw && typeof raw === "object" ? raw : {}
     return {
         profile: normalizeProfile(settings.profile),
+        dockSize: normalizeSize(settings.dockSize),
+        titlebarSize: normalizeSize(settings.titlebarSize),
         titlebarsEnabled: settings.titlebarsEnabled === true,
         titlebarMode: normalizeTitlebarMode(settings),
         titlebarStyle: settings.titlebarStyle === "mac" ? "mac" : "windows",
@@ -207,4 +209,11 @@ function keyboardToggleDecision(dockRevealed, configuredSelector, focusedWorkspa
 
     var identity = workspaceIdentity(workspace)
     return { action: "show", targetWorkspace: identity || "all" }
+}
+
+function normalizeSize(value) {
+    return ["default", "large", "extra-large"].indexOf(value) >= 0 ? value : "default"
+}
+function dockGeometry(value) {
+    return value === "extra-large" ? {slot: 64, icon: 40} : value === "large" ? {slot: 52, icon: 32} : {slot: 42, icon: 24}
 }

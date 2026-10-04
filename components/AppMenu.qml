@@ -15,10 +15,11 @@ PanelWindow {
     readonly property var windows: app && app.toplevels ? app.toplevels : []
     readonly property int rowHeight: 44
     readonly property int cardWidth: 300
-    readonly property int actionHeight: 34
+    readonly property int actionHeight: 40
     readonly property int visibleWindowCount: Math.min(8, windows.length)
     property string selectedWindowAddress: ""
     property bool showArrange: false
+    property string forceQuitAddress: ""
     readonly property int selectedIndex: {
         for (var i = 0; i < windows.length; i++) {
             if (selectedWindowAddress && root.targetWindowArg(app, i) === selectedWindowAddress) return i
@@ -26,7 +27,7 @@ PanelWindow {
         return -1
     }
     readonly property string selectedAddress: selectedIndex >= 0 ? root.targetWindowArg(app, selectedIndex) : ""
-    readonly property bool canAct: selectedAddress !== "" && !root.desktopActionBusy
+    readonly property bool canAct: selectedAddress !== "" && !root.desktopActionBusy && !root.desktopTools.busy
     readonly property var actions: [
         {label: "Go to / restore selected window", kind: "go-window", enabled: canAct},
         {label: "Bring selected window here", kind: "bring-here", enabled: canAct},
@@ -40,10 +41,12 @@ PanelWindow {
         {label: "Return to tiling", kind: "arrange-tile", enabled: canAct},
         {label: "Move to next monitor", kind: "arrange-next-monitor", enabled: canAct}
     ] : []).concat([
-        {label: "New Window", kind: "new", enabled: !root.desktopActionBusy},
+        {label: "New Window", kind: "new", enabled: !root.desktopActionBusy && !root.desktopTools.busy},
         {label: app && app.isPinned ? "Unpin from Dock" : "Pin to Dock", kind: "pin", enabled: true},
         {label: "Minimise selected window", kind: "minimize", enabled: canAct},
-        {label: "Close selected window", kind: "close", enabled: canAct}
+        {label: "Close selected window", kind: "close", enabled: canAct},
+        {label: "Quit app (request close for its windows)", kind: "quit-app", enabled: canAct},
+        {label: forceQuitAddress === selectedAddress && forceQuitAddress !== "" ? "Confirm force quit — unsaved work will be lost" : "Force quit app…", kind: "force-quit", enabled: canAct}
     ])
     readonly property int cardHeight: Math.max(80, Math.min(screenHeight - dockOffset - 12, 64 + visibleWindowCount * rowHeight + actions.length * actionHeight + errorLabel.implicitHeight))
     readonly property int dockOffset: root.slotSize + 2 * (Style.gapsOut || 5) + 8
@@ -79,8 +82,11 @@ PanelWindow {
     onVisibleChanged: if (visible) {
         selectedWindowAddress = windows.length ? root.targetWindowArg(app, Math.min(app.activeTopIndex || 0, windows.length - 1)) : ""
         showArrange = false
+        forceQuitAddress = ""
         card.forceActiveFocus()
     }
+
+    onSelectedWindowAddressChanged: forceQuitAddress = ""
 
     function dismiss() { root.contextAppId = ""; root.contextAppIndex = -1 }
     function chooseWindow(index) {
@@ -92,6 +98,13 @@ PanelWindow {
         if (kind === "arrange") { showArrange = !showArrange; return }
         if (kind === "go-window" || kind === "bring-here" || kind.indexOf("arrange-") === 0) {
             if (canAct) root.desktopAction(kind, selectedAddress)
+            return
+        }
+        if (kind === "quit-app") { root.desktopTools.run(["quit-app", selectedAddress]); return }
+        if (kind === "force-quit") {
+            if (forceQuitAddress !== selectedAddress) { forceQuitAddress = selectedAddress; return }
+            root.desktopTools.run(["force-quit", selectedAddress, "--confirm"])
+            forceQuitAddress = ""
             return
         }
         if (kind === "new") {
@@ -201,7 +214,7 @@ PanelWindow {
             Text {
                 id: errorLabel
                 width: parent.width
-                text: menu.root.desktopActionError || (menu.windows.length ? "Select a window above, then choose an action." : "No open windows.")
+                text: menu.root.desktopTools.message || menu.root.desktopActionError || (menu.windows.length ? "Select a window above, then choose an action." : "No open windows.")
                 wrapMode: Text.WordWrap
                 color: Color.popups.text
                 font.family: Style.font.family
@@ -224,6 +237,9 @@ PanelWindow {
                         anchors.leftMargin: 10
                         verticalAlignment: Text.AlignVCenter
                         text: modelData.label
+                        wrapMode: Text.WordWrap
+                        fontSizeMode: Text.Fit
+                        minimumPixelSize: 10
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 12

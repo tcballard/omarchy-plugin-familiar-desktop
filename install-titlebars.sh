@@ -2,7 +2,7 @@
 # Download only: never invoke hyprpm or build tools on the user's desktop.
 set -Eeuo pipefail
 main() {
-  local release='v0.0.6'
+  local release='v0.1.0-rc.1'
   local expected_abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6'
   local root_dir abi asset base expected actual destination
   root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

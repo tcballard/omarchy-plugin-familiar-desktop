@@ -1,0 +1,10 @@
+# Familiar troubleshooting
+
+- **A window disappeared after Show Desktop:** use Restore windows in Familiar settings. If the shell is unavailable, run `~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop desktop restore` from a terminal. Restore before disablement, removal or rollback.
+- **Window controls won't load:** the prebuilt library supports the exact Hyprland ABI in the README. Do not rebuild Hyprland or install Cargo. Report the output of `hyprctl version` and Familiar's displayed error.
+- **Two title bars:** add the app's exact window class to “Skip apps with their own title bars”.
+- **OmaStore or Task Manager unavailable:** Familiar only opens installed companion apps. The executables must be on PATH; it never installs packages from the shell. Task Manager's package is `omarchy-task-manager`. OmaStore is a separate development preview.
+- **Quit leaves the app running:** it sends normal close requests to the selected process's windows. Apps can ask to save or keep a background process. Force quit stops that process and may lose unsaved work; it requires confirmation.
+- **Settings or actions stop responding:** record the candidate commit, step, displayed error, Omarchy/Hyprland versions and monitor layout, then use the [XPS checklist](XPS-TEST.md). A shell reload does not erase the recovery journal.
+
+[Report a Familiar bug](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues).

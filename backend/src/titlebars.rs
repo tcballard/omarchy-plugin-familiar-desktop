@@ -24,6 +24,7 @@ pub struct Args {
     pub foreground: String,
     pub font_family: String,
     pub font_size: i64,
+    pub size: String,
     pub exclude: String,
     pub library: Option<PathBuf>,
     pub install_dependency: bool,
@@ -42,6 +43,7 @@ impl Default for Args {
             foreground: "#ffffff".into(),
             font_family: "Sans".into(),
             font_size: 13,
+            size: "default".into(),
             exclude: String::new(),
             library: None,
             install_dependency: false,
@@ -71,7 +73,7 @@ impl Args {
                 "--enable" => a.enable = true,
                 "--install-dependency" => a.install_dependency = true,
                 "--owner" | "--style" | "--mode" | "--background" | "--foreground"
-                | "--font-family" | "--font-size" | "--exclude" | "--library" => {
+                | "--size" | "--font-family" | "--font-size" | "--exclude" | "--library" => {
                     let value = argv
                         .get(i)
                         .ok_or_else(|| format!("Missing value for {key}"))?
@@ -84,6 +86,7 @@ impl Args {
                         "--background" => a.background = value,
                         "--foreground" => a.foreground = value,
                         "--font-family" => a.font_family = value,
+                        "--size" => a.size = value,
                         "--font-size" => {
                             a.font_size = value.parse().map_err(|_| "Invalid font size")?
                         }
@@ -175,6 +178,12 @@ pub fn theme_policy(document: &Value, args: &Args) -> Result<Value> {
         "off" => options["enabled"] = json!(false),
         "theme" => {}
         _ => return Err("Unknown window-control mode".into()),
+    }
+    match args.size.as_str() {
+        "default" => {},
+        "large" => { options["height"] = json!(44); options["buttonSize"] = json!(26); options["fontSize"] = json!(15); },
+        "extra-large" => { options["height"] = json!(52); options["buttonSize"] = json!(32); options["fontSize"] = json!(17); },
+        _ => return Err("Unknown title-bar size".into()),
     }
     for (key, min, max) in [
         ("height", 24, 80),

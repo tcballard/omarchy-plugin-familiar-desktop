@@ -2,7 +2,7 @@
 # Release binary installer. Development builds remain explicit in build.sh.
 set -Eeuo pipefail
 main() {
-  local release='v0.0.6'
+  local release='v0.1.0-rc.1'
   local root_dir architecture asset base expected actual version
   root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   [[ "$(uname -s)" == Linux ]] || { echo 'Familiar requires Linux.' >&2; return 1; }

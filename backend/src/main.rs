@@ -1,4 +1,4 @@
-use familiar_desktop::{common, dock, titlebars};
+use familiar_desktop::{common, desktop, dock, titlebars};
 use serde_json::json;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -7,6 +7,7 @@ fn main() {
         return;
     }
     let result=match args.first().map(String::as_str) {
+        Some("desktop")=>desktop::execute(&args[1..]),
         Some("titlebars")=>titlebars::execute(&args[1..]),
         Some("dock")=>args.get(1).ok_or_else(||"Choose a dock operation".to_string()).and_then(|mode|dock::execute(mode,&args[2..])),
         Some("badges") if args.get(1).is_some_and(|s|s=="save")=>common::home().and_then(|home|common::save_badges(&home,args.get(2).ok_or("Provide badge JSON")?)),

@@ -68,8 +68,8 @@ Item {
     }
 
     // Static Standard Dock Geometry (Strictly stable, no jumping/twitching on window state)
-    readonly property real slotSize: 42
-    readonly property real iconBaseSize: 24
+    readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
+    readonly property real iconBaseSize: DockSettings.dockGeometry(dockSize).icon
 
     // Live 1D Rail Displacement for Main Dock Bar
     property int dockDragActiveIndex: -1
@@ -132,6 +132,8 @@ Item {
         function setShowFolderTitles(val: string): string { root.showFolderTitles = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function setShowBadges(val: string): string { root.showBadges = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function setOverlayMode(val: string): string { root.overlayMode = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
+        function showDesktop(): string { return desktopToolsAdapter.run(["show"]) ? "started" : "busy" }
+        function restoreDesktop(): string { return desktopToolsAdapter.run(["restore"]) ? "started" : "busy" }
         function ping(): string { return "ok" }
     }
 
@@ -266,6 +268,9 @@ Item {
             matched[winIndex].activate()
         }
     }
+
+    readonly property var desktopTools: desktopToolsAdapter
+    DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
 
     property bool fileShortcutsEnabled: false
     readonly property real fileShortcutsSize: fileShortcutsEnabled ? 3 * slotSize : 0
@@ -425,6 +430,8 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
+    property string dockSize: "default"
+    property string titlebarSize: "default"
     property bool titlebarsEnabled: false
     property string titlebarMode: "theme"
     property string titlebarStyle: "windows"
@@ -439,6 +446,7 @@ Item {
         mode: root.titlebarMode
         style: root.titlebarStyle
         exclusions: root.titlebarExclusions
+        size: root.titlebarSize
         background: Color.background
         foreground: Color.text
         fontFamily: Style.font.family
@@ -1022,6 +1030,8 @@ Item {
                 root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
                 var normalized = DockSettings.normalize(s)
                 root.profile = normalized.profile
+                root.dockSize = normalized.dockSize
+                root.titlebarSize = normalized.titlebarSize
                 root.titlebarsEnabled = normalized.titlebarsEnabled
                 root.titlebarMode = normalized.titlebarMode
                 root.titlebarStyle = normalized.titlebarStyle
@@ -1081,6 +1091,8 @@ Item {
         saveSettingsTimer.restart()
         var jsonStr = JSON.stringify({
             profile: root.profile,
+            dockSize: root.dockSize,
+            titlebarSize: root.titlebarSize,
             titlebarsEnabled: root.titlebarsEnabled,
             titlebarMode: root.titlebarMode,
             titlebarStyle: root.titlebarStyle,

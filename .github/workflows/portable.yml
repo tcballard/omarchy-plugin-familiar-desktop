@@ -13,6 +13,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check Rust formatting
+        run: |
+          cargo fmt --manifest-path backend/Cargo.toml
+          git diff -- backend > /tmp/familiar-format.patch
+          git diff --exit-code -- backend
+      - name: Upload formatting diagnostic
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: familiar-format-diagnostic
+          path: /tmp/familiar-format.patch
       - run: tests/run
       - run: cargo fmt --manifest-path backend/Cargo.toml -- --check
       - run: cargo clippy --manifest-path backend/Cargo.toml --all-targets --locked -- -D warnings

@@ -20,12 +20,22 @@ BarWidget {
   property string profile: "general"
   property bool fileShortcutsEnabled: false
   property bool dockEnabled: true
+  property string dockSize: "default"
+  property string titlebarSize: "default"
   property bool titlebarsEnabled: false
   property string titlebarMode: "theme"
   property string titlebarStyle: "windows"
   property string titlebarExclusions: ""
   property string titlebarStatusText: ""
   property bool titlebarOptionsOpen: false
+  property bool gettingStartedOpen: false
+  readonly property var desktopTools: desktopService ? desktopService.desktopTools : null
+  Connections {
+    target: root.desktopTools
+    function onCompleted(operation) {
+      if (operation === "show" || operation === "restore" || operation === "open-tool") root.close()
+    }
+  }
   readonly property var desktopService: root.shell && typeof root.shell.serviceFor === "function" ? root.shell.serviceFor(moduleName) : null
   property string visibilityMode: "always"
   readonly property bool autohide: root.visibilityMode !== "always"
@@ -77,6 +87,8 @@ BarWidget {
         root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
         var normalized = DockSettings.normalize(s)
         root.profile = normalized.profile
+        root.dockSize = normalized.dockSize
+        root.titlebarSize = normalized.titlebarSize
         root.titlebarsEnabled = normalized.titlebarsEnabled
         root.titlebarMode = normalized.titlebarMode
         root.titlebarStyle = normalized.titlebarStyle
@@ -133,6 +145,8 @@ BarWidget {
 
     s.dockEnabled = root.dockEnabled
     s.profile = root.profile
+    s.dockSize = root.dockSize
+    s.titlebarSize = root.titlebarSize
     s.titlebarsEnabled = root.titlebarsEnabled
     s.titlebarMode = root.titlebarMode
     s.titlebarStyle = root.titlebarStyle
@@ -380,6 +394,74 @@ BarWidget {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.setProfile(modelData.key)
+              }
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          ActionButton {
+            Layout.fillWidth: true
+            text: "Show desktop"
+            enabled: !!root.desktopTools && !root.desktopTools.busy
+            onClicked: root.desktopTools.run(["show"])
+          }
+          ActionButton {
+            Layout.fillWidth: true
+            text: "Restore windows"
+            enabled: !!root.desktopTools && !root.desktopTools.busy
+            onClicked: root.desktopTools.run(["restore"])
+          }
+        }
+        Text {
+          Layout.fillWidth: true
+          visible: text !== ""
+          text: root.desktopTools ? (root.desktopTools.busy ? "Working…" : root.desktopTools.message) : "Familiar service is not available. Enable the plugin and reopen settings."
+          textFormat: Text.PlainText
+          wrapMode: Text.WordWrap
+          font.family: Style.font.family
+          font.pixelSize: 12
+          color: Color.popups.text
+        }
+        ActionButton {
+          Layout.fillWidth: true
+          text: root.gettingStartedOpen ? "Close Getting Started" : "Getting Started · shortcuts and useful tools"
+          enabled: !!root.desktopTools && !root.desktopTools.busy
+          onClicked: {
+            root.gettingStartedOpen = !root.gettingStartedOpen
+            if (root.gettingStartedOpen) root.desktopTools.run(["shortcuts"])
+          }
+        }
+        GettingStarted {
+          visible: root.gettingStartedOpen
+          Layout.fillWidth: true
+          tools: root.desktopTools
+        }
+        Repeater {
+          model: [{key: "dockSize", label: "Dock and icons"}, {key: "titlebarSize", label: "Title bars and buttons"}]
+          delegate: ColumnLayout {
+            id: sizeRow
+            required property var modelData
+            Layout.fillWidth: true
+            Text {
+              text: sizeRow.modelData.label
+              textFormat: Text.PlainText
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: Color.popups.text
+            }
+            RowLayout {
+              Layout.fillWidth: true
+              Repeater {
+                model: [{key: "default", label: "Default"}, {key: "large", label: "Large"}, {key: "extra-large", label: "Extra large"}]
+                delegate: ActionButton {
+                  required property var modelData
+                  Layout.fillWidth: true
+                  text: modelData.label
+                  selected: root[sizeRow.modelData.key] === modelData.key
+                  onClicked: { root[sizeRow.modelData.key] = modelData.key; root.saveSettings() }
+                }
               }
             }
           }

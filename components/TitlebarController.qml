@@ -10,6 +10,7 @@ Item {
     property string fontFamily: "Sans"
     property int fontSize: 13
     property string exclusions: ""
+    property string size: "default"
     property color background: "#202020"
     property color foreground: "#ffffff"
     property string state: "checking"
@@ -38,7 +39,7 @@ Item {
         adapter.command = [helper, "titlebars", enabled ? "apply" : "disable", "--owner", ownerToken,
                            "--style", style, "--background", hexColour(background),
                            "--foreground", hexColour(foreground), "--exclude", exclusions,
-                           "--mode", mode, "--font-family", fontFamily, "--font-size", String(fontSize)]
+                           "--mode", mode, "--size", size, "--font-family", fontFamily, "--font-size", String(fontSize)]
         adapter.running = true
     }
     onEnabledChanged: schedule()
@@ -47,6 +48,7 @@ Item {
     onFontFamilyChanged: schedule()
     onFontSizeChanged: schedule()
     onExclusionsChanged: schedule()
+    onSizeChanged: schedule()
     onBackgroundChanged: schedule()
     onForegroundChanged: schedule()
     Component.onCompleted: schedule()

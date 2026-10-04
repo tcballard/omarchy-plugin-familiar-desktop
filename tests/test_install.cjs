@@ -1,3 +1,4 @@
+const version = JSON.parse(require('node:fs').readFileSync('manifest.json')).version;
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -18,7 +19,7 @@ function run({existing=false, dirty=false, repair=false, failRepair=false, missi
   fs.writeFileSync(path.join(fixture,'build.sh'),'echo forbidden-build >> "$LOG"; exit 99\n');
   const old='previous backend';fs.writeFileSync(path.join(fixture,'bin/familiar-desktop'),old);
   const asset=path.join(root,'asset');
-  fs.writeFileSync(asset,`#!/bin/bash\necho "helper $*" >> "$LOG"\nif [[ "$*" == *setup* ]]; then\n if [[ "$*" == *--install-dependency* ]]; then exit "$FAIL_REPAIR"; fi\n exit "$REPAIR"\nfi\necho familiar-desktop ${fault==='version'?'0.0.2':'0.1.0-rc.2'}\n`);
+  fs.writeFileSync(asset,`#!/bin/bash\necho "helper $*" >> "$LOG"\nif [[ "$*" == *setup* ]]; then\n if [[ "$*" == *--install-dependency* ]]; then exit "$FAIL_REPAIR"; fi\n exit "$REPAIR"\nfi\necho familiar-desktop ${fault==='version'?'0.0.2':version}\n`);
   const titlebar=path.join(root,'hyprbars');fs.writeFileSync(titlebar,'fixture shared library');
   const titlebarHash=crypto.createHash('sha256').update(fs.readFileSync(titlebar)).digest('hex');
   const abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6';
@@ -35,7 +36,7 @@ function run({existing=false, dirty=false, repair=false, failRepair=false, missi
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 }
 for(const existing of [false,true]){
- const r=run({existing});assert.equal(r.status,0,r.stderr);assert.equal(r.log.includes('omarchy plugin add'),!existing);assert.match(r.log,/checkout --detach v0\.1\.0-rc\.2/);assert.doesNotMatch(r.log,/--install-dependency|cargo|rustup|clippy|forbidden-build|sudo/);assert.ok(r.log.indexOf('helper --version')<r.log.indexOf('omarchy plugin enable'));assert.deepEqual(r.staging,[]);passed++;
+ const r=run({existing});assert.equal(r.status,0,r.stderr);assert.equal(r.log.includes('omarchy plugin add'),!existing);assert.ok(r.log.includes(`checkout --detach v${version}\n`));assert.doesNotMatch(r.log,/--install-dependency|cargo|rustup|clippy|forbidden-build|sudo/);assert.ok(r.log.indexOf('helper --version')<r.log.indexOf('omarchy plugin enable'));assert.deepEqual(r.staging,[]);passed++;
 }
 let r=run({style:'windows'});assert.equal(r.status,0,r.stderr);assert.match(r.log,/setup --library .*hyprbars.so --enable --style windows/);passed++;
 r=run({existing:true,dirty:true});assert.notEqual(r.status,0);assert.doesNotMatch(r.log,/checkout|helper|plugin enable/);passed++;

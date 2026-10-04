@@ -16,7 +16,7 @@ ColumnLayout {
         color: Color.popups.text
     }
     Repeater {
-        model: [{key: "store", label: "OmaStore"}, {key: "task-manager", label: "Task Manager"}, {key: "settings", label: "System settings"}, {key: "help", label: "Troubleshooting ↗"}]
+        model: [{key: "settings", label: "System settings"}, {key: "help", label: "Troubleshooting ↗"}]
         delegate: ActionButton {
             required property var modelData
             readonly property bool installed: root.tools && root.tools.tools.some(function(t) { return t.key === modelData.key && t.available })
@@ -28,7 +28,7 @@ ColumnLayout {
     }
     Text {
         Layout.fillWidth: true
-        text: "Companion apps must be installed separately. Super is the Windows or Command key. These shortcuts come from your running Hyprland configuration; Familiar does not replace your bindings."
+        text: "Super is the Windows or Command key. These shortcuts come from your running Hyprland configuration; Familiar does not replace your bindings."
         textFormat: Text.PlainText
         wrapMode: Text.WordWrap
         font.family: Style.font.family

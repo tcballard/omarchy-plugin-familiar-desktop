@@ -1,6 +1,6 @@
-# Familiar v0.1.0-rc.2 — XPS acceptance
+# Familiar v0.1.0 final candidate — XPS acceptance
 
-This is the v0.1.0 desktop candidate. Automated tests use fixtures; this checklist records actual Omarchy/Hyprland behavior. It does not include Familiar Paint, a Windows taskbar redesign or a macOS window-preview redesign.
+This is the v0.1.0 desktop candidate. Automated tests use fixtures; this checklist records actual Omarchy/Hyprland behavior. The curated app collection and Open/Install shortcuts are deferred to v0.2.0. This candidate does not include a Windows taskbar redesign or macOS window previews.
 
 ## Install
 
@@ -17,7 +17,7 @@ The installer preserves pins/settings, refuses local source changes, verifies th
 ## Test in order
 
 1. **Basic launch:** open the computer icon. Settings appear centred; Escape, outside click and close button dismiss them. Repeat after a shell reload.
-2. **Getting Started:** open it, search shortcuts, and compare one customized binding with your actual configuration. Open Settings and Task Manager. OmaStore is unavailable unless `omastore` is installed on PATH. Troubleshooting opens the browser.
+2. **Getting Started:** open it, search shortcuts, and compare one customized binding with your actual configuration. Open System settings and Troubleshooting. There must be no OmaStore, Task Manager, Paint, Notepad or app-install buttons in Getting Started; existing apps remain launchable through the ordinary dock.
 3. **Sizing:** choose Default, Large and Extra large for dock and title bars. Try Windows/Mac/General layouts. Reopen settings and reload the shell; size and pins should persist. Theme/Off must stay respected.
 4. **Show Desktop:** open two disposable windows on visible workspaces, minimise a third, then Show desktop. Restore windows returns the first two to their original workspaces and leaves the already-minimised third alone. Repeat across monitors; manually restore one window, then Restore windows must leave it where you put it.
 5. **Window controls:** minimise/restore, drag, maximise, arrange left/right, Bring here and next monitor. Check a CSD app and fullscreen. Close selected window must affect only that window.

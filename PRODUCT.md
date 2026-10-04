@@ -90,3 +90,11 @@ Opt-in Caps Lock / Compose / Use configuration control in Familiar settings.
 Adapts the behaviour proposed in omacom/omarchy#12752 without requiring that
 upstream core change. Preserves non-Caps keyboard options and input.lua; requires
 live XPS acceptance of keymaps, persistence and reset.
+
+## Release scope agreed 4 October 2026
+
+v0.1.0 is the core desktop release: app/window dock, General/Windows/Mac starting layouts, optional title bars, centred settings, window arrangement and recovery, Show Desktop/Restore, size controls, Quit/confirmed Force Quit, active shortcut help, file shortcuts and opt-in Caps Lock behavior. Getting Started exposes System settings and Troubleshooting only. No curated app collection, package installer, compulsory app/theme bundle or new global shortcuts.
+
+v0.2.0 is the planned curated front door: Open for installed apps, Install only for apps with a verified package and supported installation path. Initial candidates are Paint, Notepad, Task Manager and selected tools such as Postcard. Their package status must be verified individually; inclusion here is a plan, not a claim that packages exist. Existing dock app launching remains in v0.1.0. Backend tool commands are retained for compatibility but are not surfaced as a companion collection.
+
+Publication target: Monday 5 October 2026, after green candidate CI and source-bound XPS acceptance. Version 0.1.0 in source is not a release announcement.

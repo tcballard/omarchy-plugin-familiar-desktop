@@ -1,7 +1,7 @@
 <h1 align="center">Familiar Desktop</h1>
 
 <p align="center">
-  <a href="https://github.com/tcballard/omarchy-badges"><img src="https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg" alt="Built for Omarchy: Plugin" height="24"></a>
+  <a href="https://github.com/tcballard/omarchy-badges"><img src="https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg" alt="Built for Omarchy: Plugin" height="20"></a>
 </p>
 
 <p align="center"><strong>Find your apps and the right window without learning a new desktop first.</strong></p>
@@ -14,8 +14,8 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## v0.1.0 test candidate
 
-This branch prepares **v0.1.0-rc.2** for XPS testing. It adds Show Desktop/Restore
-windows, Getting Started with active shortcuts and companion-app entry points,
+This branch prepares **v0.1.0 (not yet published)** for XPS testing. It adds Show Desktop/Restore
+windows, Getting Started with active shortcuts and system settings,
 larger dock/title-bar controls, separate Quit/confirmed Force Quit actions, and
 an opt-in Caps Lock behaviour preference.
 
@@ -25,7 +25,11 @@ left-side controls). The bundle installer pins the exact tested commit; no tag
 or stable v0.1.0 release is implied. See [the XPS test and rollback guide](docs/XPS-TEST.md).
 
 Live Omarchy acceptance remains outstanding. Restore windows before disabling,
-removing or downgrading the candidate. Familiar Paint remains a separate project.
+removing or downgrading the candidate. The curated app collection (Open/Install
+shortcuts for Paint, Notepad, Task Manager and selected tools) is deferred to
+**v0.2.0**, once each app has a verified package. Installed apps still work with
+the existing dock. See [release preparation](docs/RELEASE-0.1.0.md) and the
+[release-note draft](docs/v0.1.0.md).
 
 ## Published v0.0.6 install
 

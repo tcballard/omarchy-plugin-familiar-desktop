@@ -7,7 +7,7 @@ try {
  fs.writeFileSync(path.join(tools,'curl'),'#!/bin/bash\nfor arg; do [[ "$arg" != https://* ]] || url="$arg"; done\ncp -- "$ASSETS/${url##*/}" "${@: -1}"\n',{mode:0o755});
  for(const name of ['cargo','rustup','clippy','cc','make'])fs.writeFileSync(path.join(tools,name),'#!/bin/bash\necho "Unexpected development dependency" >&2; exit 99\n',{mode:0o755});
  const p=spawnSync('/bin/bash',[path.join(root,'install-backend.sh')],{encoding:'utf8',env:{HOME:root,PATH:tools+':/usr/bin:/bin',ASSETS:path.resolve('release-assets')}});
- assert.equal(p.status,0,p.stderr);assert.match(p.stdout,/0\.1\.0-rc\.1 installed and SHA-256 verified/);
+ assert.equal(p.status,0,p.stderr);assert.match(p.stdout,/0\.1\.0-rc\.2 installed and SHA-256 verified/);
  const installed=spawnSync(path.join(root,'bin/familiar-desktop'),['--version'],{encoding:'utf8',env:{HOME:root,PATH:'/usr/bin:/bin'}});
  assert.equal(installed.status,0,installed.stderr);assert.equal(installed.stdout.trim(),'familiar-desktop 0.1.0-rc.2');
  fs.copyFileSync('install-titlebars.sh',path.join(root,'install-titlebars.sh'));

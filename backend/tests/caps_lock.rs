@@ -1,5 +1,13 @@
-use familiar_desktop::{Result, caps_lock::{self, Paths}, common::Hypr};
-use std::{fs, os::unix::fs::{PermissionsExt, symlink}, process::Command};
+use familiar_desktop::{
+    Result,
+    caps_lock::{self, Paths},
+    common::Hypr,
+};
+use std::{
+    fs,
+    os::unix::fs::{PermissionsExt, symlink},
+    process::Command,
+};
 
 #[derive(Default)]
 struct FakeHypr {
@@ -10,7 +18,8 @@ struct FakeHypr {
 }
 impl Hypr for FakeHypr {
     fn command(&mut self, args: &[&str]) -> Result<String> {
-        self.calls.push(args.iter().map(|s| s.to_string()).collect());
+        self.calls
+            .push(args.iter().map(|s| s.to_string()).collect());
         if args == ["reload"] && self.fail_reload {
             self.fail_reload = false;
             return Err("fixture reload failure".into());
@@ -47,7 +56,10 @@ fn status_and_invalid_requests_never_mutate_or_reload() {
     let (_dir, p) = fixture();
     let before = fs::read(&p.config).unwrap();
     let mut h = FakeHypr::default();
-    assert_eq!(caps_lock::change("status", &p, &mut h).unwrap()["mode"], "reset");
+    assert_eq!(
+        caps_lock::change("status", &p, &mut h).unwrap()["mode"],
+        "reset"
+    );
     assert!(!p.state.exists());
     assert!(caps_lock::change("bad", &p, &mut h).is_err());
     assert_eq!(fs::read(&p.config).unwrap(), before);
@@ -65,14 +77,26 @@ fn choices_persist_preserve_personal_content_and_reset_exactly() {
         let result = caps_lock::change(mode, &p, &mut h).unwrap();
         assert_eq!(result["mode"], mode);
         let current = fs::read_to_string(&p.config).unwrap();
-        assert_eq!(caps_lock::split(&current, &p.manifest).unwrap(), (before.clone(), mode.into()));
-        assert_eq!(fs::metadata(&p.config).unwrap().permissions().mode() & 0o777, 0o640);
-        assert_eq!(caps_lock::change("status", &p, &mut h).unwrap()["mode"], mode);
+        assert_eq!(
+            caps_lock::split(&current, &p.manifest).unwrap(),
+            (before.clone(), mode.into())
+        );
+        assert_eq!(
+            fs::metadata(&p.config).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+        assert_eq!(
+            caps_lock::change("status", &p, &mut h).unwrap()["mode"],
+            mode
+        );
     }
     caps_lock::change("reset", &p, &mut h).unwrap();
     caps_lock::change("reset", &p, &mut h).unwrap();
     assert_eq!(fs::read_to_string(&p.config).unwrap(), before);
-    assert_eq!(fs::read_to_string(input).unwrap(), "-- custom UK keyboard and AltGr");
+    assert_eq!(
+        fs::read_to_string(input).unwrap(),
+        "-- custom UK keyboard and AltGr"
+    );
 }
 
 #[test]
@@ -85,7 +109,10 @@ fn reset_preserves_later_user_edits_and_handles_no_trailing_newline() {
     text.push_str("\n-- later personal change\n");
     fs::write(&p.config, text).unwrap();
     caps_lock::change("reset", &p, &mut h).unwrap();
-    assert_eq!(fs::read_to_string(&p.config).unwrap(), "-- no trailing newline\n-- later personal change\n");
+    assert_eq!(
+        fs::read_to_string(&p.config).unwrap(),
+        "-- no trailing newline\n-- later personal change\n"
+    );
 }
 
 #[test]
@@ -97,9 +124,16 @@ fn reload_or_configuration_failure_restores_previous_choice() {
         let before = fs::read(&p.config).unwrap();
         h.fail_reload = !config_error;
         h.config_error = config_error;
-        assert!(caps_lock::change("compose", &p, &mut h).unwrap_err().contains("Previous configuration restored"));
+        assert!(
+            caps_lock::change("compose", &p, &mut h)
+                .unwrap_err()
+                .contains("Previous configuration restored")
+        );
         assert_eq!(fs::read(&p.config).unwrap(), before);
-        assert_eq!(caps_lock::change("status", &p, &mut h).unwrap()["mode"], "normal");
+        assert_eq!(
+            caps_lock::change("status", &p, &mut h).unwrap()["mode"],
+            "normal"
+        );
     }
 }
 
@@ -130,7 +164,12 @@ fn missing_symlink_and_nonregular_config_fail_closed() {
     assert!(caps_lock::change("normal", &p, &mut h).is_err());
     symlink("missing-target", &p.config).unwrap();
     assert!(caps_lock::change("normal", &p, &mut h).is_err());
-    assert!(fs::symlink_metadata(&p.config).unwrap().file_type().is_symlink());
+    assert!(
+        fs::symlink_metadata(&p.config)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
     fs::remove_file(&p.config).unwrap();
     fs::create_dir(&p.config).unwrap();
     assert!(caps_lock::change("normal", &p, &mut h).is_err());
@@ -141,7 +180,10 @@ fn missing_symlink_and_nonregular_config_fail_closed() {
 fn incompatible_compositor_keeps_config_unchanged() {
     let (_dir, p) = fixture();
     let before = fs::read(&p.config).unwrap();
-    let mut h = FakeHypr { fail_probe: true, ..Default::default() };
+    let mut h = FakeHypr {
+        fail_probe: true,
+        ..Default::default()
+    };
     assert!(caps_lock::change("normal", &p, &mut h).is_err());
     assert_eq!(fs::read(&p.config).unwrap(), before);
 }
@@ -154,7 +196,8 @@ fn generated_lua_preserves_altgr_other_compose_and_layout_options() {
         let hook = dir.path().join("hook.lua");
         fs::write(&hook, caps_lock::hook(mode, &p.manifest).unwrap()).unwrap();
         let harness = dir.path().join("check.lua");
-        let script = format!(r#"
+        let script = format!(
+            r#"
 local hook = {}
 for _, fixture in ipairs({{
   {{"compose:caps,shift:both_capslock_cancel,grp:alts_toggle,lv3:ralt_switch", "grp:alts_toggle,lv3:ralt_switch,{wanted}"}},
@@ -175,9 +218,18 @@ io.open = function() return nil end
 hl = {{ get_config = function() error("removed plugin read config") end,
   config = function() error("removed plugin changed config") end }}
 dofile(hook)
-"#, familiar_desktop::common::lua(&hook.to_string_lossy()));
+"#,
+            familiar_desktop::common::lua(&hook.to_string_lossy())
+        );
         fs::write(&harness, script).unwrap();
-        let output = Command::new("lua").arg(&harness).output().expect("Install Lua for development tests");
-        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let output = Command::new("lua")
+            .arg(&harness)
+            .output()
+            .expect("Install Lua for development tests");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

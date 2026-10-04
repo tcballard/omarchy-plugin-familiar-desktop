@@ -1,4 +1,4 @@
-# Familiar v0.1.0-rc.1 — XPS acceptance
+# Familiar v0.1.0-rc.2 — XPS acceptance
 
 This is the v0.1.0 desktop candidate. Automated tests use fixtures; this checklist records actual Omarchy/Hyprland behavior. It does not include Familiar Paint, a Windows taskbar redesign or a macOS window-preview redesign.
 
@@ -26,6 +26,8 @@ The installer preserves pins/settings, refuses local source changes, verifies th
 
 Record plugin commit (`git -C ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop rev-parse HEAD`), `hyprctl version`, monitor/scale, step and observed result. Never report fixture tests as this live acceptance.
 
+8. **Caps Lock:** in Familiar settings, select Normal Caps Lock and type in disposable native Wayland and XWayland apps: Caps on/off and Shift must behave normally. Check UK AltGr and your layout-switch shortcut still work, except a shortcut that itself used Caps Lock. Select Compose and test a known configured sequence. Select Use configuration and verify your original mapping returns. Repeat after Hyprland reload and login; record each separately. Per-device overrides may take precedence—test built-in and external keyboards if available. Confirm `input.lua` is byte-for-byte unchanged and only Familiar’s marked block changes in `hyprland.lua`. Changing the Familiar layout must not change this preference. A symlinked main config should be refused unchanged.
+
 ## Recovery and rollback
 
 Restore windows even when the dock is unavailable:
@@ -34,7 +36,7 @@ Restore windows even when the dock is unavailable:
 ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop desktop restore
 ```
 
-Run that before disabling, downgrading or removing the candidate. The recovery journal is kept at `${XDG_STATE_HOME:-~/.local/state}/omarchy/familiar-desktop-recovery.json`. It survives shell reloads; it never replays identities across compositor restarts. A failed restore retains remaining entries for retry. Manually moved or closed windows are skipped. Pinned windows and special workspaces are not hidden. Tiling order may differ after restoration.
+Run that before disabling, downgrading or removing the candidate. Also choose **Use configuration** for Caps Lock before downgrade/removal, or run `~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop caps-lock reset`. The recovery journal is kept at `${XDG_STATE_HOME:-~/.local/state}/omarchy/familiar-desktop-recovery.json`. It survives shell reloads; it never replays identities across compositor restarts. A failed restore retains remaining entries for retry. Manually moved or closed windows are skipped. Pinned windows and special workspaces are not hidden. Tiling order may differ after restoration.
 
 To return to the published v0.0.6 after restoring windows:
 

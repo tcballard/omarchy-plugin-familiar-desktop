@@ -6,7 +6,7 @@ main() {
 plugin_id='io.github.tcballard.familiar-desktop'
 plugin_dir="$HOME/.config/omarchy/plugins/$plugin_id"
 repository='https://github.com/tcballard/omarchy-plugin-familiar-desktop.git'
-release='v0.1.0-rc.1'
+release='v0.1.0-rc.2'
 style="${1:-mac}"
 if [[ $# -gt 1 || ( "$style" != mac && "$style" != windows ) ]]; then
   echo 'Usage: bash install.sh [mac|windows]' >&2

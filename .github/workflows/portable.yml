@@ -28,6 +28,8 @@ jobs:
         with:
           name: familiar-format-diagnostic
           path: /tmp/familiar-format.patch
+      - name: Install Lua for keyboard configuration tests
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
       - run: tests/run
       - run: cargo fmt --manifest-path backend/Cargo.toml -- --check
       - run: cargo clippy --manifest-path backend/Cargo.toml --all-targets --locked -- -D warnings

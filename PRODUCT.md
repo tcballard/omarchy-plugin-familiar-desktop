@@ -83,3 +83,10 @@ The test bundle installer pins its source SHA and verifies prebuilt assets.
 Getting Started opens existing tools only. Companion installation, a true
 Windows taskbar, Mac previews and Familiar Paint are outside this desktop
 candidate. Live XPS acceptance in docs/XPS-TEST.md remains the next gate.
+
+## v0.1.0-rc.2 addition
+
+Opt-in Caps Lock / Compose / Use configuration control in Familiar settings.
+Adapts the behaviour proposed in omacom/omarchy#12752 without requiring that
+upstream core change. Preserves non-Caps keyboard options and input.lua; requires
+live XPS acceptance of keymaps, persistence and reset.

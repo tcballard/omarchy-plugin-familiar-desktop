@@ -45,6 +45,9 @@ BarWidget {
   property bool showBadges: true
   property bool widgetsEnabled: true
   readonly property bool settingsOpen: settingsWindow.open
+  onSettingsOpenChanged: {
+    if (settingsOpen && desktopService && desktopService.capsLock) desktopService.capsLock.run("status")
+  }
   property bool isSavingSettings: false
 
   Timer {
@@ -465,6 +468,11 @@ BarWidget {
               }
             }
           }
+        }
+
+        CapsLockSettings {
+          Layout.fillWidth: true
+          controller: root.desktopService ? root.desktopService.capsLock : null
         }
 
         // Window controls share this plugin's settings and minimise/restore path.

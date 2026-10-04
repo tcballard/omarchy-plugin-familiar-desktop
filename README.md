@@ -14,11 +14,12 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## v0.1.0 test candidate
 
-This branch prepares **v0.1.0-rc.1** for XPS testing. It adds Show Desktop/Restore
+This branch prepares **v0.1.0-rc.2** for XPS testing. It adds Show Desktop/Restore
 windows, Getting Started with active shortcuts and companion-app entry points,
-larger dock/title-bar controls, and separate Quit/confirmed Force Quit actions.
+larger dock/title-bar controls, separate Quit/confirmed Force Quit actions, and
+an opt-in Caps Lock behaviour preference.
 
-Use the prebuilt candidate bundle from [PR #12](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/12)
+Use the prebuilt candidate bundle from this branch’s successful **Release binaries** workflow
 and run `bash install-candidate.sh windows` from its extracted folder (`mac` for
 left-side controls). The bundle installer pins the exact tested commit; no tag
 or stable v0.1.0 release is implied. See [the XPS test and rollback guide](docs/XPS-TEST.md).
@@ -178,3 +179,26 @@ window menu or the file shortcuts' hover tooltip. The version-pinned installer s
 ### Development builds
 
 Only contributors building from source need Rust 1.88+ and Cargo. Run `bash build.sh` explicitly. Clippy and Qt tests run in CI; the normal installer never requests them. Release CI builds Hyprbars against a dated Arch package snapshot and verifies its header ABI, alongside a static Linux x86_64 backend. It tests it without a toolchain on PATH, and publishes it with checksums and source manifests.
+
+### Caps Lock behaviour
+
+In Familiar settings choose **Normal Caps Lock**, **Compose key**, or **Use
+configuration**. Opening settings or switching a layout does not change your
+keyboard. Normal Caps Lock toggles capitals; Compose uses Caps Lock for
+special-character sequences. AltGr/Right Alt, Compose on other keys and unrelated
+keyboard options remain intact. Caps-based layout switches and the both-Shift
+Caps Lock shortcut are replaced. Per-device overrides still take precedence.
+
+The explicit preference adds a marked block at the end of
+`~/.config/hypr/hyprland.lua` (or `$XDG_CONFIG_HOME/hypr/hyprland.lua`). It reads the
+configured keyboard options on each reload and login; `input.lua` and Omarchy
+core files are never edited. Familiar checks the reload and restores the previous
+configuration if applying the preference fails. Backups are kept under
+`${XDG_STATE_HOME:-~/.local/state}/omarchy/familiar-caps-lock/`.
+
+**Use configuration** removes only that block and reloads your current personal
+configuration. The preference persists when the Familiar UI is disabled; reset it
+before downgrading or removing Familiar. If the plugin is removed without reset,
+the block becomes inactive when Hyprland next reloads because the plugin manifest
+is absent. Edited/damaged blocks and symlinked main configs are refused rather than
+overwritten. See [the Caps Lock guide](docs/CAPS-LOCK.md) for recovery and testing.

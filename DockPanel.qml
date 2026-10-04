@@ -269,6 +269,9 @@ Item {
         }
     }
 
+    readonly property var capsLock: capsLockController
+    CapsLockController { id: capsLockController }
+
     readonly property var desktopTools: desktopToolsAdapter
     DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
 

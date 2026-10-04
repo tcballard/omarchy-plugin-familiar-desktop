@@ -9,7 +9,7 @@ try {
  const p=spawnSync('/bin/bash',[path.join(root,'install-backend.sh')],{encoding:'utf8',env:{HOME:root,PATH:tools+':/usr/bin:/bin',ASSETS:path.resolve('release-assets')}});
  assert.equal(p.status,0,p.stderr);assert.match(p.stdout,/0\.1\.0-rc\.1 installed and SHA-256 verified/);
  const installed=spawnSync(path.join(root,'bin/familiar-desktop'),['--version'],{encoding:'utf8',env:{HOME:root,PATH:'/usr/bin:/bin'}});
- assert.equal(installed.status,0,installed.stderr);assert.equal(installed.stdout.trim(),'familiar-desktop 0.1.0-rc.1');
+ assert.equal(installed.status,0,installed.stderr);assert.equal(installed.stdout.trim(),'familiar-desktop 0.1.0-rc.2');
  fs.copyFileSync('install-titlebars.sh',path.join(root,'install-titlebars.sh'));
  const abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6';
  fs.writeFileSync(path.join(tools,'hyprctl'),`#!/bin/bash\necho 'Version ABI string: ${abi}'\n`,{mode:0o755});

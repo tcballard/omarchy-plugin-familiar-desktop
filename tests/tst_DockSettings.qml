@@ -8,11 +8,50 @@ TestCase {
     function test_defaultsPreserveCurrentBehavior() {
         var settings = DockSettings.normalize({})
         compare(settings.profile, "general")
+        compare(settings.dockPosition, "auto")
         compare(settings.visibilityMode, "always")
         compare(settings.overlayMode, false)
         compare(settings.visibleWorkspace, "all")
         compare(settings.titlebarsEnabled, false)
         compare(settings.titlebarMode, "theme")
+    }
+
+    function test_dockPosition_data() {
+        var rows = []
+        var edges = ["top", "bottom", "left", "right"]
+        var opposite = ["bottom", "top", "right", "left"]
+        var profiles = ["general", "windows", "mac"]
+        var positions = ["auto", "bottom", "left", "right"]
+        for (var p = 0; p < profiles.length; p++) {
+            for (var b = 0; b < edges.length; b++) {
+                for (var d = 0; d < positions.length; d++) {
+                    var requested = positions[d] === "auto"
+                        ? (profiles[p] === "general" ? opposite[b] : "bottom") : positions[d]
+                    rows.push({tag: profiles[p] + "-" + edges[b] + "-" + positions[d],
+                        profile: profiles[p], bar: edges[b], position: positions[d],
+                        expected: requested === edges[b] ? opposite[b] : requested})
+                }
+            }
+        }
+        return rows
+    }
+
+    function test_dockPosition(data) {
+        var edge = DockSettings.resolveDockPosition(data.position, data.profile, data.bar)
+        compare(edge, data.expected)
+        verify(edge !== data.bar)
+    }
+
+    function test_invalidPositionAndLegacySettings() {
+        var invalid = [undefined, null, "", "top", "sideways", {}, 42]
+        for (var i = 0; i < invalid.length; i++) {
+            compare(DockSettings.normalize({dockPosition: invalid[i]}).dockPosition, "auto")
+            compare(DockSettings.resolveDockPosition(invalid[i], "general", "right"), "left")
+        }
+        compare(DockSettings.resolveDockPosition("auto", "general", "unknown"), "bottom")
+        compare(DockSettings.resolveDockPosition("left", "mac", "left"), "right")
+        compare(DockSettings.resolveDockPosition("left", "mac", "top"), "left")
+        verify(DockSettings.profileDefaults("mac").dockPosition === undefined)
     }
 
     function test_profilePresetsPreserveIndependentWidgetChoices() {

@@ -74,5 +74,25 @@ for (const filename of ['DockPanel.qml', 'BarWidget.qml']) {
   assert.equal(root.titlebarMode, "theme");
   context.saveSettings();
   assert.equal(JSON.parse(disk).titlebarMode, "theme");
+  // Exercise both real readers/writers: old files migrate to Automatic; each
+  // explicit choice survives unrelated edits and a fresh reader state.
+  for (const position of ['auto', 'bottom', 'left', 'right']) {
+    root.isSavingSettings = false;
+    disk = JSON.stringify({ dockPosition: position, profile: 'mac', dockWidgets: selection });
+    context.readSettings();
+    assert.equal(root.dockPosition, position);
+    root.showBadges = false;
+    context.saveSettings();
+    assert.equal(JSON.parse(disk).dockPosition, position);
+    root.isSavingSettings = false;
+    root.dockPosition = 'discarded';
+    context.readSettings();
+    assert.equal(root.dockPosition, position);
+  }
+  root.isSavingSettings = false;
+  disk = '{}';
+  context.readSettings();
+  assert.equal(root.dockPosition, 'auto');
 }
 console.log('both QML settings handlers preserve disabled widget selections: passed');
+console.log('both QML settings handlers preserve dock position: passed');

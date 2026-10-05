@@ -111,7 +111,9 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 | **Windows** | Bottom when the bar is elsewhere | Always visible | Reserves space |
 | **Mac** | Bottom when the bar is elsewhere | Reveals on hover | Overlays windows |
 
-If your Omarchy bar is already at the bottom, the dock uses the opposite edge to avoid an overlap. The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
+In **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
+
+The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
 
 ## Controls
 

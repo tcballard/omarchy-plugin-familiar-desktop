@@ -57,6 +57,8 @@ Settings, pins, badges and recovery journal are retained. Companion apps and unr
 
 ## Dock selection and visual controls retest
 
+- In **Dock → Dock position**, choose Bottom, Left and Right. Check vertical icons, file shortcuts, widgets, app menus, folder menus and hover hints at each edge. Open a menu before moving the dock: it must dismiss. Check reserve-space and overlay modes, plus hover reveal on the new edge (the old edge must stop responding).
+- Reopen settings, change General/Windows/Mac layout, then restart the shell: the explicit position must persist. Select Automatic to restore preset placement. Put Omarchy’s bar on the requested edge: the dock must move opposite with an explanation in settings, then return to your requested edge when the bar moves away. Check both monitors and 200% scale where available.
 - Add Apps, Clock, Audio and two plugin widgets. All switches must stay selected; close/reopen the picker and restart the shell, then check them again. Remove only Audio and confirm every other selection remains. Disable/re-enable dock widgets and confirm the selection survives.
 - Switch between a light and dark theme. The dock background and widget text follow the bar palette; title-bar background/text follow popup tokens unless the theme explicitly overrides them.
 - Mac controls: circular traffic lights, crisp dark marks on hover, expand arrows instead of a plus. Windows controls: rounded-square buttons with close/minimise/maximise paths. Verify clicks at 100%, 150% and 200% scale, including moving between differently scaled monitors.

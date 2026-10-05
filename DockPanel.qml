@@ -43,23 +43,14 @@ Item {
         return false
     }
 
-    // Live bar position (only used to position the dock on the opposite side of the screen)
-    property string barPosition: {
-        var actual = (shell && shell.bar && shell.bar.position) ? shell.bar.position : detectedBarPosition
-        // The familiar layouts prefer the bottom; respect an existing bottom
-        // bar by falling back to the opposite edge instead of overlapping it.
-        return root.profile !== "general" && actual !== "bottom" ? "top" : actual
-    }
-    readonly property bool isVertical: barPosition === "left" || barPosition === "right"
-
-    // Live dock edge on screen (opposite to system status bar)
-    readonly property string dockScreenPosition: {
-        if (root.barPosition === "top") return "bottom"
-        if (root.barPosition === "bottom") return "top"
-        if (root.barPosition === "left") return "right"
-        if (root.barPosition === "right") return "left"
-        return "bottom"
-    }
+    readonly property string systemBarPosition: (shell && shell.bar && shell.bar.position)
+        ? shell.bar.position : detectedBarPosition
+    readonly property string dockScreenPosition: DockSettings.resolveDockPosition(
+        root.dockPosition, root.profile, root.systemBarPosition)
+    readonly property bool isVertical: dockScreenPosition === "left" || dockScreenPosition === "right"
+    // Existing surfaces, animations and menus use the opposite edge as their
+    // layout origin. It is independent of the real system bar for manual placement.
+    readonly property string barPosition: DockSettings.oppositeEdge(dockScreenPosition)
 
     // Live Bar & Tray Transparency Tracking (Auto-syncs dock with bar & tray glassmorphism)
     readonly property bool isBarTransparent: {
@@ -434,6 +425,7 @@ Item {
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
     property string dockSize: "default"
+    property string dockPosition: "auto"
     property string titlebarSize: "default"
     property bool titlebarsEnabled: false
     property string titlebarMode: "theme"
@@ -1033,6 +1025,7 @@ Item {
                 root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
                 var normalized = DockSettings.normalize(s)
                 root.profile = normalized.profile
+                root.dockPosition = normalized.dockPosition
                 root.dockSize = normalized.dockSize
                 root.titlebarSize = normalized.titlebarSize
                 root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -1094,6 +1087,7 @@ Item {
         saveSettingsTimer.restart()
         var jsonStr = JSON.stringify({
             profile: root.profile,
+            dockPosition: root.dockPosition,
             dockSize: root.dockSize,
             titlebarSize: root.titlebarSize,
             titlebarsEnabled: root.titlebarsEnabled,
@@ -1650,6 +1644,12 @@ Item {
     property string lastRemapBarPosition: ""
     onBarPositionChanged: {
         if (root.lastRemapBarPosition !== root.barPosition) {
+            if (root.lastRemapBarPosition !== "") {
+                root.closePopups()
+                root.contextAppId = ""
+                root.dockDragActiveIndex = -1
+                root.dockDragTargetIndex = -1
+            }
             root.lastRemapBarPosition = root.barPosition
             // Drop the sticky hover flag before the surfaces are rebuilt: the
             // pointer cannot be over a dock that does not exist yet, and the

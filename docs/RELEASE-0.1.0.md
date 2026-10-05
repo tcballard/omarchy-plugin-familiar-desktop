@@ -4,7 +4,7 @@ Target: Monday 5 October 2026 (UK). This document prepares the release; it does 
 
 ## Frozen scope
 
-Core desktop only: dock and named windows; three layout presets; optional title bars; centred settings; window arrangement and recovery; Show Desktop/Restore; dock/title-bar sizes; Quit/confirmed Force Quit; active shortcuts; optional file shortcuts; explicit Caps Lock/Compose preference.
+Core desktop only: dock and named windows; three layout presets; Automatic/Bottom/Left/Right dock placement; optional title bars; centred settings; window arrangement and recovery; Show Desktop/Restore; dock/title-bar sizes; Quit/confirmed Force Quit; active shortcuts; optional file shortcuts; explicit Caps Lock/Compose preference.
 
 Getting Started contains System settings and Troubleshooting. The v0.2.0 app collection will expose Open for installed apps and Install only after a supported package is verified. No Paint, Notepad, Task Manager, OmaStore or Postcard installation is part of v0.1.0. These apps are not release dependencies.
 

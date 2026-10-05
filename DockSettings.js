@@ -14,6 +14,23 @@ function normalizeProfile(value) {
     return profile === PROFILE_WINDOWS || profile === PROFILE_MAC ? profile : PROFILE_GENERAL
 }
 
+function normalizeDockPosition(value) {
+    return ["bottom", "left", "right"].indexOf(value) !== -1 ? value : "auto"
+}
+
+function oppositeEdge(edge) {
+    return ({ top: "bottom", bottom: "top", left: "right", right: "left" })[edge] || "bottom"
+}
+
+function resolveDockPosition(value, profile, barPosition) {
+    var bar = ["top", "bottom", "left", "right"].indexOf(barPosition) !== -1 ? barPosition : "top"
+    var requested = normalizeDockPosition(value)
+    if (requested === "auto")
+        requested = normalizeProfile(profile) === PROFILE_GENERAL ? oppositeEdge(bar) : "bottom"
+    // Retain the preference so it takes effect again when the system bar moves.
+    return requested === bar ? oppositeEdge(bar) : requested
+}
+
 // A preset is applied only when selected. Subsequent manual adjustments are
 // preserved until another preset is selected.
 function profileDefaults(value) {
@@ -64,6 +81,7 @@ function normalize(raw) {
     var settings = raw && typeof raw === "object" ? raw : {}
     return {
         profile: normalizeProfile(settings.profile),
+        dockPosition: normalizeDockPosition(settings.dockPosition),
         dockSize: normalizeSize(settings.dockSize),
         titlebarSize: normalizeSize(settings.titlebarSize),
         titlebarsEnabled: settings.titlebarsEnabled === true,

@@ -21,6 +21,7 @@ BarWidget {
   property bool fileShortcutsEnabled: false
   property bool dockEnabled: true
   property string dockSize: "default"
+  property string dockPosition: "auto"
   property string titlebarSize: "default"
   property bool titlebarsEnabled: false
   property string titlebarMode: "theme"
@@ -90,6 +91,7 @@ BarWidget {
         root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
         var normalized = DockSettings.normalize(s)
         root.profile = normalized.profile
+        root.dockPosition = normalized.dockPosition
         root.dockSize = normalized.dockSize
         root.titlebarSize = normalized.titlebarSize
         root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -148,6 +150,7 @@ BarWidget {
 
     s.dockEnabled = root.dockEnabled
     s.profile = root.profile
+    s.dockPosition = root.dockPosition
     s.dockSize = root.dockSize
     s.titlebarSize = root.titlebarSize
     s.titlebarsEnabled = root.titlebarsEnabled
@@ -710,6 +713,35 @@ BarWidget {
               root.setDockEnabled(!root.dockEnabled)
             }
           }
+        }
+
+        DockDropdown {
+          Layout.fillWidth: true
+          label: "Dock position"
+          value: root.dockPosition
+          options: [
+            { value: "auto", label: "Automatic (layout default)" },
+            { value: "bottom", label: "Bottom" },
+            { value: "left", label: "Left" },
+            { value: "right", label: "Right" }
+          ]
+          onChanged: function(value) {
+            root.dockPosition = DockSettings.normalizeDockPosition(value)
+            root.saveSettings()
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: root.dockPosition !== "auto" && root.desktopService
+              && root.desktopService.dockScreenPosition !== root.dockPosition
+              ? "Omarchy’s bar uses that edge. The dock uses the opposite edge until it is free."
+              : "Your position choice is kept when you change layouts. Automatic follows the layout default."
+          textFormat: Text.PlainText
+          wrapMode: Text.WordWrap
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          color: Color.muted
         }
 
         // 2. Visible Workspace Dropdown

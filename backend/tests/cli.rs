@@ -129,7 +129,20 @@ fn executable_badges_save_and_usage_errors_have_bounded_json() {
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
-    match fs::read(format!("/proc/{}/cmdline", child.id())) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let command_line = loop {
+        let result = fs::read(format!("/proc/{}/cmdline", child.id()));
+        if result
+            .as_ref()
+            .is_ok_and(|bytes| bytes.split(|b| *b == 0).filter(|s| !s.is_empty()).count() < 2)
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            continue;
+        }
+        break result;
+    };
+    match command_line {
         Ok(command_line) => {
             let arguments: Vec<_> = command_line
                 .split(|b| *b == 0)

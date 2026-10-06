@@ -24,17 +24,17 @@ Familiar opens its setup screen automatically. Choose Windows or Mac controls an
 
 You can close setup and reopen it from Familiar's computer icon in the bar. Existing complete installations skip the setup screen. **Windows → Set up or repair window controls** opens the same flow later. Personal settings and pinned apps are retained; choosing a starting layout applies that layout's dock defaults.
 
-This first-run flow is the next-release candidate on main. The published [v0.1.1 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.1) retains its verified standalone installer. The new native-install path requires live XPS acceptance before the next release.
+The maintainer tested v0.1.1-rc.4 on the XPS and accepted its in-plugin setup for v0.1.2. The stable release changes version and release metadata, with no runtime behaviour changes after that acceptance.
 
 Setup requires the standard Omarchy tools (including curl, jq and coreutils), Linux x86_64 and the supported Hyprland ABI below. Missing tools or unsupported desktops are reported inside setup; it never opens a terminal or silently installs system packages. Both downloaded binaries must match `release-binaries.sha256` in the installed source. See [source identity and limits](docs/INSTALLER-SOURCE-PIN.md).
 
 ### Standalone release installer
 
-The version-pinned, checksum-verified command remains in the [v0.1.1 release notes](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.1).
+The [v0.1.2 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
 
 The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores windows on v0.1.0 updates, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 
-The maintainer tested v0.1.1-rc.3 on an XPS and approved that exact source for [v0.1.1](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.1). Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Settings navigation and scrolling will be improved in a later release ([#28](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/28)). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
+The maintainer accepted v0.1.1-rc.4 after XPS testing for [v0.1.2](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2). Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Settings navigation and scrolling will be improved in a later release ([#28](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/28)). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
 
@@ -54,9 +54,9 @@ by the app, rather than a separate desktop-entry app name.
 
 The installer above sets up both the dock and window controls. The installer downloads a verified prebuilt Hyprbars library for the supported Hyprland version; Hyprpm is not required.
 
-If Familiar is already installed, open **Window controls** in its bar settings,
-copy the one-time setup command, run it in a terminal, then select **Mac** or
-**Windows**, or **Theme**, and press **Refresh window controls**. Theme mode reads
+If Familiar is already installed, open **Windows → Set up or repair window controls**
+in its settings to run setup inside Familiar. Then select **Mac**, **Windows**,
+or **Theme**, and press **Refresh window controls**. Theme mode reads
 the active theme's [window-control defaults](docs/TITLEBAR-THEMES.md), including
 enablement, placement, font, sizes, colours and exclusions. The Familiar theme
 provides Windows defaults; themes without an enabled declaration leave bars off.
@@ -150,7 +150,7 @@ legacy migration and XPS acceptance.
 
 ## Updates and retained preferences
 
-Rerun the commit-pinned installation command above to install or repair v0.1.0. Use the installer from a newer release when upgrading. For removal, use the installed `uninstall.sh` shown above; the generic remove command alone does not perform the owned-configuration cleanup.
+Use Omarchy's plugin update flow to update the checkout, then open Familiar's in-app setup to install or repair the matching binaries. The standalone installer from the selected release remains available for recovery. For removal, use the installed `uninstall.sh` shown above; the generic remove command alone does not perform the owned-configuration cleanup.
 
 The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Dock settings only change Familiar Desktop; `shell.json` is read for bar placement and is never written by this plugin. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
@@ -160,7 +160,7 @@ If you moved bar widgets into the dock using an earlier development build, add t
 
 The manifest declares a hosted service and bar widget under `io.github.tcballard.familiar-desktop`. The source derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock) at commit `467070386fe60e173295020d3911176202b3e0c9` (MIT). This project has separate identity and settings while retaining that dock's window, monitor, folder and theme handling. See [the product record](PRODUCT.md) for the current scope and next milestones.
 
-Portable plugin validation and the tests in `tests/run` pass. The maintainer approved rc.5 after XPS testing. The preview is an isolated QML render. We do not claim exhaustive coverage of multi-monitor hotplug, mixed scaling, every application or fresh-profile install/removal. Marketplace verification remains separate from the release. Report bugs or suggest improvements through the [GitHub issue forms](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/new/choose); report sensitive security issues privately through the repository's GitHub security advisory feature.
+Portable plugin validation and the tests in `tests/run` pass. The maintainer accepted v0.1.1-rc.4 after XPS testing on 6 October 2026. The preview is an isolated QML render. We do not claim exhaustive coverage of multi-monitor hotplug, mixed scaling, every application or fresh-profile install/removal. Marketplace verification remains separate from the release. Report bugs or suggest improvements through the [GitHub issue forms](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/new/choose); report sensitive security issues privately through the repository's GitHub security advisory feature.
 
 On Omarchy, validate and test the checkout with:
 
@@ -216,11 +216,11 @@ the block becomes inactive when Hyprland next reloads because the plugin manifes
 is absent. Edited/damaged blocks and symlinked main configs are refused rather than
 overwritten. See [the Caps Lock guide](docs/CAPS-LOCK.md) for recovery and testing.
 
-## v0.1.1 in preparation
+## v0.1.2
 
-v0.1.1 candidates add window modes, pointer centring on dock activation, and repair without fetching source. See [candidate notes](docs/v0.1.1.md), [test/release gates](docs/RELEASE-0.1.1.md) and the [teaser audit](docs/VIDEO-AUDIT-0.1.1.md). The installation command above still installs stable v0.1.0; use a published prerelease bundle for candidate testing. The repository `install.sh` is now a CI template; use the generated candidate bundle for testing.
+Setup now stays inside Familiar. See [release notes](docs/v0.1.2.md) and [release evidence](docs/RELEASE-0.1.2.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.
 
-### Next v0.1.1 input changes (after rc.1)
+### Input preferences
 
 Settings → Input offers **Command / Option / Control** or **Super / Alt / Ctrl**
 labels. This changes Familiar’s shortcut display and search, not keybindings;
@@ -237,10 +237,9 @@ that setting in your system configuration. Smooth scrolling over an app with
 multiple windows cycles those windows, with accumulated motion to avoid jumping
 on every small trackpad event.
 
-These changes are not in rc.1. Live XPS gesture recognition, sensitivity and
-conflict/reload behaviour still need testing before the next release candidate.
+These preferences were introduced in v0.1.1. Exhaustive device-specific gesture, sensitivity and conflict coverage is not claimed.
 
-### Mouse resizing, desktop modes and Command behaviour (rc.2)
+### Mouse resizing, desktop modes and Command behaviour
 
 Windows → **Enable border dragging** lets you resize at window edges/corners
 without holding a key. **Floating** and **Tiling** now switch already open eligible

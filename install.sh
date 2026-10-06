@@ -7,7 +7,7 @@ main() {
 plugin_id='io.github.tcballard.familiar-desktop'
 plugin_dir="$HOME/.config/omarchy/plugins/$plugin_id"
 repository='https://github.com/tcballard/omarchy-plugin-familiar-desktop.git'
-release='v0.1.2'
+release='v0.1.3'
 # Release CI inserts the exact built commit into the standalone release asset.
 # The repository template intentionally refuses to install without this pin.
 release_sha='@SOURCE_SHA@'

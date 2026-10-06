@@ -227,3 +227,13 @@ pub fn save_badges(home: &Path, raw: &str) -> Result<Value> {
     )?;
     Ok(json!({"state":"ok"}))
 }
+
+/// Read private badge data from a bounded pipe, never the process argument list.
+pub fn save_badges_from_reader(home: &Path, reader: impl Read) -> Result<Value> {
+    let mut raw = String::new();
+    reader
+        .take((FILE_LIMIT + 1) as u64)
+        .read_to_string(&mut raw)
+        .map_err(|_| "Unable to read badge state".to_string())?;
+    save_badges(home, &raw)
+}

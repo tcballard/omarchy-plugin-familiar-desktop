@@ -34,6 +34,12 @@ Item {
     Process {
         id: saveProc
         running: false
+        property string payload: ""
+        onStarted: {
+            write(payload)
+            stdinEnabled = false
+            payload = ""
+        }
     }
 
     Timer {
@@ -49,7 +55,9 @@ Item {
                     urgent: tracker.canonicalUrgent
                 })
                 if (saveProc.running) { saveDebounceTimer.restart(); return }
-                saveProc.command = [Qt.resolvedUrl("../bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "badges", "save", jsonStr]
+                saveProc.command = [Qt.resolvedUrl("../bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "badges", "save", "--stdin"]
+                saveProc.payload = jsonStr
+                saveProc.stdinEnabled = true
                 saveProc.running = true
             } catch (e) {}
         }
@@ -331,7 +339,7 @@ Item {
 
     function snapshotKey(item) {
         if (!item) return ""
-        return item.app || item.appName || item.appIcon || item.summary || ""
+        return item.app || item.appName || item.appIcon || ""
     }
 
     function rebuildSnapshot() {
@@ -364,7 +372,7 @@ Item {
             for (var i = 0; i < tracker.knownWindows.length; i++) {
                 var win = tracker.knownWindows[i]
                 if (win && (win.active || win.activated)) {
-                    var winId = win.appId || win.title || ""
+                    var winId = win.appId || ""
                     if (toCanonical(winId) === targetCanonical) return true
                 }
             }
@@ -387,19 +395,8 @@ Item {
         // 1. Primary app target
         tracker.incrementBadge(appKey, 1, isCritical)
 
-        // 2. If sent from a browser — check summary for Web App / PWA name
-        var isBrowser = (appKey.indexOf("chrome") !== -1 || appKey.indexOf("chromium") !== -1 || appKey.indexOf("brave") !== -1 || appKey.indexOf("firefox") !== -1 || appKey.indexOf("edge") !== -1)
-        if (isBrowser) {
-            var sum = String(item.summary || "").trim()
-            if (sum) {
-                var cSum = tracker.toCanonical(sum)
-                if (cSum && cSum !== "chrome" && cSum !== "firefox" && cSum !== "browser") {
-                    if (!isAppCurrentlyActive(cSum)) {
-                        tracker.incrementBadge(cSum, 1, isCritical)
-                    }
-                }
-            }
-        }
+        // Notification summaries are message content, never application identities.
+        // Browser notifications retain the browser badge; PWAs use app metadata.
 
         rebuildSnapshot()
     }
@@ -478,7 +475,7 @@ Item {
             for (var i = 0; i < currentWindows.length; i++) {
                 var win = currentWindows[i]
                 if (!win) continue
-                var appIdentifier = win.appId || win.title || ""
+                var appIdentifier = win.appId || ""
                 var cKey = tracker.toCanonical(appIdentifier)
                 if (cKey && currentAppKeys.indexOf(cKey) === -1) {
                     currentAppKeys.push(cKey)
@@ -568,7 +565,7 @@ Item {
                     for (var u = 0; u < tracker.knownWindows.length; u++) {
                         var ut = tracker.knownWindows[u]
                         if (ut && (ut.address === uAddr || String(ut.address || "").indexOf(uAddr) !== -1)) {
-                            var uApp = ut.appId || ut.title || ""
+                            var uApp = ut.appId || ""
                             if (uApp && !ut.active && !ut.activated) {
                                 var cKey = tracker.toCanonical(uApp)
                                 var lastTime = tracker.lastNotifTimestamps[cKey] || 0
@@ -617,7 +614,7 @@ Item {
             var ttl = String(win.title || "").trim()
             if (!ttl) continue
             var unread = extractUnreadFromTitle(ttl)
-            var appIdentifier = win.appId || win.title || ""
+            var appIdentifier = win.appId || ""
             var cKey = tracker.toCanonical(appIdentifier)
             if (cKey && unread > 0) {
                 nextTitleBadges[cKey] = Math.max(nextTitleBadges[cKey] || 0, unread)

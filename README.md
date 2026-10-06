@@ -216,10 +216,6 @@ the block becomes inactive when Hyprland next reloads because the plugin manifes
 is absent. Edited/damaged blocks and symlinked main configs are refused rather than
 overwritten. See [the Caps Lock guide](docs/CAPS-LOCK.md) for recovery and testing.
 
-## v0.1.3 (prepared, not published)
-
-Notification badge data now travels through stdin, and notification summaries are no longer used as badge identities. See [release notes](docs/v0.1.3.md) and [verification and release requirements](docs/RELEASE-0.1.3.md). Native setup requires the matching v0.1.3 assets before this branch is distributed.
-
 ## v0.1.2
 
 Setup now stays inside Familiar. See [release notes](docs/v0.1.2.md) and [release evidence](docs/RELEASE-0.1.2.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.

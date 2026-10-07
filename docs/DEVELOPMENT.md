@@ -57,6 +57,9 @@ bash install-dev.sh
 Requires an existing, working Familiar installation on the supported Linux
 x86_64 / Hyprland ABI, with git, jq and the usual Omarchy tools. No compiler is
 needed. Local source changes and unexpected ignored files stop installation.
+Older installations without `setup-in-app.sh` are supported when their binaries
+match the checksum pins in their installed commit and titlebar ownership matches.
+Missing pins or corrupt binaries stop for repair before disabling the plugin.
 The installer recovers minimised windows, disables window controls and the plugin,
 checks out the exact source, installs matching binaries and restarts the shell.
 It retains pins, dock settings and the saved mac/windows titlebar style.

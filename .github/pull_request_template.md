@@ -1,20 +1,23 @@
-## Why
+## Why and changes
 
-## Changes
+## Build evidence
 
-## Automated validation
-
-Commit SHA and CI run URL:
+Full source SHA:
+CI run URL / attempt:
+Artifact name / digest:
 
 ## Desktop acceptance
 
-Test artifact / run attempt:
-Machine, Omarchy / Hyprland version and scaling:
-Scenarios tested and results:
-Remaining limitations:
+Environment and scenarios:
+Results and limitations:
+Tom's decision and its provenance:
 
-- [ ] Tom accepted this exact build on the desktop, or explicitly confirmed that live testing is not required for this change.
-- [ ] CI is green for the proposed source.
+For documentation/process-only changes, explain why desktop testing is
+inapplicable. Installer, packaging and workflow execution changes need testing.
 
-Routine testing uses development artifacts, not RC releases. Merging and
-publishing a versioned release are separate decisions.
+- [ ] Current CI is green.
+- [ ] Applicable desktop acceptance covers this exact build.
+- [ ] Tom authorized the merge.
+
+Green CI means ready to test. Versioned release approval is separate.
+See [the default workflow](../docs/WORKFLOW.md).

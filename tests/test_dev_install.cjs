@@ -53,8 +53,9 @@ try {
   write(path.join(tools,'omarchy'),'#!/bin/bash\necho "omarchy $*" >> "$CALLS"\n');
   git('init');git('config','user.email','fixture@example.invalid');git('config','user.name','Fixture');
   write(path.join(plugin,'.gitignore'),'/bin/\n');
-  write(path.join(plugin,'setup-in-app.sh'),fs.readFileSync('setup-in-app.sh','utf8'));
   write(path.join(plugin,'release-binaries.sha256'),`${sha(helper('stable'))}  familiar-desktop-linux-x86_64\n${sha('stable library')}  ${asset}\n`);
+  git('add','.');git('commit','-m','legacy without in-app setup');const legacy=git('rev-parse','HEAD');
+  write(path.join(plugin,'setup-in-app.sh'),fs.readFileSync('setup-in-app.sh','utf8'));
   git('add','.');git('commit','-m','stable fixture');const stable=git('rev-parse','HEAD');
   write(path.join(plugin,'feature.txt'),'first');git('add','.');git('commit','-m','first');const first=git('rev-parse','HEAD');
   write(path.join(plugin,'feature.txt'),'second');git('add','.');git('commit','-m','second');const second=git('rev-parse','HEAD');
@@ -92,6 +93,16 @@ try {
   // Failed setup leaves no enable call, with a usable recovery snapshot.
   write(env.CALLS,'');assert.notEqual(run(a,[],{FAIL_SETUP:'1'}).status,0);assert.doesNotMatch(log(),/plugin enable/);
   ok(run(a,['--rollback']));assert.equal(git('rev-parse','HEAD'),stable);ok(status());
+  // Regression: the XPS checkout predates setup-in-app.sh. Verify its original
+  // pins/ownership without executing untrusted bytes, and support rollback too.
+  git('checkout','--detach',legacy);assert.ok(!fs.existsSync(path.join(plugin,'setup-in-app.sh')));
+  fs.appendFileSync(path.join(plugin,'bin/familiar-desktop'),'# tampered');write(env.CALLS,'');
+  assert.notEqual(run(a).status,0);assert.equal(log(),'');
+  write(path.join(plugin,'bin/familiar-desktop'),helper('stable'));
+  ok(run(a));ok(status());ok(run(a,['--rollback']));
+  assert.equal(git('rev-parse','HEAD'),legacy);assert.ok(!fs.existsSync(path.join(plugin,'setup-in-app.sh')));
+  assert.equal(fs.readFileSync(path.join(plugin,'bin/familiar-desktop'),'utf8'),helper('stable'));
+  git('checkout','--detach',stable);
   // Corrupt backups are never run during rollback.
   ok(run(a));const last=fs.readFileSync(path.join(state,'dev-rollback'),'utf8').trim();
   fs.appendFileSync(path.join(last,'familiar-desktop-linux-x86_64'),'bad');write(env.CALLS,'');assert.notEqual(run(a,['--rollback']).status,0);assert.equal(log(),'');

@@ -29,9 +29,33 @@ for file in "$plugin/bin/familiar-desktop" "$library"; do
   [[ -f "$file" && ! -L "$file" ]] || { echo "Missing or symlinked installed binary: $file" >&2; exit 1; }
 done
 mkdir -p "$state/dev-snapshots"
+installed_ready() {
+  if [[ -f "$plugin/setup-in-app.sh" && ! -L "$plugin/setup-in-app.sh" ]]; then
+    bash "$plugin/setup-in-app.sh" status
+    return
+  fi
+  # Older verified installations predate in-app setup. Validate their recorded
+  # binaries and ownership directly, including when rolling back to that source.
+  [[ ! -e "$receipt" && ! -L "$receipt" && ! -e "$state/setup-pending" ]] || return 1
+  local pins name file expected actual
+  pins="$(git -C "$plugin" show HEAD:release-binaries.sha256)" || { echo 'Existing source has no reviewed binary pins; stop for repair.' >&2; return 1; }
+  for name in familiar-desktop-linux-x86_64 "$asset"; do
+    file="$plugin/bin/familiar-desktop"
+    [[ "$name" != "$asset" ]] || file="$library"
+    expected="$(awk -v name="$name" '$2 == name {print $1}' <<< "$pins")"
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
+    actual="$(sha256sum "$file")"
+    [[ "${actual%% *}" == "$expected" ]] || { echo "Existing binary differs from its source pin: $name" >&2; return 1; }
+  done
+  local config="${XDG_CONFIG_HOME:-$HOME/.config}"
+  jq -e --arg source "$plugin" --arg library "$library" \
+    '.source == $source and .library == $library' "$config/omarchy/familiar-titlebars/owner.json" >/dev/null || return 1
+  grep -qF -- '-- BEGIN Familiar Desktop title bars' "$config/hypr/looknfeel.lua" || return 1
+  echo 'Verified existing installation without in-app setup.'
+}
 if [[ "$mode" == install ]]; then
   # Existing install must be ready; this checks its stable pins or previous dev receipt.
-  bash "$plugin/setup-in-app.sh" status
+  installed_ready
 fi
 exec 9>"$state/setup.lock"
 flock -n 9 || { echo 'Another setup operation is running.' >&2; exit 1; }
@@ -111,7 +135,7 @@ fi
 # and titlebarMode. The restarted controller reapplies the user's saved choices.
 "$plugin/bin/familiar-desktop" titlebars setup --library "$library"
 flock -u 9
-bash "$plugin/setup-in-app.sh" status
+installed_ready
 omarchy plugin enable "$plugin_id"
 omarchy restart shell
 trap - ERR

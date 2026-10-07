@@ -1,6 +1,9 @@
 import QtQuick
 Item {
     property var command: []
+    property bool stdinEnabled: false
+    signal started()
+    function write(data) {}
     property bool running: false
     property var stderr
     property var stdout

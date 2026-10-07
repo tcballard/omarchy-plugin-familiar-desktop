@@ -1,8 +1,9 @@
 use std::{
     fs,
+    io::Write,
     os::unix::fs::PermissionsExt,
     path::PathBuf,
-    process::{Command, Output},
+    process::{Command, Output, Stdio},
 };
 struct Fixture {
     _temp: tempfile::TempDir,
@@ -121,7 +122,53 @@ fn executable_close_and_maximize_use_literal_addresses() {
 #[test]
 fn executable_badges_save_and_usage_errors_have_bounded_json() {
     let f = Fixture::new();
-    let o = f.run(&["badges", "save", "{\"counts\":{\"mail\":3},\"urgent\":{}}"]);
+    let mut child = Command::new(&f.binary)
+        .args(["badges", "save", "--stdin"])
+        .env("HOME", &f.home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let command_line = loop {
+        let result = fs::read(format!("/proc/{}/cmdline", child.id()));
+        if result
+            .as_ref()
+            .is_ok_and(|bytes| bytes.split(|b| *b == 0).filter(|s| !s.is_empty()).count() < 2)
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            continue;
+        }
+        break result;
+    };
+    match command_line {
+        Ok(command_line) => {
+            let arguments: Vec<_> = command_line
+                .split(|b| *b == 0)
+                .filter(|s| !s.is_empty())
+                .collect();
+            assert_eq!(
+                &arguments[1..],
+                &[&b"badges"[..], &b"save"[..], &b"--stdin"[..]]
+            );
+        }
+        // Some sandbox runners virtualize child PIDs without matching procfs.
+        // CI must exercise the real process-table assertion.
+        Err(error)
+            if error.kind() == std::io::ErrorKind::NotFound && std::env::var_os("CI").is_none() =>
+        {
+            eprintln!("procfs child PID unavailable; process-table assertion requires CI");
+        }
+        Err(error) => panic!("Cannot inspect badge process: {error}"),
+    }
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(br#"{"counts":{"mail":3},"urgent":{}}"#)
+        .unwrap();
+    let o = child.wait_with_output().unwrap();
     assert!(o.status.success());
     let v: serde_json::Value = serde_json::from_slice(
         &fs::read(
@@ -132,6 +179,17 @@ fn executable_badges_save_and_usage_errors_have_bounded_json() {
     )
     .unwrap();
     assert_eq!(v["counts"]["mail"], 3);
+    assert_eq!(
+        fs::metadata(
+            f.home
+                .join(".local/state/omarchy/familiar-desktop-badges.json")
+        )
+        .unwrap()
+        .permissions()
+        .mode()
+            & 0o777,
+        0o600
+    );
     for args in [
         vec!["titlebars", "apply", "--wrong"],
         vec!["badges", "save", "bad"],

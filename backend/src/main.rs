@@ -16,8 +16,13 @@ fn main() {
         Some("desktop")=>desktop::execute(&args[1..]),
         Some("titlebars")=>titlebars::execute(&args[1..]),
         Some("dock")=>args.get(1).ok_or_else(||"Choose a dock operation".to_string()).and_then(|mode|dock::execute(mode,&args[2..])),
-        Some("badges") if args.get(1).is_some_and(|s|s=="save")=>common::home().and_then(|home|common::save_badges(&home,args.get(2).ok_or("Provide badge JSON")?)),
-        _=>Err("Usage: familiar-desktop caps-lock <normal|compose|reset|status> | titlebars <setup|apply|disable|remove|action> | dock <operation> | badges save <json>".into()),
+        Some("badges") if args.get(1).is_some_and(|s|s=="save")=>common::home().and_then(|home|{
+            if args.len() != 3 || args[2] != "--stdin" {
+                return Err("Use badges save --stdin".into());
+            }
+            common::save_badges_from_reader(&home, std::io::stdin().lock())
+        }),
+        _=>Err("Usage: familiar-desktop caps-lock <normal|compose|reset|status> | titlebars <setup|apply|disable|remove|action> | dock <operation> | badges save --stdin".into()),
     };
     match result {
         Ok(value) => println!("{value}"),

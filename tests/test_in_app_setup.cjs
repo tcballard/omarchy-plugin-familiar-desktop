@@ -8,6 +8,7 @@ const home = path.join(tmp,'home'), root = path.join(home,'.config/omarchy/plugi
 const mock = path.join(tmp,'mock'), log = path.join(tmp,'calls');
 fs.mkdirSync(path.join(root,'.git'), {recursive:true}); fs.mkdirSync(mock);
 fs.copyFileSync('setup-in-app.sh',path.join(root,'setup-in-app.sh'));
+fs.copyFileSync('bar-placement.sh',path.join(root,'bar-placement.sh'));
 function write(p, s) { fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,s,{mode:0o755}); }
 const helper = `#!/bin/bash
 set -e
@@ -27,7 +28,8 @@ write(path.join(tmp,'helper'),helper); write(path.join(tmp,'library'),library);
 write(path.join(root,'install-backend.sh'),`#!/bin/bash\necho download-backend >> "$CALLS"\n[[ "$STALL" != 1 ]] || sleep 30\n[[ "$FAIL" != download ]] || exit 1\nmkdir -p "$ROOT/bin"\ncp "$FIXTURE/helper" "$ROOT/bin/familiar-desktop"\n[[ "$CORRUPT" != 1 ]] || echo corrupt >> "$ROOT/bin/familiar-desktop"\n`);
 write(path.join(root,'install-titlebars.sh'),`#!/bin/bash\n[[ "$FAIL" != abi ]] || exit 1\n[[ "$1" != --check ]] || exit 0\necho download-titlebars >> "$CALLS"\nmkdir -p "$ROOT/bin/hyprbars/$ABI"\ncp "$FIXTURE/library" "$ROOT/bin/hyprbars/$ABI/hyprbars.so"\n`);
 write(path.join(mock,'git'),'#!/bin/bash\n[[ "$DIRTY" != 1 ]] || echo " M file"\n');
-for (const n of ['omarchy','omarchy-shell','sudo','pkexec','foot','kitty']) write(path.join(mock,n),'#!/bin/bash\necho forbidden >> "$CALLS"\nexit 99\n');
+for (const n of ['omarchy-shell','sudo','pkexec','foot','kitty']) write(path.join(mock,n),'#!/bin/bash\necho forbidden >> "$CALLS"\nexit 99\n');
+write(path.join(mock,'omarchy'),'#!/bin/bash\n[[ "$1 $2 $3" == "bar move io.github.tcballard.familiar-desktop" ]] || { echo forbidden >> "$CALLS"; exit 99; }\necho "omarchy $*" >> "$CALLS"\n');
 const env={...process.env,HOME:home,XDG_STATE_HOME:path.join(home,'.local/state'),XDG_CONFIG_HOME:path.join(home,'.config'),PATH:mock+':'+process.env.PATH,ROOT:root,FIXTURE:tmp,ABI:abi,CALLS:log};
 write(path.join(mock,'hyprctl'),'#!/bin/bash\nexit 0\n');
 function run(mode, extra={}) { return spawnSync('bash',[path.join(root,'setup-in-app.sh'),mode,'mac'],{env:{...env,...extra},encoding:'utf8'}); }

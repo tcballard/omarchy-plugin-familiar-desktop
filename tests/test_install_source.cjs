@@ -11,6 +11,7 @@ function write(p,s){fs.writeFileSync(p,s,{mode:0o755});}
 try {
  const remote=path.join(root,'remote');fs.mkdirSync(remote);git(['init'],remote);
  git(['config','user.name','Fixture'],remote);git(['config','user.email','fixture@example.invalid'],remote);
+ write(path.join(remote,'bar-placement.sh'),fs.readFileSync('bar-placement.sh','utf8'));
  write(path.join(remote,'install-titlebars.sh'),'#!/bin/bash\necho "trusted-titlebars $*" >> "$LOG"\necho /fixture/hyprbars.so\n');
  write(path.join(remote,'install-backend.sh'),'#!/bin/bash\necho trusted-backend >> "$LOG"\nmkdir -p "$PLUGIN/bin"\nprintf \'#!/bin/bash\\necho familiar-desktop 0.1.1\\n\' > "$PLUGIN/bin/familiar-desktop"\nchmod +x "$PLUGIN/bin/familiar-desktop"\n');
  write(path.join(remote,'manifest.json'),'{"id":"io.github.tcballard.familiar-desktop"}');

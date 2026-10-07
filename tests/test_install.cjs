@@ -16,6 +16,7 @@ function run({existing=false, dirty=false, repair=false, failRepair=false, missi
   const plugin=path.join(root,'.config/omarchy/plugins/io.github.tcballard.familiar-desktop');
   const fixture=path.join(root,'fixture');fs.mkdirSync(path.join(fixture,'.git'),{recursive:true});fs.mkdirSync(path.join(fixture,'bin'));
   fs.writeFileSync(path.join(fixture,'manifest.json'),'{}');
+  fs.copyFileSync('bar-placement.sh',path.join(fixture,'bar-placement.sh'));
   fs.copyFileSync(path.resolve(__dirname,'../install-backend.sh'),path.join(fixture,'install-backend.sh'));
   fs.copyFileSync(path.resolve(__dirname,'../install-titlebars.sh'),path.join(fixture,'install-titlebars.sh'));
   fs.writeFileSync(path.join(fixture,'build.sh'),'echo forbidden-build >> "$LOG"; exit 99\n');

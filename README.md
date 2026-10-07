@@ -190,6 +190,10 @@ window menu or the file shortcuts' hover tooltip. The version-pinned installer s
 
 ### Development builds
 
+For ad-hoc branch builds, installation and rollback without RC tags, see
+[the development workflow](docs/DEVELOPMENT.md). Desktop acceptance of the exact
+commit is required before merging feature work into `main`.
+
 Only contributors building from source need Rust 1.88+ and Cargo. Run `bash build.sh` explicitly. Clippy and Qt tests run in CI; the normal installer never requests them. Release CI builds Hyprbars against a dated Arch package snapshot and verifies its header ABI, alongside a static Linux x86_64 backend. It tests it without a toolchain on PATH, and publishes it with checksums and source manifests.
 
 ### Caps Lock behaviour

@@ -1,0 +1,63 @@
+name: Build for testing
+run-name: Development build · ${{ github.head_ref || github.ref_name }} · ${{ github.run_number }}
+on:
+  workflow_dispatch:
+  # Exercise the complete new pipeline before its first merge to main.
+  pull_request:
+    paths:
+      - '.github/workflows/dev-build.yml'
+      - '.github/workflows/portable.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/build-binaries.yml'
+      - 'scripts/prepare-dev-bundle.cjs'
+      - 'scripts/install-dev.sh'
+      - 'tests/test_dev_install.cjs'
+      - 'tests/test_dev_bundle.cjs'
+      - 'setup-in-app.sh'
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/portable.yml
+  binaries:
+    uses: ./.github/workflows/build-binaries.yml
+  bundle:
+    needs: [checks, binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: familiar-desktop-*
+          path: downloaded
+      - name: Package source-bound development installer
+        env:
+          BUILD_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/prepare-dev-bundle.cjs downloaded dev-bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: familiar-dev-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dev-bundle/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Installation instructions
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Development build — not a release
+          Source: \`$SOURCE_SHA\`
+
+          Download the \`familiar-dev-$SOURCE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT\` artifact from this run.
+          On an existing, working Familiar installation:
+          \`bash install-dev.sh\`
+
+          Rollback: \`bash install-dev.sh --rollback\`
+          Installation prints an explicit snapshot path; keep it for older rollback points.
+          Record XPS acceptance against the source SHA and this run URL before merging.
+          EOF

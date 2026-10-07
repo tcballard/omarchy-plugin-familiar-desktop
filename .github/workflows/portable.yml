@@ -1,5 +1,6 @@
 name: Portable checks
 on:
+  workflow_call:
   push:
   pull_request:
 permissions:

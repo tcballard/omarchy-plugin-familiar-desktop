@@ -20,6 +20,10 @@ set -eu
 echo '${label}' "$(basename "$0") $*" >> "$CALLS"
 if [[ "$1" == titlebars && "$2" == setup ]]; then
   [[ "\u0024{FAIL_SETUP:-}" != 1 ]] || exit 1
+  # Like the real helper, --enable would reset user choices.
+  if [[ " $* " == *' --enable '* ]]; then
+    echo '{"dockEnabled":true,"titlebarMode":"windows"}' > "$HOME/.config/omarchy/familiar-desktop-settings.json"
+  fi
   source="$(cd "$(dirname "$0")/.." && pwd)"
   [[ "$source" == "$PLUGIN" ]] || exit 22
   mkdir -p "$HOME/.config/omarchy/familiar-titlebars" "$HOME/.config/hypr"
@@ -57,7 +61,8 @@ try {
   git('checkout','--detach',stable);
   write(path.join(plugin,'bin/familiar-desktop'),helper('stable'));
   write(path.join(plugin,`bin/hyprbars/${abi}/hyprbars.so`),'stable library');
-  write(path.join(home,'.config/omarchy/familiar-desktop-settings.json'),JSON.stringify({titlebarStyle:'mac',pinned:['preserved']}));
+  const settings={titlebarStyle:'mac',titlebarMode:'off',dockEnabled:false,pinned:['preserved']};
+  write(path.join(home,'.config/omarchy/familiar-desktop-settings.json'),JSON.stringify(settings));
   execFileSync(path.join(plugin,'bin/familiar-desktop'),['titlebars','setup'],{env});
   const a=bundle(first,'dev-a'), b=bundle(second,'dev-b');
   ok(status());
@@ -71,8 +76,8 @@ try {
   // Stable -> development; status accepts exactly these bytes at this source.
   ok(run(a));assert.equal(git('rev-parse','HEAD'),first);ok(status());assert.equal(git('status','--porcelain'),'');
   const snapA=fs.readFileSync(path.join(state,'dev-rollback'),'utf8').trim();
-  assert.match(log(),/titlebars setup .*--style mac/);
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(home,'.config/omarchy/familiar-desktop-settings.json'))).pinned,['preserved']);
+  assert.doesNotMatch(log(),/titlebars setup .*--enable/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(home,'.config/omarchy/familiar-desktop-settings.json'))),settings);
   assert.notEqual(spawnSync('bash',[path.join(plugin,'setup-in-app.sh'),'install'],{env}).status,0);
   fs.appendFileSync(path.join(plugin,'bin/familiar-desktop'),'# corruption\n');assert.notEqual(status().status,0);
   write(path.join(plugin,'bin/familiar-desktop'),helper('dev-a'));

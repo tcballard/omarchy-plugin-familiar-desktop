@@ -77,7 +77,7 @@ bash install-dev.sh --rollback
 
 The installer prints an explicit snapshot path for each installation; pass it
 after `--rollback` to select that point. A snapshot retains the previous commit,
-both binaries, titlebar style and any previous development receipt. Rollback
+both binaries and any previous development receipt. Rollback
 verifies those bytes and restores them together, including after a failed setup.
 User preferences are not reverted wholesale. Snapshots remain under
 `~/.local/state/familiar-desktop/dev-snapshots` (or `$XDG_STATE_HOME`).

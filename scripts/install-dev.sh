@@ -7,7 +7,6 @@ bundle="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugin_id='io.github.tcballard.familiar-desktop'
 plugin="$HOME/.config/omarchy/plugins/$plugin_id"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/familiar-desktop"
-config="${XDG_CONFIG_HOME:-$HOME/.config}"
 abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6'
 asset="hyprbars-linux-x86_64-$abi.so"
 library="$plugin/bin/hyprbars/$abi/hyprbars.so"
@@ -37,10 +36,6 @@ fi
 exec 9>"$state/setup.lock"
 flock -n 9 || { echo 'Another setup operation is running.' >&2; exit 1; }
 current="$(git -C "$plugin" rev-parse HEAD)"
-style_file="$config/omarchy/familiar-desktop-settings.json"
-style=windows
-if [[ -f "$style_file" ]]; then style="$(jq -er '.titlebarStyle // "windows"' "$style_file")"; fi
-[[ "$style" == mac || "$style" == windows ]] || { echo 'Unsupported saved titlebar style.' >&2; exit 1; }
 verify_assets() {
   local dir="$1" metadata="$2" name actual expected
   for name in familiar-desktop-linux-x86_64 "$asset"; do
@@ -62,8 +57,8 @@ if [[ "$mode" == install ]]; then
   cp "$plugin/bin/familiar-desktop" "$snapshot/familiar-desktop-linux-x86_64"
   cp "$library" "$snapshot/$asset"
   [[ ! -e "$receipt" ]] || cp "$receipt" "$snapshot/dev-build.json"
-  jq -n --arg previous "$current" --arg target "$source_sha" --arg style "$style" --arg source "$plugin" \
-    '{previous:$previous,target:$target,style:$style,source:$source}' > "$snapshot/snapshot.json"
+  jq -n --arg previous "$current" --arg target "$source_sha" --arg source "$plugin" \
+    '{previous:$previous,target:$target,source:$source}' > "$snapshot/snapshot.json"
   (cd "$snapshot" && sha256sum ./* > SHA256SUMS)
   printf '%s\n' "$snapshot" > "$state/dev-rollback.new"
   mv "$state/dev-rollback.new" "$state/dev-rollback"
@@ -77,8 +72,7 @@ else
   [[ -f "$snapshot/familiar-desktop-linux-x86_64" && ! -L "$snapshot/familiar-desktop-linux-x86_64" && -f "$snapshot/$asset" && ! -L "$snapshot/$asset" ]] || exit 1
   jq -e --arg source "$plugin" --arg current "$current" 'select(.source == $source and (.target == $current or .previous == $current))' "$snapshot/snapshot.json" >/dev/null
   target="$(jq -er '.previous' "$snapshot/snapshot.json")"
-  style="$(jq -er '.style' "$snapshot/snapshot.json")"
-  [[ "$target" =~ ^[0-9a-f]{40}$ && ( "$style" == mac || "$style" == windows ) ]] || exit 1
+  [[ "$target" =~ ^[0-9a-f]{40}$ ]] || exit 1
   git -C "$plugin" cat-file -e "$target^{commit}"
   bytes="$snapshot"
 fi
@@ -113,7 +107,9 @@ elif [[ -f "$snapshot/dev-build.json" ]]; then
 else
   rm -f "$receipt"
 fi
-"$plugin/bin/familiar-desktop" titlebars setup --library "$library" --enable --style "$style"
+# --enable is deliberately omitted: it overwrites dockEnabled, titlebarsEnabled
+# and titlebarMode. The restarted controller reapplies the user's saved choices.
+"$plugin/bin/familiar-desktop" titlebars setup --library "$library"
 flock -u 9
 bash "$plugin/setup-in-app.sh" status
 omarchy plugin enable "$plugin_id"

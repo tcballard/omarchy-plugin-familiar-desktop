@@ -1,0 +1,47 @@
+name: Desktop smoke
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate:
+    uses: ./.github/workflows/dev-build.yml
+  desktop:
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      OMARCHY_SHA: 0f8af9be307d5d4f12cc0f6394892cac651ed5e6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: omacom/omarchy
+          ref: ${{ env.OMARCHY_SHA }}
+          path: upstream-omarchy
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.candidate.outputs.artifact_name }}
+          path: desktop-bundle
+      - name: Install VM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils acl
+      - name: Boot disposable Arch VM and exercise the real desktop
+        run: bash tests/desktop/vm.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-smoke-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: smoke-evidence/
+          retention-days: 14
+          if-no-files-found: error

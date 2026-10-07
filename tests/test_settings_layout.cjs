@@ -42,6 +42,7 @@ TestCase {
     property bool fileShortcutsEnabled: true
     property bool overlayMode: true
     property bool showBadges: true
+    property bool windowPreviews: true
     property bool widgetsEnabled: true
     property var workspaceOptions: [{value: "all", label: "All workspaces"}]
     property int writes: 0

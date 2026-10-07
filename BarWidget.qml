@@ -46,6 +46,7 @@ BarWidget {
   property string visibleWorkspace: "all"
   property bool showFolderTitles: true
   property bool showBadges: true
+  property bool windowPreviews: true
   property bool widgetsEnabled: true
   readonly property bool settingsOpen: settingsWindow.open
   onSettingsOpenChanged: {
@@ -124,6 +125,7 @@ BarWidget {
         if (s && s.showFolderTitles !== undefined) {
           root.showFolderTitles = (s.showFolderTitles === true)
         }
+        root.windowPreviews = s.windowPreviews !== false
         if (s && s.showBadges !== undefined) {
           root.showBadges = (s.showBadges === true)
         }
@@ -175,6 +177,7 @@ BarWidget {
     s.showFolderTitles = root.showFolderTitles
     s.fileShortcutsEnabled = root.fileShortcutsEnabled
     s.showBadges = root.showBadges
+    s.windowPreviews = root.windowPreviews
     s.widgetsEnabled = root.widgetsEnabled
     s.appMenuPosition = root.appMenuPosition || s.appMenuPosition || "left"
     s.widgetPosition = root.widgetPosition || s.widgetPosition || "right"
@@ -1220,6 +1223,14 @@ BarWidget {
               root.setOverlayMode(!root.overlayMode)
             }
           }
+        }
+
+        ActionButton {
+          Layout.fillWidth: true
+          visible: settingsWindow.section === "extras"
+          text: "Window previews on hover: " + (root.windowPreviews ? "On" : "Off")
+          selected: root.windowPreviews
+          onClicked: { root.windowPreviews = !root.windowPreviews; root.saveSettings() }
         }
 
         // Toggle Notification Badges Row

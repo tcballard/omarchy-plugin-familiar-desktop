@@ -12,6 +12,7 @@ import "DockModel.js" as DockModel
 import "DockSettings.js" as DockSettings
 import "ShortcutLabels.js" as ShortcutLabels
 import "DockCommands.js" as DockCommands
+import "WindowPreviews.js" as WindowPreviews
 import "components"
 
 Item {
@@ -496,6 +497,7 @@ Item {
     readonly property int effectiveAutohideEdgeDepth: Math.max(4, Math.min(64, root.autohideEdgeDepth))
     property bool showFolderTitles: true
     property bool showBadges: true
+    property bool windowPreviews: true
     property bool glassmorphism: false
     property real blurOpacity: 0.68
     readonly property bool showAppMenu: root.widgetsEnabled && root.dockWidgets && (root.dockWidgets.indexOf("omarchy.apps") !== -1)
@@ -717,7 +719,7 @@ Item {
         var anyOpenWidget = checkWidgetPanelsOpen()
         var isDockWinHovered = !root.shouldSlideOut && root.anyDockSurfaceHovered()
         var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
-        var anyHover = isDockWinHovered || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || anyOpenWidget || anyPopupsActive
+        var anyHover = isDockWinHovered || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
         if (anyHover) {
             autohideLeaveTimer.stop()
             root.isDockHovered = true
@@ -734,7 +736,7 @@ Item {
             if (!root.autohide) return
             var anyOpenWidget = root.checkWidgetPanelsOpen()
             var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
-            var anyHover = root.anyDockSurfaceHovered() || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || anyOpenWidget || anyPopupsActive
+            var anyHover = root.anyDockSurfaceHovered() || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
             if (!anyHover) {
                 root.isDockHovered = false
                 if (DockSettings.shouldAutoDismissKeyboardReveal(root.visibilityMode, root.visibilityOverride)) {
@@ -1079,6 +1081,7 @@ Item {
                     if (!isNaN(depth) && depth >= 1 && depth <= 64) root.autohideEdgeDepth = depth
                 }
                 root.showFolderTitles = true
+                root.windowPreviews = s.windowPreviews !== false
                 if (s.showBadges !== undefined) {
                     root.showBadges = (s.showBadges === true)
                 }
@@ -1133,6 +1136,7 @@ Item {
             autohideEdgeDepth: root.autohideEdgeDepth,
             showFolderTitles: root.showFolderTitles,
             showBadges: root.showBadges,
+            windowPreviews: root.windowPreviews,
             glassmorphism: root.glassmorphism,
             blurOpacity: root.blurOpacity,
             widgetsEnabled: root.widgetsEnabled,
@@ -1298,7 +1302,7 @@ Item {
         function applyToPanel(p) {
             if (!p) return
             if ("centerOnBar" in p) {
-                p.centerOnBar = true
+                p.centerOnBar = false
             }
             if ("bar" in p) {
                 p.bar = dockBarContext
@@ -1571,6 +1575,7 @@ Item {
     }
 
     function activateWidget(widgetId, target, slotRoot, mouse) {
+        windowPreview.close()
         if (root.isEditMode) {
             if (mouse && mouse.button === Qt.RightButton) {
                 root.isEditMode = false
@@ -2126,6 +2131,7 @@ Item {
     }
 
     function closePopups() {
+        windowPreview.close()
         root.activeStackItem = null
         root.activeMenuItem = null
         root.isEditMode = false
@@ -2855,6 +2861,32 @@ Item {
         return count > 0 ? instances[0] : null
     }
 
+    WindowPreviewController {
+        id: windowPreview
+        allowed: root.windowPreviews && root.dockMapped && root.dockRevealed
+            && !root.isEditMode && root.dockDragActiveIndex < 0 && !root.isMenuOpen && !root.isStackOpen
+            && (!dockBarContext.activePopout || dockBarContext.activePopout === windowPreview)
+        onOpenedChanged: {
+            if (!opened) dockBarContext.releasePopout(windowPreview)
+            root.evaluateHoverState()
+        }
+    }
+    Loader {
+        active: windowPreview.opened
+        sourceComponent: WindowPreviewPopup {
+            controller: windowPreview
+            bar: dockBarContext
+            onWindowSelected: function(target) {
+                var app = windowPreview.app
+                var index = WindowPreviews.currentIndex(app, target)
+                // Never activate a replacement window at an old list index.
+                if (index >= 0 && root.targetWindowArg(app, index)) root.restoreOrLaunchItem(app, index)
+                else if (index >= 0 && target && typeof target.activate === "function") target.activate()
+                windowPreview.close()
+            }
+        }
+    }
+
     // 1. The Main Solid Dock Window (One layer surface per output, matching Omarchy bar)
     Variants {
         id: dockVariants
@@ -2899,8 +2931,9 @@ Item {
                 // -- for a dock that cannot be hovered anyway. Revealing it is
                 // the separate edge trigger's job. Hand the strip back.
                 mask: Region {
-                    width: dockLayer.slidOut ? 0 : dockLayer.width
-                    height: dockLayer.slidOut ? 0 : dockLayer.height
+                    item: dockLayer.slidOut ? null : dockSurface
+                    width: 0
+                    height: 0
                 }
 
                 anchors {
@@ -2917,8 +2950,10 @@ Item {
                     left: (root.isVertical && root.barPosition === "right") ? (Style.gapsOut || 5) : 0
                 }
 
-                implicitWidth: root.isVertical ? (root.slotSize + 8) : Math.max(root.slotSize + 8, root.totalDockDimension + 14)
-                implicitHeight: root.isVertical ? Math.max(root.slotSize + 8, root.totalDockDimension + 14) : (root.slotSize + 8)
+                // Hosted KeyboardPanel anchors use screen-relative coordinates along the bar.
+                // Span that axis, but claim input only over the visible dock card.
+                implicitWidth: root.isVertical ? (root.slotSize + 8) : modelData.width
+                implicitHeight: root.isVertical ? modelData.height : (root.slotSize + 8)
 
                 HoverHandler {
                     id: dockHoverHandler
@@ -3192,6 +3227,11 @@ Item {
                     model: root.dockItems
 
                     DockItem {
+                        onPreviewHoverChanged: function(item, hovered) {
+                            if (hovered) windowPreview.enter(item)
+                            else windowPreview.leave(item)
+                        }
+                        onPreviewCancelled: windowPreview.close()
                         itemData: modelData
                         itemIndex: index
                         totalCount: root.dockItems.length

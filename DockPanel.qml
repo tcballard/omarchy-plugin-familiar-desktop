@@ -135,6 +135,7 @@ Item {
         function setProfile(profile: string): string { root.setProfile(profile); return root.profile }
         function titlebarStatus(): string { return JSON.stringify({ state: titlebars.state, message: titlebars.message, busy: titlebars.busy }) }
         function refreshTitlebars(): string { titlebars.refresh(); return "ok" }
+        function coachMouseAction(lesson: string): string { shortcutCoachController.trigger(lesson); return "ok" }
         function setVisibleWorkspace(workspace: string): string { root.setVisibleWorkspace(workspace); return "ok" }
         function toggleReveal(): string { return root.toggleReveal() }
         function setAutohideEdgeDepth(val: string): string { var n = parseInt(val, 10); if (!isNaN(n) && n >= 1 && n <= 64) { root.autohideEdgeDepth = n; root.saveSettings(); } return "ok" }
@@ -292,6 +293,27 @@ Item {
     readonly property var desktopTools: desktopToolsAdapter
     DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
 
+    readonly property var shortcutCoach: shortcutCoachController
+    ShortcutCoachStore { id: shortcutCoachStore }
+    ShortcutCoachController {
+        id: shortcutCoachController
+        store: shortcutCoachStore
+        available: root.pluginEnabled && setupController.ready
+        labelStyle: root.shortcutLabels
+    }
+    ShortcutCoachToast {
+        controller: shortcutCoachController
+        screen: root.effectiveDockScreen || (Quickshell.screens.length ? Quickshell.screens[0] : null)
+        topInset: root.systemBarPosition === "top" ? Style.space(64) : Style.space(16)
+        leftInset: root.systemBarPosition === "left" ? Style.space(64) : root.dockScreenPosition === "left" ? root.slotSize + Style.space(16) : Style.space(16)
+    }
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (event.name === "configreloaded") shortcutCoachController.refreshBindings()
+        }
+    }
+
     property bool fileShortcutsEnabled: false
     readonly property real fileShortcutsSize: fileShortcutsEnabled ? 3 * slotSize : 0
     property string desktopActionError: ""
@@ -314,6 +336,7 @@ Item {
                 root.contextAppId = ""
                 root.updateDockItems()
                 minimizeRefreshTimer.restart()
+                shortcutCoachController.actionCompleted(result)
             }
         }
     }

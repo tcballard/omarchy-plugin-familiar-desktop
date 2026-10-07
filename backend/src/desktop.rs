@@ -190,16 +190,46 @@ pub fn quit_app(address: &str, h: &mut impl Hypr) -> Result<Value> {
     )
 }
 
+fn shortcut_keys(b: &Value) -> String {
+    let mask = b["modmask"].as_u64().unwrap_or(0);
+    let mut keys: Vec<String> = [(64, "Super"), (4, "Ctrl"), (8, "Alt"), (1, "Shift")]
+        .iter()
+        .filter(|(bit, _)| mask & bit != 0)
+        .map(|(_, s)| s.to_string())
+        .collect();
+    keys.push(
+        b["key"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(common::clipped)
+            .unwrap_or_else(|| format!("code:{}", b["keycode"])),
+    );
+    keys.join(" + ")
+}
+
 pub fn shortcuts(h: &mut impl Hypr) -> Result<Value> {
     let bindings: Vec<Value> = serde_json::from_str(&h.command(&["-j", "binds"])?)
         .map_err(|_| "Cannot read active shortcuts")?;
     let rows: Vec<Value> = bindings.iter().filter(|b| b["description"].as_str().is_some_and(|s| !s.is_empty())).take(200).map(|b| {
-        let mask = b["modmask"].as_u64().unwrap_or(0);
-        let mut keys: Vec<String> = [(64,"Super"),(4,"Ctrl"),(8,"Alt"),(1,"Shift")].iter().filter(|(bit,_)| mask & bit != 0).map(|(_,s)|s.to_string()).collect();
-        keys.push(b["key"].as_str().map(common::clipped).unwrap_or_else(|| format!("code:{}",b["keycode"])));
-        json!({"keys":keys.join(" + "),"description":common::clipped(b["description"].as_str().unwrap()),"submap":common::clipped(b["submap"].as_str().unwrap_or(""))})
+        json!({"keys":shortcut_keys(b),"description":common::clipped(b["description"].as_str().unwrap()),"submap":common::clipped(b["submap"].as_str().unwrap_or(""))})
     }).collect();
-    Ok(json!({"state":"ok","shortcuts":rows,"tools":tool_status()}))
+    // Keep all chords for the coach, including undescribed ones: another action
+    // on the same chord makes an otherwise valid lesson ambiguous. Reuse the
+    // existing canonical modifier order; display terminology remains in QML.
+    let coach_bindings: Vec<Value> = bindings.iter().take(2048).map(|b| {
+        let mask = b["modmask"].as_u64().unwrap_or(0);
+        let key = b["key"].as_str().filter(|s| !s.is_empty()).map(common::clipped).unwrap_or_else(|| format!("code:{}",b["keycode"]));
+        json!({"keys":shortcut_keys(b),"key":key,"description":common::clipped(b["description"].as_str().unwrap_or("")),
+            "dispatcher":b["dispatcher"],"arg":b["arg"],"submap":b["submap"].as_str().unwrap_or(""),
+            "mouse":b["mouse"] == true || mask & !77 != 0,"release":b["release"],"longPress":b["longPress"],"catch_all":b["catch_all"]})
+    }).collect();
+    // Never teach from a truncated snapshot that may have omitted conflicts.
+    let coach_bindings = if bindings.len() > 2048 {
+        vec![]
+    } else {
+        coach_bindings
+    };
+    Ok(json!({"state":"ok","shortcuts":rows,"coachBindings":coach_bindings,"tools":tool_status()}))
 }
 
 pub fn execute(args: &[String]) -> Result<Value> {

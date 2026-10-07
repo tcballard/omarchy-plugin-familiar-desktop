@@ -16,6 +16,7 @@ node tests/test_release_install.cjs --fixtures
 node tests/test_repair.cjs
 
 node tests/test_shortcut_labels.cjs
+node tests/test_shortcut_coach.cjs
 node tests/test_dock_scroll.cjs
 
 node tests/test_in_app_setup.cjs

@@ -118,6 +118,29 @@ impl Fixture {
         common::atomic(&path, v.to_string().as_bytes()).unwrap();
     }
 }
+
+#[test]
+fn coach_ipc_runs_only_after_successful_mouse_action_and_cannot_fail_it() {
+    use std::process::Command;
+    let mut f = Fixture::new();
+    f.setup().unwrap();
+    f.apply().unwrap();
+    let generated = f.generated();
+    assert!(generated.contains("titlebars action close && { omarchy-shell -q io.github.tcballard.familiar-desktop coachMouseAction closeWindow || :; }"));
+    assert!(generated.contains("titlebars action maximize && { omarchy-shell -q io.github.tcballard.familiar-desktop coachMouseAction maximizeWindow || :; }"));
+    assert!(!generated.contains("titlebars action minimize &&"));
+    // Exercise the generated shell flow with a failed action and failed coach.
+    // No compositor or user's shell is called.
+    let suffix = " && { omarchy-shell -q io.github.tcballard.familiar-desktop coachMouseAction closeWindow || :; }";
+    let body = format!("omarchy-shell() {{ printf coach; return 1; }}; true{suffix}");
+    let output = Command::new("bash").args(["-c", &body]).output().unwrap();
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"coach");
+    let body = format!("omarchy-shell() {{ printf coach; return 1; }}; false{suffix}");
+    let output = Command::new("bash").args(["-c", &body]).output().unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+}
 #[test]
 fn missing_dependency_preserves_personal_config() {
     let mut f = Fixture::new();

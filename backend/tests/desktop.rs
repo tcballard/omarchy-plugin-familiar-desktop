@@ -138,6 +138,37 @@ fn shortcuts_are_active_described_bindings_with_literal_text() {
     assert_eq!(result["shortcuts"][0]["keys"], "Super + W");
     assert_eq!(result["shortcuts"][1]["description"], "<b>Literal</b>");
     assert_eq!(result["shortcuts"][1]["submap"], "resize");
+    assert_eq!(result["coachBindings"].as_array().unwrap().len(), 3);
+    assert_eq!(result["coachBindings"][0]["keys"], "Super + W");
+    assert_eq!(result["coachBindings"][2]["description"], "");
+}
+
+#[test]
+fn coach_metadata_retains_conflicts_flags_and_actual_dispatchers() {
+    struct Bindings;
+    impl Hypr for Bindings {
+        fn command(&mut self, args: &[&str]) -> Result<String> {
+            assert_eq!(args, ["-j", "binds"]);
+            Ok(json!([
+                {"key":"Q","modmask":64,"description":"Close window","dispatcher":"__lua","arg":"42"},
+                {"key":"Q","modmask":64,"dispatcher":"exec","arg":"some-app"},
+                {"key":"F","modmask":72,"description":"Full width","dispatcher":"fullscreen","arg":"1","release":true},
+                {"key":"T","modmask":64,"description":"Toggle window floating/tiling","submap":"resize","mouse":true},
+                {"key":"X","modmask":2,"description":"Close window","dispatcher":"killactive"}
+            ]).to_string())
+        }
+    }
+    let result = desktop::shortcuts(&mut Bindings).unwrap();
+    let rows = result["coachBindings"].as_array().unwrap();
+    assert_eq!(rows.len(), 5);
+    assert_eq!(rows[0]["keys"], "Super + Q");
+    assert_eq!(rows[0]["dispatcher"], "__lua");
+    assert_eq!(rows[1]["keys"], rows[0]["keys"]);
+    assert_eq!(rows[2]["keys"], "Super + Alt + F");
+    assert_eq!(rows[2]["release"], true);
+    assert_eq!(rows[3]["submap"], "resize");
+    assert_eq!(rows[3]["mouse"], true);
+    assert_eq!(rows[4]["mouse"], true); // Unknown modifier masks cannot be displayed accurately.
 }
 #[test]
 fn force_quit_requires_explicit_confirmation() {

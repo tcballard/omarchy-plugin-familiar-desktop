@@ -10,7 +10,7 @@ Rectangle {
     readonly property var sections: ({
         dock: [{key: "appearance", title: "Appearance"}, {key: "visibility", title: "Visibility"}, {key: "extras", title: "Extras"}],
         windows: [{key: "layout", title: "Layout"}, {key: "titlebars", title: "Title bars"}, {key: "resizing", title: "Resizing"}],
-        keyboard: [{key: "keys", title: "Caps Lock"}, {key: "shortcuts", title: "Shortcuts"}, {key: "gestures", title: "Trackpad"}]
+        keyboard: [{key: "keys", title: "Caps Lock"}, {key: "shortcuts", title: "Shortcuts"}, {key: "coach", title: "Shortcut Coach"}, {key: "gestures", title: "Trackpad"}]
     })
     readonly property var currentSections: sections[page] || []
     function shows(pageKey, sectionKey) { return page === pageKey && section === sectionKey }

@@ -1,10 +1,11 @@
 # Disposable desktop regression checks
 
 `Desktop smoke` builds the exact PR head, then runs a real Hyprland compositor
-and the pinned Omarchy Quattro shell in an Arch container on a disposable
-GitHub-hosted Ubuntu VM. Weston provides the parent Wayland display and Mesa
-provides software rendering. No personal desktop, hardware devices, secrets,
-host display sockets or privileged container are required.
+and the pinned Omarchy Quattro shell in a disposable Arch VM on a GitHub-hosted
+Ubuntu runner. KVM, a virtio GPU and Mesa software rendering provide the desktop.
+The guest has its own systemd, login session and virtual display. Ephemeral SSH
+keys are generated for each run; no personal desktop, repository secrets, host
+display sockets or shared filesystems enter the guest.
 
 The test fails if any prerequisite, desktop startup, assertion or timeout fails.
 It never substitutes the QtTest mocks or treats an unavailable desktop as a pass.
@@ -32,14 +33,14 @@ Those remain explicit future extensions and XPS acceptance checks.
 
 ## Reproduction and evidence
 
-The workflow pins the Arch image digest, Arch snapshot date, stable Familiar
+The workflow pins the Arch cloud image (20261001.604814) with SHA-256, Arch snapshot date, stable Familiar
 commit and Omarchy commit. Its artifact records installed package versions,
 source SHA, upstream SHA, phase/exit code, logs, compositor state and screenshots.
 The development artifact separately records source, run/attempt and binary hashes.
 Third-party Actions version tags not already pinned by the repository remain a
 separate supply-chain limitation; this is not a fully hermetic build.
 
-The job has a 20-minute limit and individual readiness deadlines. Diagnostics
+The job has a 30-minute limit and individual readiness deadlines. Diagnostics
 upload even on failure. Screenshots prove rendering occurred, not visual fidelity.
 `session.sh` refuses to run outside the disposable CI account.
 

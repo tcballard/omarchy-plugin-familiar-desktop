@@ -5,7 +5,7 @@ set -Eeuo pipefail
   echo 'Requires the disposable CI account, not a personal desktop.' >&2; exit 2;
 }
 : "${SMOKE_ROOT:?}" "${SOURCE_SHA:?}" "${OMARCHY_SHA:?}"
-export XDG_RUNTIME_DIR="$HOME/runtime"
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export OMARCHY_PATH="$SMOKE_ROOT/upstream-omarchy"
 export PATH="$OMARCHY_PATH/bin:$PATH"
 export XDG_CURRENT_DESKTOP=Hyprland LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=wayland
@@ -37,11 +37,7 @@ wait_for() {
     sleep 0.3
   done
 }
-# No host display, devices, session sockets or credentials are mounted.
-phase=parent-compositor
-weston --backend=headless --renderer=gl --socket=wayland-parent --width=1280 --height=800 \
-  --idle-time=0 --no-config > "$EVIDENCE/weston.log" 2>&1 &
-wait_for test -S "$XDG_RUNTIME_DIR/wayland-parent"
+# The VM supplies a real virtio DRM device; there is no parent compositor.
 cat > "$HOME/.config/hypr/looknfeel.lua" <<'LUA'
 -- Owned by the disposable test account; Familiar may add its normal hook here.
 LUA
@@ -51,18 +47,18 @@ hl.config({ general = { layout = "dwindle" }, animations = { enabled = false } }
 dofile(os.getenv("HOME") .. "/.config/hypr/looknfeel.lua")
 LUA
 phase=hyprland
-WAYLAND_DISPLAY=wayland-parent AQ_BACKENDS=wayland HYPRLAND_ALLOW_SOFTWARE=1 \
+AQ_BACKENDS=drm HYPRLAND_ALLOW_SOFTWARE=1 \
   Hyprland --config "$HOME/.config/hypr/hyprland.lua" > "$EVIDENCE/hyprland.log" 2>&1 &
 hypr_pid=$!
 discover() {
-  kill -0 "$hypr_pid" || return 1
+  kill -0 "$hypr_pid" 2>/dev/null || { cat "$EVIDENCE/hyprland.log"; exit 1; }
   local socket
   socket=$(find "$XDG_RUNTIME_DIR/hypr" -name .socket.sock -print -quit 2>/dev/null) || return 1
   [[ -n $socket ]] || return 1
   export HYPRLAND_INSTANCE_SIGNATURE=$(basename "$(dirname "$socket")")
   local display
   for display in "$XDG_RUNTIME_DIR"/wayland-*; do
-    [[ -S $display && $display != */wayland-parent ]] || continue
+    [[ -S $display ]] || continue
     export WAYLAND_DISPLAY=${display##*/}
     timeout 3 hyprctl -j monitors | jq -e 'length > 0' >/dev/null && return 0
   done
@@ -123,14 +119,17 @@ hyprctl -j clients | jq -e --arg b "$b" 'any(.[]; .address == $b and (.workspace
 wait_for active_a
 hyprctl -j clients | jq -e --arg a "$a" 'any(.[]; .address == $a and (.workspace.name | startswith("special:") | not))'
 phase=shell-restart
-omarchy-shell "$plugin_id" setVisibilityMode always
+omarchy-shell "$plugin_id" setVisibilityMode hybrid
+setting_saved() { jq -e '.visibilityMode == "hybrid"' "$HOME/.config/omarchy/familiar-desktop-settings.json" >/dev/null; }
+wait_for setting_saved
 cp "$HOME/.config/omarchy/familiar-desktop-settings.json" "$EVIDENCE/settings-before.json"
 quickshell list -a -j > "$EVIDENCE/shell-before.json"
 omarchy restart shell
 wait_for familiar_ready
 quickshell list -a -j > "$EVIDENCE/shell-after.json"
 node "$SMOKE_ROOT/tests/desktop/assert-restart.cjs" "$EVIDENCE" "$OMARCHY_PATH/shell"
-jq -e '.visibilityMode == "always"' "$HOME/.config/omarchy/familiar-desktop-settings.json"
+wait_for setting_saved
+omarchy-shell "$plugin_id" setVisibilityMode always
 wait_for two_windows
 "$helper" dock minimize-instance "$a"
 wait_for minimized_a

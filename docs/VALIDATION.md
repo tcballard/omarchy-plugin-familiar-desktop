@@ -1,5 +1,52 @@
 # Familiar Desktop validation
 
+## Window history and title badges (7 October 2026)
+
+The two state defects reproduced during the 33-workflow Dock review have
+focused regression coverage. `tests/test_window_history.cjs` executes the real
+DockMatcher model for pinned, unpinned and stacked apps: returning after another
+app was focused chooses the last-used surviving window, including a minimised
+window, while preview/cycle order remains stable. Current focus wins; closed
+windows are pruned and a replacement with the same title/address cannot inherit
+their history. Focus history is session-only.
+
+`tests/test_notification_counts.cjs` executes the actual QML tracker functions:
+3→1→0 titles, independent notification events, maximum across same-app windows,
+separate browser/web-app identities, focus and last-window-close clearing,
+empty reload state and save/reload. Display counts use the maximum of the live
+title snapshot and event count. Only events and urgency persist; legacy mixed
+counts are preserved as events until normal focus/clear acknowledgement because
+their original source cannot be recovered safely. Notification privacy/transport
+tests still execute the real save/start handlers with sensitive legacy fixtures.
+
+Those three Node checks pass locally. The full local `tests/run` attempt stops
+at the existing Caps Lock tests because Lua is absent; QtTest tools are also
+absent in this workspace. CI installs those dependencies and remains the gate.
+These are portable model/handler checks,
+not a live Quickshell or compositor result. Existing user-reported acceptance of
+the earlier ten-item checklist remains valid for that earlier tested build; no
+installed receipt in the conversation ties it to an exact SHA. Fresh XPS
+acceptance is required for this change under `docs/WORKFLOW.md`.
+
+For the new matching-source/binary development artifact, record its receipt,
+Omarchy/Hyprland versions and monitor scale, then check:
+
+1. Open browser windows A/B/C. Focus C, B, another app, then click the browser
+   icon: B returns. Close B and repeat: C returns. Explicit preview selection
+   and clicking an already-active app to cycle still use the displayed order.
+2. Repeat with an unpinned app, a stack member, a minimised last-used window
+   and a window on another workspace. Confirm the exact selected window.
+3. On an unfocused disposable browser page, change the title from `(3) Inbox`
+   to `(1) Inbox` to `Inbox`: badge 3→1→none. Focus the app once first to
+   acknowledge any counts retained from the older mixed-state format.
+4. Repeat with an independent notification: removing the title count keeps
+   the notification count. Focus clears the app; a second app is unaffected.
+5. Close the final test window and reload the shell. Title-only badges must
+   not return. Repeat the earlier notification, preview and setup smoke checks.
+
+Release metadata and stable binary pins remain unchanged. Merge and v0.1.3
+publication require the separate acceptance/authorization steps in WORKFLOW.
+
 ## Rust migration (30 September 2026)
 
 The backend is one Rust executable, `bin/familiar-desktop`. Python helpers,

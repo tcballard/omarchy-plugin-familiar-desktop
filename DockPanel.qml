@@ -217,6 +217,7 @@ Item {
 
     // Persistent stable chronological window registry (never reordered on focus or workspace switch)
     property var knownWindows: []
+    property var focusedWindowHistory: []
     property string pendingFocusAppId: ""
     property double pendingFocusTimestamp: 0
 
@@ -2297,7 +2298,8 @@ Item {
         var allEntries = (typeof DesktopEntries !== "undefined" && DesktopEntries.applications && DesktopEntries.applications.values && DesktopEntries.applications.values.length > 0)
             ? DesktopEntries.applications.values
             : (lib && typeof lib.sortedEntries === "function" ? lib.sortedEntries("") : root.appRows)
-        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops)
+        root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, toplevels, active)
+        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
 
         // Refresh active stack item contents if open
         if (root.activeStackItem) {
@@ -2387,6 +2389,8 @@ Item {
     Connections {
         target: ToplevelManager
         function onActiveToplevelChanged() {
+            // Record each focus event even when model rebuilding is debounced.
+            root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, ToplevelManager.toplevels.values, ToplevelManager.activeToplevel)
             if (Date.now() - root.lastTerminalOpenTime < 150) {
                 terminalSettleTimer.restart()
             } else {

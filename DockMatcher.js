@@ -1456,7 +1456,21 @@ function hyprAddressFor(toplevel, hyprToplevels) {
     return "";
 }
 
-function collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimizedFn, getTopKeyFn) {
+// Keep focus history separate from the stable order used by previews and cycling.
+// Object identity prevents a new window with a reused title/address inheriting focus.
+function rememberWindowFocus(history, liveWindows, activeToplevel) {
+    var live = toArray(liveWindows);
+    var previous = Array.isArray(history) ? history : [];
+    var next = [];
+    if (activeToplevel && live.indexOf(activeToplevel) !== -1) next.push(activeToplevel);
+    for (var i = 0; i < previous.length; i++) {
+        var top = previous[i];
+        if (top && live.indexOf(top) !== -1 && next.indexOf(top) === -1) next.push(top);
+    }
+    return next;
+}
+
+function collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimizedFn, getTopKeyFn, focusedWindowHistory) {
     var matching = [];
     var isAnyActive = false;
     var activeIdx = 0;
@@ -1487,6 +1501,15 @@ function collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops
 
     var isAllMin = (matching.length > 0 && minCount === matching.length);
     if (isAllMin) isAnyActive = false;
+    if (!isAnyActive && Array.isArray(focusedWindowHistory)) {
+        for (var h = 0; h < focusedWindowHistory.length; h++) {
+            var recentIndex = matching.indexOf(focusedWindowHistory[h]);
+            if (recentIndex !== -1) {
+                activeIdx = recentIndex;
+                break;
+            }
+        }
+    }
 
     return {
         matching: matching,
@@ -1497,7 +1520,7 @@ function collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops
     };
 }
 
-function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntries, appLibrary, badgeCounts, urgentCounts, maxItems, minimizedToplevels) {
+function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntries, appLibrary, badgeCounts, urgentCounts, maxItems, minimizedToplevels, focusedWindowHistory) {
     var pinned = Array.isArray(pinnedList) ? pinnedList : [];
     var toplevels = toArray(toplevelsList);
     var entries = toArray(desktopEntries);
@@ -1634,7 +1657,7 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
                 var sName = sEntry && sEntry.name ? sEntry.name : sAppId;
                 var sIconSource = (sEntry && sEntry.iconSource) ? sEntry.iconSource : "";
                 var sDesktopId = (sEntry && sEntry.id) ? sEntry.id : sAppId;
-                var sRes = collectMatchingToplevels(sAppId, sEntry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey);
+                var sRes = collectMatchingToplevels(sAppId, sEntry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey, focusedWindowHistory);
                 if (sRes.windowCount > 0) isAnySubRunning = true;
                 if (sRes.isActive) isAnySubActive = true;
 
@@ -1694,7 +1717,7 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
             var desktopId = (entry && entry.id) ? entry.id : appId;
             var exec = entry ? getEntryExec(entry) : "";
 
-            var pRes = collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey);
+            var pRes = collectMatchingToplevels(appId, entry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey, focusedWindowHistory);
             var pAppClass = (pRes.matching && pRes.matching.length > 0 && pRes.matching[0].appId) ? pRes.matching[0].appId : "";
             var itemInfo = getBadgeInfo(badgeCounts, urgentCounts, appId, entry, name, desktopId);
 
@@ -1774,7 +1797,7 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
         var rExec = rEntry ? getEntryExec(rEntry) : "";
 
         // Find all unassigned toplevels for this unpinned app
-        var rRes = collectMatchingToplevels(rAppId, rEntry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey);
+        var rRes = collectMatchingToplevels(rAppId, rEntry, entries, toplevels, assignedTops, toplevelCliApps, activeToplevel, isTopMinimized, getTopKey, focusedWindowHistory);
         if (rRes.windowCount === 0) continue;
 
         var rAppClass = (rRes.matching && rRes.matching.length > 0 && rRes.matching[0].appId) ? rRes.matching[0].appId : origAppClass;

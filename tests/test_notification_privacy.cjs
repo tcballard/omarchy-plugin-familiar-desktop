@@ -2,11 +2,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('components/NotificationTracker.qml', 'utf8');
-const context = { canonicalCounts: {}, canonicalUrgent: {}, lastNotifTimestamps: {},
+const context = { notificationCounts: {}, titleExtractedBadges: {}, canonicalCounts: {}, canonicalUrgent: {}, lastNotifTimestamps: {},
   badgeChanged() {}, scheduleSave() {}, rebuildSnapshot() {}, isAppCurrentlyActive() { return false; } };
 context.tracker = context;
 vm.createContext(context);
-for (const name of ['toCanonical', 'incrementBadge', 'snapshotKey', 'processIncomingNotification']) {
+for (const name of ['toCanonical', 'refreshCounts', 'incrementBadge', 'snapshotKey', 'processIncomingNotification']) {
   const start = source.indexOf(`    function ${name}(`);
   const end = source.indexOf('\n    }', start) + 6;
   vm.runInContext(source.slice(start, end), context);
@@ -22,7 +22,7 @@ context.processIncomingNotification({app: 'org.telegram.desktop', summary: secre
 assert.equal(context.canonicalCounts.telegram, 1);
 assert.doesNotMatch(JSON.stringify(context.canonicalCounts), /8675309|appointment/i);
 // Exercise the actual save handler with legacy sensitive state as well.
-context.canonicalCounts = {[secret]: 2};
+context.notificationCounts = {[secret]: 2};
 context.persisted = {};
 context.saveProc = {running: false};
 context.saveDebounceTimer = {restart() { throw new Error('unexpected retry'); }};

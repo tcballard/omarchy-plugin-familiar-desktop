@@ -13,7 +13,8 @@ Item {
 
     readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy/familiar-desktop-badges.json"
 
-    // In-memory canonical state backed by PersistentProperties
+    // Only notification events persist. Titles are a live snapshot, not increments.
+    property var notificationCounts: ({})
     property var canonicalCounts: ({})
     property var canonicalUrgent: ({})
     property var lastNotifTimestamps: ({})
@@ -23,6 +24,7 @@ Item {
         reloadableId: "familiar-desktop-notification-tracker"
         property var counts: ({})
         property var urgent: ({})
+        property bool loaded: false
     }
 
     FileView {
@@ -47,11 +49,12 @@ Item {
         interval: 400
         repeat: false
         onTriggered: {
-            persisted.counts = tracker.canonicalCounts
+            persisted.counts = tracker.notificationCounts
             persisted.urgent = tracker.canonicalUrgent
+            persisted.loaded = true
             try {
                 var jsonStr = JSON.stringify({
-                    counts: tracker.canonicalCounts,
+                    counts: tracker.notificationCounts,
                     urgent: tracker.canonicalUrgent
                 })
                 if (saveProc.running) { saveDebounceTimer.restart(); return }
@@ -64,17 +67,19 @@ Item {
     }
 
     function scheduleSave() {
-        persisted.counts = tracker.canonicalCounts
+        persisted.counts = tracker.notificationCounts
         persisted.urgent = tracker.canonicalUrgent
+        persisted.loaded = true
         saveDebounceTimer.restart()
     }
 
     function loadDiskState() {
         // Priority 1: In-process PersistentProperties (survives theme reload)
-        if (persisted.counts && typeof persisted.counts === "object" && Object.keys(persisted.counts).length > 0) {
-            canonicalCounts = Object.assign({}, persisted.counts)
+        if (persisted.loaded || (persisted.counts && typeof persisted.counts === "object" && Object.keys(persisted.counts).length > 0)) {
+            notificationCounts = Object.assign({}, persisted.counts || {})
             canonicalUrgent = Object.assign({}, persisted.urgent || {})
-            badgeChanged()
+            persisted.loaded = true
+            refreshCounts()
             return
         }
         // Priority 2: Disk file (survives full shell restart and reboot)
@@ -83,17 +88,29 @@ Item {
             if (raw) {
                 var data = JSON.parse(raw)
                 if (data && typeof data === "object" && data.counts) {
-                    canonicalCounts = Object.assign({}, data.counts || {})
+                    // Legacy files mixed both sources. Preserve those counts until
+                    // the usual focus/clear action rather than discard real events.
+                    notificationCounts = Object.assign({}, data.counts || {})
                     canonicalUrgent = Object.assign({}, data.urgent || {})
-                    persisted.counts = canonicalCounts
+                    persisted.counts = notificationCounts
                     persisted.urgent = canonicalUrgent
-                    badgeChanged()
+                    persisted.loaded = true
+                    refreshCounts()
                 }
             }
         } catch (e) {}
     }
 
     signal badgeChanged()
+
+    function refreshCounts() {
+        var next = Object.assign({}, notificationCounts)
+        for (var key in titleExtractedBadges) {
+            next[key] = Math.max(Number(next[key]) || 0, titleExtractedBadges[key])
+        }
+        canonicalCounts = next
+        badgeChanged()
+    }
 
     // -------------------------------------------------------------------------
     // 1. Canonical Key Normalization & Matching Engine (Desktop + Web Apps)
@@ -227,10 +244,10 @@ Item {
         if (!cKey && !rawKey) return
 
         var targetKey = cKey || rawKey
-        var current = canonicalCounts[targetKey] ? Number(canonicalCounts[targetKey]) : 0
+        var current = notificationCounts[targetKey] ? Number(notificationCounts[targetKey]) : 0
         var add = (delta != null && delta > 0) ? delta : 1
 
-        var nextCounts = Object.assign({}, canonicalCounts)
+        var nextCounts = Object.assign({}, notificationCounts)
         var nextUrgent = Object.assign({}, canonicalUrgent)
         var nextTimestamps = Object.assign({}, lastNotifTimestamps)
 
@@ -243,11 +260,11 @@ Item {
             nextTimestamps[k] = Date.now()
         }
 
-        canonicalCounts = nextCounts
+        notificationCounts = nextCounts
         canonicalUrgent = nextUrgent
         lastNotifTimestamps = nextTimestamps
 
-        badgeChanged()
+        refreshCounts()
         scheduleSave()
     }
 
@@ -269,57 +286,42 @@ Item {
             }
         }
 
-        var nextCounts = Object.assign({}, canonicalCounts)
-        var nextUrgent = Object.assign({}, canonicalUrgent)
-        var changed = false
-
-        for (var j = 0; j < keysToCheck.length; j++) {
-            if (!keysToCheck[j]) continue
-            var rawK = String(keysToCheck[j]).trim().toLowerCase()
-            var cleanK = rawK.replace(/[^a-z0-9]/g, "")
-            var cK = toCanonical(keysToCheck[j])
-
-            var targets = [rawK, cleanK, cK]
-            for (var t = 0; t < targets.length; t++) {
-                var tk = targets[t]
-                if (tk && nextCounts[tk] != null) {
-                    delete nextCounts[tk]
-                    delete nextUrgent[tk]
-                    changed = true
-                }
-            }
-        }
-
-        if (changed) {
-            canonicalCounts = nextCounts
-            canonicalUrgent = nextUrgent
-            badgeChanged()
-            scheduleSave()
-        }
+        clearBadgeKeys(keysToCheck)
     }
 
     function clearByRawIdentifier(rawId) {
         if (!rawId) return
-        var rawK = String(rawId).trim().toLowerCase()
-        var cleanK = rawK.replace(/[^a-z0-9]/g, "")
-        var cK = toCanonical(rawId)
-        var nextCounts = Object.assign({}, canonicalCounts)
-        var nextUrgent = Object.assign({}, canonicalUrgent)
-        var changed = false
+        clearBadgeKeys([rawId])
+    }
 
-        var targets = [rawK, cleanK, cK]
-        for (var t = 0; t < targets.length; t++) {
-            var tk = targets[t]
-            if (tk && nextCounts[tk] != null) {
-                delete nextCounts[tk]
-                delete nextUrgent[tk]
-                changed = true
+    function clearBadgeKeys(identifiers) {
+        var targets = {}
+        for (var i = 0; i < identifiers.length; i++) {
+            if (!identifiers[i]) continue
+            var raw = String(identifiers[i]).trim().toLowerCase()
+            targets[raw] = true
+            targets[raw.replace(/[^a-z0-9]/g, "")] = true
+            targets[toCanonical(raw)] = true
+        }
+        var nextCounts = Object.assign({}, notificationCounts)
+        var nextUrgent = Object.assign({}, canonicalUrgent)
+        var nextTitles = Object.assign({}, titleExtractedBadges)
+        var changed = false
+        var sources = [nextCounts, nextUrgent, nextTitles]
+        for (var s = 0; s < sources.length; s++) {
+            for (var key in sources[s]) {
+                var canonical = toCanonical(key)
+                if (targets[key] || (canonical && targets[canonical])) {
+                    delete sources[s][key]
+                    changed = true
+                }
             }
         }
         if (changed) {
-            canonicalCounts = nextCounts
+            notificationCounts = nextCounts
             canonicalUrgent = nextUrgent
-            badgeChanged()
+            titleExtractedBadges = nextTitles
+            refreshCounts()
             scheduleSave()
         }
     }
@@ -431,6 +433,7 @@ Item {
                 if (top.appId) tracker.clearByRawIdentifier(top.appId)
                 if (top.title) tracker.clearByRawIdentifier(top.title)
             }
+            tracker.syncWindowTitles()
             if (tracker.knownWindows) {
                 for (var i = 0; i < tracker.knownWindows.length; i++) {
                     var w = tracker.knownWindows[i]
@@ -516,6 +519,7 @@ Item {
                 if (top.appId) tracker.clearByRawIdentifier(top.appId)
                 if (top.title) tracker.clearByRawIdentifier(top.title)
             }
+            tracker.syncWindowTitles()
         }
     }
 
@@ -604,36 +608,23 @@ Item {
     }
 
     function syncWindowTitles() {
-        if (!tracker.knownWindows || tracker.knownWindows.length === 0) return
         var nextTitleBadges = {}
-        var hasChanged = false
-
-        for (var i = 0; i < tracker.knownWindows.length; i++) {
-            var win = tracker.knownWindows[i]
+        var windows = tracker.knownWindows || []
+        for (var i = 0; i < windows.length; i++) {
+            var win = windows[i]
             if (!win) continue
             var ttl = String(win.title || "").trim()
             if (!ttl) continue
             var unread = extractUnreadFromTitle(ttl)
             var appIdentifier = win.appId || ""
             var cKey = tracker.toCanonical(appIdentifier)
-            if (cKey && unread > 0) {
+            if (cKey && unread > 0 && !tracker.isAppCurrentlyActive(appIdentifier)) {
                 nextTitleBadges[cKey] = Math.max(nextTitleBadges[cKey] || 0, unread)
-                hasChanged = true
             }
         }
-
-        var nextCounts = Object.assign({}, tracker.canonicalCounts)
-        for (var k in nextTitleBadges) {
-            if (nextTitleBadges[k] > (nextCounts[k] || 0)) {
-                nextCounts[k] = nextTitleBadges[k]
-                hasChanged = true
-            }
-        }
-
-        if (hasChanged) {
-            tracker.canonicalCounts = nextCounts
+        if (JSON.stringify(nextTitleBadges) !== JSON.stringify(tracker.titleExtractedBadges)) {
             tracker.titleExtractedBadges = nextTitleBadges
-            tracker.badgeChanged()
+            tracker.refreshCounts()
         }
     }
 

@@ -291,7 +291,7 @@ pub fn switch(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
         let class = common::lua(w["initialClass"].as_str().unwrap_or(""));
         let action = if mode == "floating" { "set" } else { "unset" };
         let script = format!(
-            "local w=hl.get_window({selector}); assert(w and w.pid=={pid} and w.initial_class=={class} and w.mapped and not w.hidden and not w.pinned and w.fullscreen==0 and not w.group and w.workspace and w.workspace.id>0, 'Window changed; retry mode switch'); local r=hl.dsp.window.float({{window={selector},action='{action}'}})(); assert(not r or r.ok~=false, 'Window mode action failed')"
+            "local w=hl.get_window({selector}); assert(w and w.pid=={pid} and w.initial_class=={class} and w.mapped and not w.hidden and not w.pinned and w.fullscreen==0 and not w.group and w.workspace and w.workspace.id>0, 'Window changed; retry mode switch'); local r=hl.dispatch(hl.dsp.window.float({{window={selector},action='{action}'}})); assert(not r or r.ok~=false, 'Window mode action failed')"
         );
         if checked(hypr, &["eval", &script]).is_ok() {
             changed += 1;

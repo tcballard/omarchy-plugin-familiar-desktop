@@ -56,6 +56,7 @@ var matchToplevel = Matcher.matchToplevel;
 var toCanonical = Matcher.toCanonical;
 var getBadgeInfo = Matcher.getBadgeInfo;
 var buildDockItems = Matcher.buildDockItems;
+var rememberWindowFocus = Matcher.rememberWindowFocus;
 var setPendingCliHint = Matcher.setPendingCliHint;
 var setDetectedCliApps = Matcher.setDetectedCliApps;
 var setDiskIcons = Matcher.setDiskIcons;

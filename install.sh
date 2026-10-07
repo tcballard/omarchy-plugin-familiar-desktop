@@ -101,9 +101,12 @@ bash "$plugin_dir/install-backend.sh"
 step 4 'Installing verified prebuilt window controls'
 helper="$plugin_dir/bin/familiar-desktop"
 library="$(bash "$plugin_dir/install-titlebars.sh")"
+source "$plugin_dir/bar-placement.sh"
+familiar_prepare_bar_placement
 "$helper" titlebars setup --library "$library" --enable --style "$style"
 step 5 'Enabling the dock and window controls'
 omarchy plugin enable "$plugin_id"
+familiar_apply_bar_placement
 shell_call refresh
 shell_call refreshTitlebars
 update_started=false

@@ -61,6 +61,8 @@ finish() {
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+source "$root/bar-placement.sh"
+familiar_prepare_bar_placement
 # A persisted incomplete marker survives shell restart and prevents partial activation.
 printf 'pending\n' > "$state/setup-pending"
 echo 'Checking your desktop…'
@@ -84,4 +86,5 @@ timeout --foreground --kill-after=5 40 "$helper" titlebars apply --style "$style
 jq -e '.state == "active" or .state == "off"' "$log" >/dev/null
 rm -f "$state/setup-pending"
 ready
+familiar_apply_bar_placement
 echo 'Familiar is ready.'

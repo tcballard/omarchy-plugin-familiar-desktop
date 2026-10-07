@@ -4,7 +4,9 @@ This is the v0.1.1 desktop candidate. First complete the new preference, pointer
 
 ## Install
 
-Download and extract the `familiar-desktop-release` ZIP from the candidate PR's successful **Release binaries** workflow. From that extracted folder:
+Use this installation path only when the candidate PR's successful **Release binaries** workflow provides a source-pin-verified `familiar-desktop-release` ZIP. A `familiar-desktop-packaging-validation` artifact is validation-only: its unreleased binaries differ from committed pins, it contains no installers, and it is not suitable for this acceptance installation. Green CI alone does not approve a candidate for installation or publication.
+
+Download and extract the `familiar-desktop-release` ZIP. From that extracted folder:
 
 ```bash
 bash install-candidate.sh windows
@@ -62,6 +64,14 @@ Settings, pins, badges and recovery journal are retained. Companion apps and unr
 - Switch between a light and dark theme. The dock background and widget text follow the bar palette; title-bar background/text follow popup tokens unless the theme explicitly overrides them.
 - Mac controls: circular traffic lights, crisp dark marks on hover, expand arrows instead of a plus. Windows controls: rounded-square buttons with close/minimise/maximise paths. Verify clicks at 100%, 150% and 200% scale, including moving between differently scaled monitors.
 - Apps that draw their own header can still show duplicate controls. The existing window-class exclusion remains available; automatic detection is not part of this fix.
+
+## Minimise/restore regression (#34)
+
+- On an otherwise empty workspace with no special workspace open, open one disposable window and minimise it from the title bar. It must disappear without a workspace round-trip. `hyprctl -j monitors` must still show the original regular workspace and must not show `special:minimized` as active.
+- Restore it from the dock, then minimise it from the dock's app menu. It must disappear again; restore must bring it back and focus it.
+- Open two disposable apps on the same workspace and minimise them in sequence. Minimising the second must not reveal the first. Restore each separately and confirm the other stays minimised until selected. Repeat with two windows of the same app.
+
+Inspect actual window visibility as well as workspace state. Hyprland's client `visible` field does not include workspace visibility, so it is not sufficient proof that a minimised window is on screen.
 
 ## Clean rollback acceptance
 

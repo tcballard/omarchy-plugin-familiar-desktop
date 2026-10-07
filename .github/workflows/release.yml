@@ -62,14 +62,38 @@ jobs:
         with:
           name: familiar-hyprbars
           path: hyprbars-assets
-      - run: node scripts/prepare-release.cjs backend/target/x86_64-unknown-linux-musl/release/familiar-desktop
-      - run: node tests/test_release_install.cjs
+      - name: Package built assets
+        id: package
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == release ]]; then
+            node scripts/prepare-release.cjs backend/target/x86_64-unknown-linux-musl/release/familiar-desktop
+          else
+            node scripts/prepare-release.cjs backend/target/x86_64-unknown-linux-musl/release/familiar-desktop --ci
+          fi
+          node -e 'const fs = require("node:fs"); const manifest = JSON.parse(fs.readFileSync("release-assets/RELEASE-MANIFEST.json")); if (typeof manifest.sourcePinsMatch !== "boolean") throw new Error("Missing source pin readiness"); fs.appendFileSync(process.env.GITHUB_OUTPUT, `source_pins_match=${manifest.sourcePinsMatch}\n`);'
+      - name: Smoke test reviewed release bundle
+        if: steps.package.outputs.source_pins_match == 'true'
+        run: node tests/test_release_install.cjs
+      - name: Smoke test validation-only bundle
+        if: steps.package.outputs.source_pins_match == 'false'
+        run: |
+          echo 'Validation-only packaging: built assets differ from committed pins. This bundle is NOT release-ready and cannot be used for tagging or publication.'
+          node tests/test_release_install.cjs --ci
       - name: Verify complete checksums
         working-directory: release-assets
         run: sha256sum --check SHA256SUMS
       - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.source_pins_match == 'true'
         with:
           name: familiar-desktop-release
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.source_pins_match == 'false'
+        with:
+          name: familiar-desktop-packaging-validation
           path: release-assets/*
           if-no-files-found: error
   publish:

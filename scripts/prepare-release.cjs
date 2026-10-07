@@ -1,5 +1,8 @@
 // CI-only asset packaging; no runtime Node dependency.
 const fs=require('node:fs');const crypto=require('node:crypto');const path=require('node:path');const {execFileSync}=require('node:child_process');
+const args=process.argv.slice(2);
+if((args.length!==1&&args.length!==2)||!args[0]||args[0].startsWith('--')||(args.length===2&&args[1]!=='--ci'))throw Error('Usage: node scripts/prepare-release.cjs BINARY [--ci]');
+const ci=args[1]==='--ci';
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 const version=JSON.parse(fs.readFileSync('manifest.json')).version;
 const source={repository:'https://github.com/tcballard/omarchy-plugin-familiar-desktop',commit:git('rev-parse','HEAD'),tree:git('rev-parse','HEAD^{tree}')};
@@ -7,9 +10,27 @@ const dir=path.resolve('release-assets');fs.mkdirSync(dir,{recursive:true});
 if(fs.readdirSync(dir).length)throw Error('Release output must be empty');
 const write=(name,data)=>fs.writeFileSync(path.join(dir,name),JSON.stringify(data,null,2)+'\n');
 const item=name=>{const bytes=fs.readFileSync(path.join(dir,name));return {name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};};
-const pins=fs.readFileSync('release-binaries.sha256','utf8');
-const verifyPin=(name,file)=>{const rows=pins.trim().split('\n').filter(row=>row.split(/\s+/)[1]===name);if(rows.length!==1||!/^([0-9a-f]{64})  \S+$/.test(rows[0])||crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==rows[0].slice(0,64))throw Error('Built asset differs from reviewed source digest: '+name);};
-const binary='familiar-desktop-linux-x86_64';verifyPin(binary,process.argv[2]);fs.copyFileSync(process.argv[2],path.join(dir,binary));fs.chmodSync(path.join(dir,binary),0o755);
+const pins=new Map();
+for(const row of fs.readFileSync('release-binaries.sha256','utf8').trim().split('\n')){
+  const match=/^([0-9a-f]{64})  (\S+)$/.exec(row);
+  if(!match||pins.has(match[2]))throw Error('Malformed or duplicate reviewed source digest: '+row);
+  pins.set(match[2],match[1]);
+}
+const pinMatches=(name,file)=>{
+  if(!pins.has(name))throw Error('Missing reviewed source digest: '+name);
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')===pins.get(name);
+};
+const binary='familiar-desktop-linux-x86_64';
+const hyprbarsDir=path.resolve('hyprbars-assets');
+const hyprbarsNames=fs.readdirSync(hyprbarsDir);
+if(!hyprbarsNames.some(n=>n.startsWith('hyprbars-linux-x86_64-')&&n.endsWith('.so')))throw Error('Missing prebuilt Hyprbars; refusing incomplete release');
+let sourcePinsMatch=pinMatches(binary,args[0]);
+for(const name of hyprbarsNames.filter(n=>n.endsWith('.so'))){
+  const matches=pinMatches(name,path.join(hyprbarsDir,name));
+  sourcePinsMatch=matches&&sourcePinsMatch;
+}
+if(!sourcePinsMatch&&!ci)throw Error('Built asset differs from reviewed source digest');
+fs.copyFileSync(args[0],path.join(dir,binary));fs.chmodSync(path.join(dir,binary),0o755);
 if(execFileSync(path.join(dir,binary),['--version'],{encoding:'utf8'}).trim()!==`familiar-desktop ${version}`)throw Error('Asset version differs from manifest');
 const archive=`familiar-desktop-${version}-source.tar.gz`;execFileSync('git',['archive','--format=tar.gz',`--prefix=familiar-desktop-${version}/`,'-o',path.join(dir,archive),'HEAD']);
 write('SOURCE-MANIFEST.json',{schemaVersion:1,version,source,files:git('ls-files').split('\n').map(name=>({name,sha256:crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')}))});
@@ -18,20 +39,15 @@ const reachable=new Set();const visit=id=>{if(reachable.has(id))return;reachable
 const notices=metadata.packages.filter(p=>p.source&&reachable.has(p.id)).map(p=>{const dir=path.dirname(p.manifest_path);const names=fs.readdirSync(dir).filter(n=>/^(LICENSE|LICENCE|COPYING|NOTICE)/i.test(n)&&fs.statSync(path.join(dir,n)).isFile());if(p.license_file&&!names.includes(p.license_file))names.push(p.license_file);return [p.name+' '+p.version+' ('+p.license+')',...names.map(n=>n+'\n'+fs.readFileSync(path.join(dir,n),'utf8'))].join('\n\n');});
 fs.writeFileSync(path.join(dir,'THIRD-PARTY-NOTICES.txt'),notices.join('\n\n==================================================\n\n')+'\n');
 write('SBOM.spdx.json',{spdxVersion:'SPDX-2.3',dataLicense:'CC0-1.0',SPDXID:'SPDXRef-DOCUMENT',name:`familiar-desktop-${version}`,documentNamespace:`${source.repository}/spdx/${source.commit}`,creationInfo:{creators:['Tool: Familiar release CI'],created:git('show','-s','--format=%cI','HEAD').replace('+00:00','Z')},packages:[{SPDXID:'SPDXRef-Familiar',name:'familiar-desktop',versionInfo:version,downloadLocation:`git+${source.repository}.git@${source.commit}`,filesAnalyzed:false,licenseConcluded:'NOASSERTION',licenseDeclared:'MIT',copyrightText:'NOASSERTION',comment:'Source package inventory. Rust dependency versions and checksums are recorded in backend/Cargo.lock; see THIRD-PARTY-NOTICES.txt for dependency licenses.'}],relationships:[{spdxElementId:'SPDXRef-DOCUMENT',relationshipType:'DESCRIBES',relatedSpdxElement:'SPDXRef-Familiar'}]});
-write('RELEASE-MANIFEST.json',{schemaVersion:1,version,source,artifacts:[item(binary),item(archive)],releaseDocuments:[item('SOURCE-MANIFEST.json'),item('SBOM.spdx.json'),item('THIRD-PARTY-NOTICES.txt')]});
-const hyprbarsDir=path.resolve('hyprbars-assets');
-const hyprbarsNames=fs.readdirSync(hyprbarsDir);
-if(!hyprbarsNames.some(n=>n.startsWith('hyprbars-linux-x86_64-')&&n.endsWith('.so')))throw Error('Missing prebuilt Hyprbars; refusing incomplete release');
-for(const name of hyprbarsNames.filter(n=>n.endsWith('.so')))verifyPin(name,path.join(hyprbarsDir,name));
 for(const name of hyprbarsNames)fs.copyFileSync(path.join(hyprbarsDir,name),path.join(dir,name));
-const releaseManifest=JSON.parse(fs.readFileSync(path.join(dir,'RELEASE-MANIFEST.json')));
-releaseManifest.artifacts.push(...hyprbarsNames.map(item));
-write('RELEASE-MANIFEST.json',releaseManifest);
-fs.writeFileSync(path.join(dir,'install-candidate.sh'),fs.readFileSync('scripts/install-candidate.sh','utf8').replace('@SOURCE_SHA@',source.commit).replace('@VERSION@',version));
-fs.writeFileSync(path.join(dir,'install.sh'),fs.readFileSync('install.sh','utf8').replace('@SOURCE_SHA@',source.commit));
-fs.copyFileSync('docs/XPS-TEST.md',path.join(dir,'XPS-TEST.md'));
-for(const name of ['RELEASE-0.1.2.md','v0.1.2.md','ROLLBACK.md'])fs.copyFileSync('docs/'+name,path.join(dir,name));
-releaseManifest.releaseDocuments.push(item('install.sh'),item('install-candidate.sh'),item('XPS-TEST.md'),item('RELEASE-0.1.2.md'),item('v0.1.2.md'),item('ROLLBACK.md'));
+const releaseManifest={schemaVersion:1,version,source,sourcePinsMatch,artifacts:[item(binary),item(archive),...hyprbarsNames.map(item)],releaseDocuments:[item('SOURCE-MANIFEST.json'),item('SBOM.spdx.json'),item('THIRD-PARTY-NOTICES.txt')]};
+if(sourcePinsMatch){
+  fs.writeFileSync(path.join(dir,'install-candidate.sh'),fs.readFileSync('scripts/install-candidate.sh','utf8').replace('@SOURCE_SHA@',source.commit).replace('@VERSION@',version));
+  fs.writeFileSync(path.join(dir,'install.sh'),fs.readFileSync('install.sh','utf8').replace('@SOURCE_SHA@',source.commit));
+  fs.copyFileSync('docs/XPS-TEST.md',path.join(dir,'XPS-TEST.md'));
+  for(const name of ['RELEASE-0.1.2.md','v0.1.2.md','ROLLBACK.md'])fs.copyFileSync('docs/'+name,path.join(dir,name));
+  releaseManifest.releaseDocuments.push(item('install.sh'),item('install-candidate.sh'),item('XPS-TEST.md'),item('RELEASE-0.1.2.md'),item('v0.1.2.md'),item('ROLLBACK.md'));
+}
 write('RELEASE-MANIFEST.json',releaseManifest);
 const names=fs.readdirSync(dir).sort();fs.writeFileSync(path.join(dir,'SHA256SUMS'),names.map(name=>`${item(name).sha256}  ${name}\n`).join(''));
 console.log(`Prepared ${names.length+1} release assets for ${version} at ${source.commit}`);

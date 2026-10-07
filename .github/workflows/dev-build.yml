@@ -2,6 +2,10 @@ name: Build for testing
 run-name: Development build · ${{ github.head_ref || github.ref_name }} · ${{ github.run_number }}
 on:
   workflow_call:
+    outputs:
+      artifact_name:
+        description: Exact development artifact, including its producing attempt
+        value: ${{ jobs.bundle.outputs.artifact_name }}
   workflow_dispatch:
   # Exercise the complete new pipeline before its first merge to main.
   pull_request:
@@ -25,6 +29,8 @@ jobs:
   bundle:
     needs: [checks, binaries]
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,9 +43,12 @@ jobs:
           pattern: familiar-desktop-*
           path: downloaded
       - name: Package source-bound development installer
+        id: package
         env:
           BUILD_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/prepare-dev-bundle.cjs downloaded dev-bundle
+        run: |
+          node scripts/prepare-dev-bundle.cjs downloaded dev-bundle
+          echo "artifact_name=familiar-dev-$BUILD_SOURCE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: familiar-dev-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}

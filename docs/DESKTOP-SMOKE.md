@@ -44,8 +44,10 @@ upload even on failure. Screenshots prove rendering occurred, not visual fidelit
 `session.sh` refuses to run outside the disposable CI account.
 
 PRs trigger the workflow; manual dispatch becomes available after the workflow
-reaches the default branch. Rerun the full workflow when rebuilding the candidate
-so the artifact's run attempt matches the desktop job's expected identity.
+reaches the default branch. The reusable build returns its exact artifact name,
+so retrying only a failed desktop job uses the previously successful candidate
+artifact, not a guessed new attempt. `tested-build.json` records the producing
+attempt separately from the smoke workflow attempt.
 
 Automated desktop success is not XPS hardware acceptance or authorization to
 promote a branch to main or publish a version. See `WORKFLOW.md`.

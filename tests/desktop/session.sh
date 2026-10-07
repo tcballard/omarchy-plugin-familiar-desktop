@@ -100,6 +100,7 @@ phase=install-candidate
 bundle="$SMOKE_ROOT/desktop-bundle"
 (cd "$bundle" && sha256sum --check --strict SHA256SUMS)
 jq -e --arg sha "$SOURCE_SHA" '.commit == $sha and .channel == "development"' "$bundle/DEV-BUILD.json"
+cp "$bundle/DEV-BUILD.json" "$EVIDENCE/tested-build.json"
 bash "$bundle/install-dev.sh"
 [[ $(git -C "$plugin" rev-parse HEAD) == "$SOURCE_SHA" ]]
 wait_for familiar_ready

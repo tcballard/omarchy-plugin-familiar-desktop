@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          name: familiar-dev-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.candidate.outputs.artifact_name }}
           path: desktop-bundle
       - name: Run real desktop in a disposable account
         shell: bash

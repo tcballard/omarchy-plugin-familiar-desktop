@@ -31,6 +31,22 @@ new candidate build and an explicit review of new digests. Never automatically
 rewrite the pins during final release publication. A version string alone is
 not sufficient evidence of binary identity.
 
+PR and main builds use `scripts/prepare-release.cjs BINARY --ci` to validate
+unreleased packaging without changing these pins. The existing release manifest
+records `sourcePinsMatch` for the backend and every packaged Hyprbars library.
+Missing, malformed or duplicate pins still fail; only valid digest differences
+are allowed in this mode. Source provenance, notices, version, package completeness
+and checksum checks remain required.
+
+When pins differ, CI uploads `familiar-desktop-packaging-validation`, without
+installers or release instructions. The installer smoke check uses built-asset
+digests only inside its disposable fixture; this is not source-pin approval.
+When every binary matches, CI retains the strictly verified
+`familiar-desktop-release` artifact and the committed-pin installer smoke check.
+RC tagging consumes only that strict artifact and stops before creating a tag
+if it is absent. Default packaging and published release events remain strict,
+with no fallback to CI mode. Green development CI does not mean release readiness.
+
 The candidate installer independently fetches the exact embedded source commit
 and reads its digest file with `git show` before executing either bundled binary.
 The bundle's SHA256SUMS still checks transport integrity; it is not an independent

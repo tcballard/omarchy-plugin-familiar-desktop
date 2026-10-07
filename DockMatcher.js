@@ -1314,18 +1314,22 @@ function createDesktopEntryIndex(desktopEntries) {
             if (cleanNorm && !byNorm[cleanNorm]) byNorm[cleanNorm] = e;
         }
 
-        if (e.icon) {
-            var icon = String(e.icon).toLowerCase();
-            if (!byId[icon]) byId[icon] = e;
-            var iconNorm = normalizeKey(icon);
-            if (iconNorm && !byNorm[iconNorm]) byNorm[iconNorm] = e;
-        }
-
         var eExecVal = getEntryExec(e);
         if (eExecVal) {
             var execBase = eExecVal.trim().split(/\s+/)[0].split("/").pop().toLowerCase();
             if (execBase && !byExec[execBase]) byExec[execBase] = e;
         }
+    }
+
+    // Index identities before shared icon aliases so aliases cannot claim their keys.
+    for (var j = 0; j < list.length; j++) {
+        var iconEntry = unwrapEntry(list[j]);
+        if (!iconEntry || !iconEntry.icon) continue;
+
+        var icon = String(iconEntry.icon).toLowerCase();
+        if (!byId[icon]) byId[icon] = iconEntry;
+        var iconNorm = normalizeKey(icon);
+        if (iconNorm && !byNorm[iconNorm]) byNorm[iconNorm] = iconEntry;
     }
 
     return { list: list, byId: byId, byName: byName, byNorm: byNorm, byExec: byExec };

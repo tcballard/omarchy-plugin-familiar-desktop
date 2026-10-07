@@ -704,14 +704,14 @@ fn focus_and_point(ipc: &mut impl DockIpc, addr: &str) -> Result<()> {
         ),
     )
 }
-fn move_window(ipc: &mut impl DockIpc, addr: &str, ws: &str) -> Result<()> {
+fn move_window(ipc: &mut impl DockIpc, addr: &str, ws: &str, follow: bool) -> Result<()> {
     if !valid_address(addr) {
         return Err("Invalid window address".into());
     }
     dispatch(
         ipc,
         format!(
-            "dispatch hl.dsp.window.move({{ window = {}, workspace = {} }})",
+            "dispatch hl.dsp.window.move({{ window = {}, workspace = {}, follow = {follow} }})",
             lua(&format!("address:{addr}")),
             lua(ws)
         ),
@@ -833,11 +833,12 @@ pub fn operate(
         if minimize {
             return Ok(true);
         }
-        move_window(ipc, addr, ws)?;
+        move_window(ipc, addr, ws, true)?;
         close_special(ipc, monitors)?;
         focus_and_point(ipc, addr)?;
     } else if minimize || toggle {
-        move_window(ipc, addr, "special:minimized")?;
+        // Following this move would open the shared workspace and expose minimized windows.
+        move_window(ipc, addr, "special:minimized", false)?;
         close_special(ipc, monitors)?;
         if let Some(next) = matching
             .iter()
@@ -881,7 +882,7 @@ pub fn arrange(
             .as_str()
             .filter(|s| !s.is_empty() && !s.starts_with("special:"))
             .ok_or("No regular workspace")?;
-        move_window(ipc, addr, ws)?;
+        move_window(ipc, addr, ws, true)?;
         return focus_and_point(ipc, addr);
     }
     if mode == "go-window" {

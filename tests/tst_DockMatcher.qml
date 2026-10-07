@@ -50,6 +50,118 @@ TestCase {
         compare(ghosttyEntry.name, "Ghostty")
     }
 
+    function test_footPinKeepsLaunchIdentity_data() {
+        var foot = { id: "foot", name: "Foot", icon: "foot", execString: "foot" }
+        var client = { id: "footclient", name: "Foot Client", icon: "foot", execString: "footclient" }
+        var server = { id: "foot-server", name: "Foot Server", icon: "foot", execString: "foot --server" }
+        return [
+            { tag: "foot-client-server", entries: [foot, client, server] },
+            { tag: "foot-server-client", entries: [foot, server, client] },
+            { tag: "client-foot-server", entries: [client, foot, server] },
+            { tag: "client-server-foot", entries: [client, server, foot] },
+            { tag: "server-foot-client", entries: [server, foot, client] },
+            { tag: "server-client-foot", entries: [server, client, foot] }
+        ]
+    }
+
+    function test_footPinKeepsLaunchIdentity(data) {
+        var top = { appId: "foot", title: "foot" }
+        var runningItems = DockMatcher.buildDockItems([], [top], top, data.entries, null, {}, {}, 0, [])
+        compare(runningItems.length, 1)
+        var running = runningItems[0]
+        compare(running.appId, "foot")
+        compare(running.desktopId, "foot")
+        compare(running.exec, "foot")
+        compare(running.isRunning, true)
+
+        var closedItems = DockMatcher.buildDockItems([running.appId], [], null, data.entries, null, {}, {}, 0, [])
+        compare(closedItems.length, 1)
+        var closed = closedItems[0]
+        compare(closed.appId, "foot")
+        compare(closed.desktopId, "foot")
+        compare(closed.exec, "foot")
+        compare(closed.isPinned, true)
+        compare(closed.isRunning, false)
+    }
+
+    function test_explicitFootServicePinsKeepIdentity_data() {
+        return test_footPinKeepsLaunchIdentity_data()
+    }
+
+    function test_explicitFootServicePinsKeepIdentity(data) {
+        var items = DockMatcher.buildDockItems(["footclient", "foot-server"], [], null, data.entries, null, {}, {}, 0, [])
+        compare(items.length, 2)
+        compare(items[0].appId, "footclient")
+        compare(items[0].desktopId, "footclient")
+        compare(items[0].exec, "footclient")
+        compare(items[0].isPinned, true)
+        compare(items[0].isRunning, false)
+        compare(items[1].appId, "foot-server")
+        compare(items[1].desktopId, "foot-server")
+        compare(items[1].exec, "foot --server")
+        compare(items[1].isPinned, true)
+        compare(items[1].isRunning, false)
+    }
+
+    function test_sharedIconDoesNotOverrideExactId() {
+        var entries = [
+            { id: "alias-owner", name: "Alias Owner", icon: "example-app", execString: "alias-owner" },
+            { id: "example-app", name: "Example", execString: "example" }
+        ]
+        var entry = DockMatcher.findEntryFast(DockMatcher.createDesktopEntryIndex(entries), "example-app")
+        verify(entry !== null)
+        compare(entry.id, "example-app")
+        compare(entry.execString, "example")
+    }
+
+    function test_iconDoesNotOverrideNormalizedIdentity() {
+        var entries = [
+            { id: "alias-owner", name: "Alias Owner", icon: "example_app", execString: "alias-owner" },
+            { id: "example-app", name: "Example", execString: "example" }
+        ]
+        var entry = DockMatcher.findEntryFast(DockMatcher.createDesktopEntryIndex(entries), "EXAMPLE APP")
+        verify(entry !== null)
+        compare(entry.id, "example-app")
+        compare(entry.execString, "example")
+    }
+
+    function test_iconOnlyFallbackRemainsAvailable() {
+        var entries = [
+            { id: "alias-owner", name: "Alias Owner", icon: "orphan-icon", execString: "alias-owner" }
+        ]
+        var index = DockMatcher.createDesktopEntryIndex(entries)
+        var exact = DockMatcher.findEntryFast(index, "orphan-icon")
+        verify(exact !== null)
+        compare(exact.id, "alias-owner")
+        compare(exact.execString, "alias-owner")
+        var normalized = DockMatcher.findEntryFast(index, "ORPHAN ICON")
+        verify(normalized !== null)
+        compare(normalized.id, "alias-owner")
+        compare(normalized.execString, "alias-owner")
+    }
+
+    function test_duplicateIdsKeepFirstEntry() {
+        var entries = [
+            { id: "example-app", name: "First Example", execString: "first-example" },
+            { id: "example-app", name: "Second Example", execString: "second-example" }
+        ]
+        var entry = DockMatcher.findEntryFast(DockMatcher.createDesktopEntryIndex(entries), "example-app")
+        verify(entry !== null)
+        compare(entry.id, "example-app")
+        compare(entry.execString, "first-example")
+    }
+
+    function test_exactIdCaseAndSuffixSurviveSharedIcon() {
+        var entries = [
+            { id: "alias-owner", name: "Alias Owner", icon: "example-app", execString: "alias-owner" },
+            { id: "example-app", name: "Example", execString: "example" }
+        ]
+        var entry = DockMatcher.findEntryFast(DockMatcher.createDesktopEntryIndex(entries), "EXAMPLE-APP.desktop")
+        verify(entry !== null)
+        compare(entry.id, "example-app")
+        compare(entry.execString, "example")
+    }
+
     function test_collectMatchingToplevels_activeAndMinimized() {
         var top1 = { appId: "google-chrome", title: "GitHub - Omarchy Dock" }
         var top2 = { appId: "google-chrome", title: "YouTube" }

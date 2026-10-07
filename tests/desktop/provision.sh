@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-[[ $(id -u) == 0 && $(hostname) == familiar-smoke ]] || exit 2
+[[ $(id -u) == 0 && $(uname -n) == familiar-smoke ]] || exit 2
 : "${SOURCE_SHA:?}" "${OMARCHY_SHA:?}"
 root=/opt/familiar-smoke
 mkdir -p "$root/smoke-evidence"

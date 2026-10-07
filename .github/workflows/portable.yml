@@ -55,7 +55,9 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QT_QUICK_BACKEND: software
-        run: /usr/lib/qt6/bin/qmltestrunner -input tests -import tests/imports
+        run: |
+          /usr/lib/qt6/bin/qmltestrunner -input tests -import tests/imports
+          node tests/test_settings_layout.cjs
       - name: Upload setup preview
         uses: actions/upload-artifact@v4
         with:

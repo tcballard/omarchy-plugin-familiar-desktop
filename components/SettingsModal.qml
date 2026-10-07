@@ -13,6 +13,8 @@ PanelWindow {
   property bool open: false
   property real contentWidth: Style.space(800)
   property alias page: frame.page
+  property alias section: frame.section
+  function shows(pageKey, sectionKey) { return frame.shows(pageKey, sectionKey) }
   property real contentHeight: 0
   default property alias contents: frame.contents
   readonly property real padding: Style.space(16)

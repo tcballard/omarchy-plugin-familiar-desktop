@@ -6,6 +6,14 @@ import qs.Commons
 Rectangle {
     id: root
     property string page: "general"
+    property string section: ""
+    readonly property var sections: ({
+        dock: [{key: "appearance", title: "Appearance"}, {key: "visibility", title: "Visibility"}, {key: "extras", title: "Extras"}],
+        windows: [{key: "layout", title: "Layout"}, {key: "titlebars", title: "Title bars"}, {key: "resizing", title: "Resizing"}],
+        keyboard: [{key: "keys", title: "Caps Lock"}, {key: "shortcuts", title: "Shortcuts"}, {key: "gestures", title: "Trackpad"}]
+    })
+    readonly property var currentSections: sections[page] || []
+    function shows(pageKey, sectionKey) { return page === pageKey && section === sectionKey }
     property real contentHeight: 0
     default property alias contents: contentHolder.data
     signal dismissed()
@@ -14,8 +22,8 @@ Rectangle {
     readonly property var pages: [
         {key: "general", title: "General", glyph: "▦", detail: "Your starting layout and desktop actions."},
         {key: "dock", title: "Dock", glyph: "▤", detail: "Apps, visibility and the way your dock behaves."},
-        {key: "windows", title: "Windows", glyph: "□", detail: "Title bars, button placement and sizing."},
-        {key: "keyboard", title: "Input", glyph: "⌨", detail: "Keyboard labels, Caps Lock and trackpad gestures."},
+        {key: "windows", title: "Windows", glyph: "□", detail: "Window layout, title bars and mouse resizing."},
+        {key: "keyboard", title: "Input", glyph: "⌨", detail: "Caps Lock, editing shortcuts and trackpad gestures."},
         {key: "help", title: "Getting Started", glyph: "?", detail: "Your shortcuts and useful system tools."}
     ]
     readonly property var current: pages.filter(p => p.key === page)[0] || pages[0]
@@ -28,7 +36,12 @@ Rectangle {
         acceptedButtons: Qt.AllButtons
         onWheel: wheel => { wheel.accepted = true }
     }
-    onPageChanged: scroller.contentY = 0
+    onPageChanged: {
+        section = sections[page] ? sections[page][0].key : ""
+        resetScroll()
+    }
+    onSectionChanged: resetScroll()
+    Component.onCompleted: section = sections[page] ? sections[page][0].key : ""
     function resetScroll() { scroller.contentY = 0 }
 
     Rectangle {
@@ -52,6 +65,7 @@ Rectangle {
                 elide: Text.ElideRight
             }
             Repeater {
+                id: navigation
                 model: root.pages
                 delegate: AbstractButton {
                     id: nav
@@ -65,8 +79,8 @@ Rectangle {
                     Accessible.name: modelData.title
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.page = modelData.key
-                    Keys.onDownPressed: { root.page = root.pages[(index + 1) % root.pages.length].key; nextItemInFocusChain().forceActiveFocus() }
-                    Keys.onUpPressed: { root.page = root.pages[(index + root.pages.length - 1) % root.pages.length].key; nextItemInFocusChain(false).forceActiveFocus() }
+                    Keys.onDownPressed: { root.page = root.pages[(index + 1) % root.pages.length].key; navigation.itemAt((index + 1) % root.pages.length).forceActiveFocus() }
+                    Keys.onUpPressed: { root.page = root.pages[(index + root.pages.length - 1) % root.pages.length].key; navigation.itemAt((index + root.pages.length - 1) % root.pages.length).forceActiveFocus() }
                     ToolTip.visible: hovered && root.compact
                     ToolTip.text: modelData.title
                     background: Rectangle {
@@ -125,6 +139,36 @@ Rectangle {
                 font.pixelSize: Style.space(12)
                 color: Color.popups.text
                 opacity: 0.7
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.currentSections.length > 0
+                spacing: Style.space(6)
+                Repeater {
+                    id: sectionNavigation
+                    model: root.currentSections
+                    delegate: ActionButton {
+                        required property var modelData
+                        required property int index
+                        objectName: "settings-section-" + modelData.key
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        implicitWidth: 0
+                        text: modelData.title
+                        selected: root.section === modelData.key
+                        onClicked: root.section = modelData.key
+                        Keys.onRightPressed: {
+                            var next = (index + 1) % root.currentSections.length
+                            root.section = root.currentSections[next].key
+                            sectionNavigation.itemAt(next).forceActiveFocus()
+                        }
+                        Keys.onLeftPressed: {
+                            var previous = (index + root.currentSections.length - 1) % root.currentSections.length
+                            root.section = root.currentSections[previous].key
+                            sectionNavigation.itemAt(previous).forceActiveFocus()
+                        }
+                    }
+                }
             }
             Rectangle {
                 Layout.fillWidth: true

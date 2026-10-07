@@ -30,6 +30,9 @@ Item {
     readonly property bool isAnyDragging: dockDragActiveIndex >= 0 || isDragging
     property bool showBadges: true
 
+    signal previewHoverChanged(var item, bool hovered)
+    signal previewCancelled()
+    Component.onDestruction: previewHoverChanged(root, false)
     signal itemLeftClicked(var itemData)
     signal itemRightClicked(var itemData, var itemItem)
     signal moveRequested(int fromIndex, int toIndex)
@@ -535,6 +538,8 @@ Item {
 
         focus: containsMouse
 
+        onContainsMouseChanged: root.previewHoverChanged(root, containsMouse)
+
         onEntered: {
             mouseArea.forceActiveFocus()
         }
@@ -574,6 +579,7 @@ Item {
         }
 
         onPressed: function(mouse) {
+            root.previewCancelled()
             if (mouse.button === Qt.LeftButton) {
                 didDrag = false
                 didLongPress = false

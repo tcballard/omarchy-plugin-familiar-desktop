@@ -8,6 +8,7 @@ on:
       - '.github/workflows/dev-build.yml'
       - '.github/workflows/portable.yml'
       - '.github/workflows/release.yml'
+      - '.github/workflows/build-binaries.yml'
       - 'scripts/prepare-dev-bundle.cjs'
       - 'scripts/install-dev.sh'
       - 'tests/test_dev_install.cjs'
@@ -19,7 +20,7 @@ jobs:
   checks:
     uses: ./.github/workflows/portable.yml
   binaries:
-    uses: ./.github/workflows/release.yml
+    uses: ./.github/workflows/build-binaries.yml
   bundle:
     needs: [checks, binaries]
     runs-on: ubuntu-latest

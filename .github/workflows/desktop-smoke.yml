@@ -1,0 +1,76 @@
+name: Desktop smoke
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate:
+    uses: ./.github/workflows/dev-build.yml
+  desktop:
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: archlinux:base@sha256:4e77cf2ea5f410e6f8be5abf93ccf17ce2436e87a138c167208356711a405dbd
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      OMARCHY_SHA: 0f8af9be307d5d4f12cc0f6394892cac651ed5e6
+    steps:
+      - name: Install signed, dated Arch desktop packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Server = https://archive.archlinux.org/repos/2026/09/30/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+          retry() { local n; for n in 1 2 3; do "$@" && return; sleep 5; done; return 1; }
+          retry pacman -Syyuu --noconfirm
+          retry pacman -S --needed --noconfirm git jq nodejs dbus sudo socat curl \
+            hyprland quickshell weston mesa foot grim qt6-declarative qt6-wayland \
+            qt6-multimedia qt6-svg qt6-imageformats ttf-dejavu
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: omacom/omarchy
+          ref: ${{ env.OMARCHY_SHA }}
+          path: upstream-omarchy
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: familiar-dev-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: desktop-bundle
+      - name: Run real desktop in a disposable account
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke-evidence /run/dbus /run/systemd/journal
+          pacman -Q > smoke-evidence/packages.txt
+          dbus-daemon --system --fork
+          /usr/lib/systemd/systemd-journald > smoke-evidence/journald.log 2>&1 &
+          useradd --create-home familiar-smoke
+          chown familiar-smoke:familiar-smoke smoke-evidence
+          runuser -u familiar-smoke -- env \
+            FAMILIAR_DISPOSABLE_SMOKE=1 SOURCE_SHA="$SOURCE_SHA" OMARCHY_SHA="$OMARCHY_SHA" \
+            SMOKE_ROOT="$GITHUB_WORKSPACE" \
+            dbus-run-session -- bash "$GITHUB_WORKSPACE/tests/desktop/session.sh"
+      - name: Collect desktop diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p smoke-evidence
+          journalctl --no-pager -t omarchy-shell > smoke-evidence/omarchy-journal.log 2>&1 || true
+          if [[ -d /home/familiar-smoke/.cache ]]; then
+            cp -a /home/familiar-smoke/.cache smoke-evidence/user-cache || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-smoke-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: smoke-evidence/
+          retention-days: 14
+          if-no-files-found: error

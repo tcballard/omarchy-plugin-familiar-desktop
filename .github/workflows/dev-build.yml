@@ -1,6 +1,7 @@
 name: Build for testing
 run-name: Development build · ${{ github.head_ref || github.ref_name }} · ${{ github.run_number }}
 on:
+  workflow_call:
   workflow_dispatch:
   # Exercise the complete new pipeline before its first merge to main.
   pull_request:

@@ -116,7 +116,10 @@ PanelWindow {
             root.minimizeItem(app, selectedIndex)
         } else if (kind === "close") {
             var index = selectedIndex
-            if (windows[index] && typeof windows[index].close === "function") windows[index].close()
+            if (windows[index] && typeof windows[index].close === "function") {
+                windows[index].close()
+                try { if (root.shortcutCoach) root.shortcutCoach.trigger("closeWindow") } catch (e) {}
+            }
         }
         dismiss()
     }

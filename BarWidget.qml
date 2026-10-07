@@ -56,6 +56,7 @@ BarWidget {
       if (desktopService.commandShortcuts) desktopService.commandShortcuts.run("status")
       if (desktopService.gestures) desktopService.gestures.run("status")
       if (desktopService.windowMode) desktopService.windowMode.run("status")
+      if (desktopService.shortcutCoach) desktopService.shortcutCoach.refreshBindings()
     }
   }
   property bool isSavingSettings: false
@@ -488,6 +489,12 @@ BarWidget {
               }
             }
           }
+        }
+
+        ShortcutCoachProgress {
+          visible: settingsWindow.shows("keyboard", "coach")
+          Layout.fillWidth: true
+          controller: root.desktopService ? root.desktopService.shortcutCoach : null
         }
 
         InputPreferenceSettings {

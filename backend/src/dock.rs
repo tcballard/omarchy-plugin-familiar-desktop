@@ -1081,7 +1081,14 @@ pub fn execute(mode: &str, queries: &[String]) -> Result<Value> {
             return Err("Provide exactly one window address".into());
         }
         arrange(mode, &queries[0], &clients, &monitors, &mut ipc)?;
-        return Ok(json!({"state":"ok"}));
+        let before = clients
+            .iter()
+            .find(|c| address(c).eq_ignore_ascii_case(&queries[0]));
+        return Ok(json!({"state":"ok", "action":mode,
+            "wasFloating":before.and_then(|c| c["floating"].as_bool()),
+            "wasMaximized":before.is_some_and(|c| c["fullscreen"] == 1),
+            "wasFullscreen":before.is_none_or(|c| c["fullscreen"].as_i64().is_none_or(|n| n != 0)
+                || c["fullscreenClient"].as_i64().is_none_or(|n| n != 0))}));
     }
     let active: Value = serde_json::from_str(&ipc.command("j/activewindow")?)
         .map_err(|_| "Hyprland returned invalid active window")?;

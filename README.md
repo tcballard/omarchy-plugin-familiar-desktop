@@ -222,6 +222,20 @@ Setup now stays inside Familiar. See [release notes](docs/v0.1.2.md) and [releas
 
 ### Input preferences
 
+**Input → Shortcut Coach** quietly suggests the equivalent keyboard shortcut
+after supported mouse window actions. It is optional: switch **Show keyboard
+shortcut hints** off at any time without losing progress. **Got it** marks a
+shortcut as learned and stops its hints; **Remind me later** just dismisses it.
+The same section shows progress and offers a confirmed **Reset learning progress**.
+
+V1 teaches close, maximise and floating/tiling when a supported binding is present
+in your active Hyprland configuration. Labels follow your Super/Command preference.
+Hints never take keyboard focus, expire after 12 seconds, and appear at most three
+times per shortcut, a day apart, with a two-minute gap between any hints. There is
+no raw keyboard monitoring, analytics or network activity. Learning stays in
+`~/.config/omarchy/familiar-desktop-shortcut-coach.json` across restarts; unrelated
+settings are untouched. See [supported actions and testing](docs/SHORTCUT-COACH.md).
+
 Settings → Input offers **Command / Option / Control** or **Super / Alt / Ctrl**
 labels. This changes Familiar’s shortcut display and search, not keybindings;
 copyable Lua still uses Hyprland’s canonical modifier names.

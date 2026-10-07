@@ -7,11 +7,13 @@ mkdir -p "$root/smoke-evidence"
 echo 'Server = https://archive.archlinux.org/repos/2026/09/30/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 retry() { local n; for n in 1 2 3; do "$@" && return; sleep 5; done; return 1; }
 retry pacman -Syyuu --noconfirm
-retry pacman -S --needed --noconfirm git jq nodejs dbus sudo socat curl hyprland quickshell \
+retry pacman -S --needed --noconfirm git jq nodejs dbus sudo socat curl inotify-tools hyprland quickshell \
   mesa foot grim qt6-declarative qt6-wayland qt6-multimedia qt6-svg qt6-imageformats ttf-dejavu
 pacman -Q > "$root/smoke-evidence/packages.txt"
 uname -a > "$root/smoke-evidence/kernel.txt"
 ls -l /dev/dri > "$root/smoke-evidence/virtual-gpu.txt"
+# Match Omarchy’s installed path, including absolute QML imports in stable Familiar.
+ln -s "$root/upstream-omarchy" /usr/share/omarchy
 loginctl enable-linger familiar-smoke
 chown familiar-smoke:familiar-smoke "$root/smoke-evidence"
 systemctl stop getty@tty1.service

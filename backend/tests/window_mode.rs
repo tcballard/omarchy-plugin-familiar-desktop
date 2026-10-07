@@ -17,6 +17,7 @@ struct FakeHypr {
     config_errors_json: Option<String>,
     windows: Vec<serde_json::Value>,
     fail_window: bool,
+    window_lua: Option<String>,
 }
 impl Hypr for FakeHypr {
     fn command(&mut self, args: &[&str]) -> Result<String> {
@@ -30,6 +31,20 @@ impl Hypr for FakeHypr {
             && self.fail_window
         {
             return Err("Window closed".into());
+        }
+        if args.first() == Some(&"eval")
+            && args.get(1).is_some_and(|s| s.contains("local w="))
+            && let Some(harness) = &self.window_lua
+        {
+            let output = std::process::Command::new("lua")
+                .args(["-e", &format!("{harness}\n{}\nassert(dispatched)", args[1])])
+                .output()
+                .expect("Lua is required for window-mode dispatcher tests");
+            return if output.status.success() {
+                Ok("ok".into())
+            } else {
+                Err(String::from_utf8_lossy(&output.stderr).into_owned())
+            };
         }
         if args == ["reload"] && self.fail_reload {
             self.fail_reload = false;
@@ -288,4 +303,64 @@ fn switch_changes_existing_windows_and_skips_protected_windows() {
     let r = window_mode::switch("tiling", &p, &mut h).unwrap();
     assert_eq!(r["failed"], 1);
     assert!(r["message"].as_str().unwrap().contains("Retry"));
+}
+
+#[test]
+fn switch_executes_dispatchers_and_reports_live_failures() {
+    for mode in ["floating", "tiling"] {
+        for (mutation, dispatch_ok, failed) in [
+            ("", true, 0),
+            ("", false, 1),
+            ("w.pid = 99", true, 1),
+            ("w.initial_class = 'other'", true, 1),
+            ("w.mapped = false", true, 1),
+            ("w.hidden = true", true, 1),
+            ("w.pinned = true", true, 1),
+            ("w.fullscreen = 2", true, 1),
+            ("w.group = {}", true, 1),
+            ("w.workspace.id = -99", true, 1),
+            ("w = nil", true, 1),
+        ] {
+            let (_dir, p) = fixture();
+            let action = if mode == "floating" { "set" } else { "unset" };
+            let harness = format!(
+                r#"
+local w = {{pid=42, initial_class='kitty', mapped=true, fullscreen=0, workspace={{id=2}}}}
+{mutation}
+local dispatcher = setmetatable({{}}, {{__call=function()
+  error('dispatcher objects cannot be called directly; use hl.dispatch(dispatcher)')
+end}})
+hl = {{
+  get_window = function(selector)
+    assert(selector == 'address:0xABC')
+    return w
+  end,
+  dsp = {{window = {{float = function(options)
+    assert(options.window == 'address:0xABC' and options.action == '{action}')
+    return dispatcher
+  end}}}},
+  dispatch = function(value)
+    assert(value == dispatcher)
+    dispatched = true
+    return {{ok={dispatch_ok}}}
+  end
+}}
+"#
+            );
+            let mut h = FakeHypr {
+                windows: vec![
+                    serde_json::json!({"address":"0xABC","pid":42,"initialClass":"kitty","mapped":true,"workspace":{"id":2},"fullscreen":0}),
+                ],
+                window_lua: Some(harness),
+                ..Default::default()
+            };
+            let result = window_mode::switch(mode, &p, &mut h).unwrap();
+            assert_eq!(
+                result["failed"], failed,
+                "{mode}: {mutation}, ok={dispatch_ok}"
+            );
+            assert_eq!(result["changed"], 1 - failed);
+            assert_eq!(result["skipped"], 0);
+        }
+    }
 }

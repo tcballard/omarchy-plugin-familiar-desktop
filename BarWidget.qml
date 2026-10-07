@@ -461,7 +461,7 @@ BarWidget {
           model: [{key: "dockSize", label: "Dock and icons"}, {key: "titlebarSize", label: "Title bars and buttons"}]
           delegate: ColumnLayout {
             id: sizeRow
-            visible: settingsWindow.page === (modelData.key === "dockSize" ? "dock" : "windows")
+            visible: modelData.key === "dockSize" ? settingsWindow.shows("dock", "appearance") : settingsWindow.shows("windows", "titlebars")
             required property var modelData
             Layout.fillWidth: true
             Text {
@@ -488,7 +488,7 @@ BarWidget {
         }
 
         InputPreferenceSettings {
-          visible: settingsWindow.page === "windows"
+          visible: settingsWindow.shows("windows", "resizing")
           Layout.fillWidth: true
           controller: root.desktopService ? root.desktopService.borderResize : null
           title: "Resize with the mouse"
@@ -497,14 +497,14 @@ BarWidget {
         }
 
         WindowModeSettings {
-          visible: settingsWindow.page === "windows"
+          visible: settingsWindow.shows("windows", "layout")
           Layout.fillWidth: true
           controller: root.desktopService ? root.desktopService.windowMode : null
           labelStyle: root.shortcutLabels
         }
 
         ColumnLayout {
-          visible: settingsWindow.page === "keyboard"
+          visible: settingsWindow.shows("keyboard", "shortcuts")
           Layout.fillWidth: true
           Text {
             text: "Shortcut labels"
@@ -534,7 +534,7 @@ BarWidget {
         }
 
         InputPreferenceSettings {
-          visible: settingsWindow.page === "keyboard"
+          visible: settingsWindow.shows("keyboard", "shortcuts")
           Layout.fillWidth: true
           controller: root.desktopService ? root.desktopService.commandShortcuts : null
           title: "Command editing shortcuts"
@@ -543,19 +543,19 @@ BarWidget {
         }
 
         GesturesSettings {
-          visible: settingsWindow.page === "keyboard"
+          visible: settingsWindow.shows("keyboard", "gestures")
           Layout.fillWidth: true
           controller: root.desktopService ? root.desktopService.gestures : null
         }
 
         CapsLockSettings {
-          visible: settingsWindow.page === "keyboard"
+          visible: settingsWindow.shows("keyboard", "keys")
           Layout.fillWidth: true
           controller: root.desktopService ? root.desktopService.capsLock : null
         }
 
         ColumnLayout {
-          visible: settingsWindow.page === "windows"
+          visible: settingsWindow.shows("windows", "titlebars")
           Layout.fillWidth: true
           spacing: 6
           Text {
@@ -701,6 +701,7 @@ BarWidget {
         // 1. Enable dock toggle row
         Rectangle {
           id: dockEnabledRow
+          visible: settingsWindow.section === "appearance"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Enable dock"
@@ -790,6 +791,7 @@ BarWidget {
 
         DockDropdown {
           Layout.fillWidth: true
+          visible: settingsWindow.section === "appearance"
           label: "Dock position"
           value: root.dockPosition
           options: [
@@ -806,6 +808,7 @@ BarWidget {
 
         Text {
           Layout.fillWidth: true
+          visible: settingsWindow.section === "appearance"
           text: root.dockPosition !== "auto" && root.desktopService
               && root.desktopService.dockScreenPosition !== root.dockPosition
               ? "Omarchy’s bar uses that edge. The dock uses the opposite edge until it is free."
@@ -817,8 +820,9 @@ BarWidget {
           color: Color.muted
         }
 
-        // 2. Visible Workspace Dropdown
+        // File shortcuts
         Rectangle {
+          visible: settingsWindow.section === "extras"
           Layout.fillWidth: true
           implicitHeight: 38
           radius: 8
@@ -839,7 +843,8 @@ BarWidget {
 
         DockDropdown {
           Layout.fillWidth: true
-          showLabel: false
+          visible: settingsWindow.section === "visibility"
+          label: "Show apps from"
           value: root.visibleWorkspace
           options: root.workspaceOptions
           onChanged: function(value) { root.setVisibleWorkspace(value) }
@@ -848,6 +853,7 @@ BarWidget {
         // 3. Autohide dock (edge hover)
         Rectangle {
           id: autohideRow
+          visible: settingsWindow.section === "visibility"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Autohide dock"
@@ -939,6 +945,7 @@ BarWidget {
         // 4. Keyboard shortcut toggle
         Rectangle {
           id: keybindRow
+          visible: settingsWindow.section === "visibility"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Keyboard shortcut"
@@ -1036,7 +1043,7 @@ BarWidget {
           Layout.preferredHeight: (root.dockEnabled && (root.visibilityMode === "keybind" || root.visibilityMode === "hybrid")) ? 64 : 0
           Layout.minimumHeight: 0
           clip: true
-          visible: Layout.preferredHeight > 0
+          visible: settingsWindow.section === "visibility" && Layout.preferredHeight > 0
           opacity: (root.dockEnabled && (root.visibilityMode === "keybind" || root.visibilityMode === "hybrid")) ? 1.0 : 0.0
           spacing: 4
           Behavior on Layout.preferredHeight { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -1129,6 +1136,7 @@ BarWidget {
         // Toggle Overlay Mode Row
         Rectangle {
           id: overlayRow
+          visible: settingsWindow.section === "visibility"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Overlay mode"
@@ -1217,6 +1225,7 @@ BarWidget {
         // Toggle Notification Badges Row
         Rectangle {
           id: badgesRow
+          visible: settingsWindow.section === "extras"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Notification badges"
@@ -1305,6 +1314,7 @@ BarWidget {
         // Toggle Widgets in Dock Row
         Rectangle {
           id: widgetsRow
+          visible: settingsWindow.section === "extras"
           activeFocusOnTab: true
           Accessible.role: Accessible.CheckBox
           Accessible.name: "Dock widgets"
@@ -1393,6 +1403,7 @@ BarWidget {
         // Configure Widgets Action Button
         Rectangle {
           id: configureWidgetsRow
+          visible: settingsWindow.section === "extras"
           Layout.fillWidth: true
           Layout.preferredHeight: 40
           radius: 8

@@ -6,12 +6,12 @@ use serde_json::{Value, json};
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 pub const BEGIN: &str = "-- BEGIN Familiar Desktop title bars";
 pub const END: &str = "-- END Familiar Desktop title bars";
-pub const REPOSITORY: &str = "https://github.com/hyprwm/hyprland-plugins";
+pub const OFFICIAL_LIBRARY: &str = "/usr/lib/omarchy-hyprland-titlebars/titlebars.so";
+const MIGRATION_REQUIRED: &str = "Omarchy's titlebar package is installed. Familiar's loader is paused; restart Hyprland to retire any previously loaded fork. Official-package integration is pending. Your settings are kept; the dock remains available.";
 #[derive(Clone, Debug)]
 pub struct Args {
     pub operation: String,
@@ -113,6 +113,7 @@ pub struct Paths {
     pub binary: PathBuf,
     pub directory: PathBuf,
     pub config: PathBuf,
+    pub official_library: PathBuf,
 }
 impl Paths {
     pub fn system() -> Result<Self> {
@@ -130,6 +131,7 @@ impl Paths {
             binary,
             directory: config.join("omarchy/familiar-titlebars"),
             config: config.join("hypr/looknfeel.lua"),
+            official_library: PathBuf::from(OFFICIAL_LIBRARY),
         })
     }
 }
@@ -287,6 +289,13 @@ pub fn render(paths: &Paths, library: &Path, o: &Value) -> Result<String> {
         lua(&library.to_string_lossy()),
         lua(&library.to_string_lossy())
     );
+    // Rechecked by the compositor on every config reload, including reloads
+    // before the Familiar service has had a chance to reconcile.
+    s = format!(
+        "-- Prefer Omarchy's system titlebar backend; never load both.\nlocal official = io.open({}, 'r')\nif official then official:close(); return end\n{}",
+        lua(&paths.official_library.to_string_lossy()),
+        s
+    );
     s += &format!(
         "  enabled = true, bar_height = {}, bar_text_size = {},\n  bar_title_enabled = true, bar_text_font = {}, bar_text_align = {},\n  bar_color = {}, ['col.text'] = {},\n  bar_buttons_alignment = {},\n  bar_padding = {}, bar_button_padding = {}, bar_part_of_window = true,\n  icon_on_hover = {},\n  on_double_click = {},\n}} }} }})\n",
         o["height"],
@@ -402,52 +411,38 @@ fn loaded(hypr: &mut impl Hypr) -> Result<bool> {
     if list.iter().any(|v| !v.is_object()) {
         return Err("Hyprland returned an invalid plugin list".into());
     }
-    Ok(list.iter().any(|v| v["name"] == "hyprbars"))
+    let count = list.iter().filter(|v| v["name"] == "hyprbars").count();
+    if count > 1 {
+        return Err("Multiple Hyprbars backends are loaded. Resolve the competing setups and restart Hyprland before using Familiar controls.".into());
+    }
+    Ok(count == 1)
 }
-fn find_library(paths: &Paths) -> Result<PathBuf> {
-    // Resolve username using the actual UID rather than trusting a USER variable.
-    let username = fs::read_to_string("/etc/passwd")
-        .unwrap_or_default()
-        .lines()
-        .find_map(|line| {
-            let p: Vec<_> = line.split(':').collect();
-            if p.len() > 2 && p[2].parse::<u32>().ok() == Some(unsafe { libc::getuid() }) {
-                Some(p[0].to_string())
-            } else {
-                None
-            }
-        })
-        .ok_or("Could not resolve local username")?;
-    let roots = [
-        PathBuf::from("/var/cache/hyprpm").join(username),
-        env::var_os("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .unwrap_or(paths.home.join(".local/share"))
-            .join("hyprpm"),
-    ];
-    let mut candidates = Vec::new();
-    for root in roots {
-        if let Ok(entries) = fs::read_dir(root) {
-            for e in entries.flatten() {
-                let p = e.path().join("hyprbars.so");
-                if p.is_file() {
-                    let p = fs::canonicalize(p).map_err(|e| e.to_string())?;
-                    if !candidates.contains(&p) {
-                        candidates.push(p);
-                    }
-                }
-            }
-        }
+// A registration name or an old owner.json is not proof that a shared system
+// library belongs to Familiar. Limit explicit load/unload to our private tree.
+fn private_library(paths: &Paths, library: &Path) -> Result<PathBuf> {
+    let root = fs::canonicalize(paths.source.join("bin/hyprbars"))
+        .map_err(|_| "Familiar's private titlebar backend is missing; run setup again")?;
+    let path = fs::canonicalize(library).map_err(|e| e.to_string())?;
+    let source = fs::canonicalize(&paths.source).map_err(|e| e.to_string())?;
+    if !root.starts_with(source.join("bin"))
+        || !path.starts_with(&root)
+        || path.file_name().is_none_or(|n| n != "hyprbars.so")
+        || !path.is_file()
+    {
+        return Err("Refusing a titlebar backend outside Familiar's private installation. System and hyprpm backends belong to their existing integration.".into());
     }
-    if candidates.len() != 1 {
-        return Err("Install Hyprbars using hyprpm first, then run setup again".into());
-    }
-    Ok(candidates.remove(0))
+    Ok(path)
 }
 pub fn setup(args: &Args, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> {
+    if args.install_dependency {
+        return Err("Familiar no longer installs a competing hyprpm backend. Use the in-app setup; official-package migration is tracked in issue #74.".into());
+    }
     let state_file = paths.directory.join("owner.json");
     let state = read_json(&state_file)?;
-    if loaded(hypr)? && state.as_object().is_some_and(|o| o.is_empty()) {
+    if paths.official_library.exists() {
+        return Err(MIGRATION_REQUIRED.into());
+    }
+    if loaded(hypr)? {
         return Err("Hyprbars is already in use. Disable your existing setup before using Familiar title bars".into());
     }
     if let Some(source) = state["source"].as_str()
@@ -465,33 +460,12 @@ pub fn setup(args: &Args, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
     } else {
         json!({})
     };
-    if args.install_dependency {
-        if !Command::new("hyprpm")
-            .arg("update")
-            .status()
-            .map_err(|e| e.to_string())?
-            .success()
-        {
-            return Err("Hyprbars update failed; no config hook was added".into());
-        }
-        if find_library(paths).is_err()
-            && !Command::new("hyprpm")
-                .args(["add", REPOSITORY])
-                .status()
-                .map_err(|e| e.to_string())?
-                .success()
-        {
-            return Err("Hyprbars installation failed; no config hook was added".into());
-        }
-    }
     let library = if let Some(p) = &args.library {
         fs::canonicalize(p).map_err(|e| e.to_string())?
     } else {
-        find_library(paths)?
+        return Err("Choose Familiar’s private backend through in-app setup; shared backends cannot be adopted.".into());
     };
-    if !library.is_file() || library.file_name().is_none_or(|n| n != "hyprbars.so") {
-        return Err("Expected an installed hyprbars.so".into());
-    }
+    let library = private_library(paths, &library)?;
     if !loaded(hypr)? {
         checked(hypr, &["plugin", "load", &library.to_string_lossy()])?;
         let probe = checked(
@@ -570,6 +544,15 @@ pub fn reconcile(args: &Args, paths: &Paths, hypr: &mut impl Hypr) -> Result<Val
         return Ok(json!({"state":"off","message":"A newer Familiar instance owns the controls."}));
     }
     let generated = paths.directory.join("titlebars.lua");
+    if paths.official_library.exists() {
+        // Retire only our generated loader. Do not reload or unload anything:
+        // Hyprland 0.56.2 cannot tell us the provenance of a named backend.
+        atomic(
+            &generated,
+            b"-- Familiar controls paused for Omarchy's titlebar package.\n",
+        )?;
+        return Ok(json!({"state":"blocked","message":MIGRATION_REQUIRED}));
+    }
     let mut active = false;
     let content = if args.operation == "disable" {
         "-- Familiar title bars are disabled.\n".into()
@@ -584,6 +567,7 @@ pub fn reconcile(args: &Args, paths: &Paths, hypr: &mut impl Hypr) -> Result<Val
                 json!({"state":"missing","message":"Hyprbars is missing. Run title-bar setup again."}),
             );
         }
+        let library = private_library(paths, &library)?;
         let policy = (|| {
             let document = read_json(
                 &paths
@@ -669,20 +653,27 @@ pub fn remove(paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> {
     let library = state["library"]
         .as_str()
         .ok_or("Invalid title-bar ownership state")?;
+    // Validate before editing the hook or issuing an unload. Never trust a
+    // stale/manually altered ownership receipt naming a shared package.
+    let library = private_library(paths, Path::new(library))?;
     let backups = paths.directory.join("backups");
     crate::config_file::replace(&paths.config, &before, &after, &backups)?;
     let cleanup = (|| {
+        if paths.official_library.exists() {
+            // Removing our hook must not disrupt the shared package. A future
+            // compositor reload/restart will retire any old Familiar loader.
+            return Ok(());
+        }
         if loaded(hypr)? {
-            checked(hypr, &["plugin", "unload", library])?;
+            checked(hypr, &["plugin", "unload", &library.to_string_lossy()])?;
         }
         checked(hypr, &["reload"])?;
         let errors = hypr.command(&["configerrors"])?;
         if !errors.trim().is_empty() {
             return Err(common::clipped(&errors));
         }
-        if loaded(hypr)? {
-            return Err("Hyprbars is still loaded; inspect another configuration source".into());
-        }
+        // A remaining named backend can belong to Core. Its presence is not
+        // a reason to restore Familiar's loader or unload the shared backend.
         Ok(())
     })();
     if let Err(error) = cleanup {
@@ -701,7 +692,7 @@ pub fn remove(paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> {
         }
     }
     Ok(
-        json!({"state":"removed","message":"Familiar's title-bar hook was removed and Hyprbars unloaded."}),
+        json!({"state":"removed","message":if paths.official_library.exists() {"Familiar's hook was removed. No shared backend was unloaded. Restart Hyprland to retire any old Familiar backend."} else {"Familiar's title-bar hook was removed."}}),
     )
 }
 

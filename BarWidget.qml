@@ -22,6 +22,7 @@ BarWidget {
   property string shortcutLabels: "standard"
   property bool fileShortcutsEnabled: false
   property bool dockEnabled: true
+  property string dockBackgroundOpacity: "theme"
   property string dockSize: "default"
   property string dockPosition: "auto"
   property string titlebarSize: "default"
@@ -102,6 +103,7 @@ BarWidget {
         root.profile = normalized.profile
         root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
         root.dockPosition = normalized.dockPosition
+        root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
         root.dockSize = normalized.dockSize
         root.titlebarSize = normalized.titlebarSize
         root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -163,6 +165,7 @@ BarWidget {
     s.profile = root.profile
     s.shortcutLabels = root.shortcutLabels
     s.dockPosition = root.dockPosition
+    s.dockBackgroundOpacity = root.dockBackgroundOpacity
     s.dockSize = root.dockSize
     s.titlebarSize = root.titlebarSize
     s.titlebarsEnabled = root.titlebarsEnabled
@@ -197,17 +200,7 @@ BarWidget {
   }
 
   function setProfile(value) {
-    var selected = DockSettings.normalizeProfile(value)
-    root.profile = selected
-    root.dockEnabled = true
-    var defaults = DockSettings.profileDefaults(selected)
-    root.visibilityMode = defaults.visibilityMode
-    root.overlayMode = defaults.overlayMode
-    root.titlebarStyle = defaults.titlebarStyle
-    if (root.titlebarMode !== "theme" && root.titlebarMode !== "off") root.titlebarMode = defaults.titlebarStyle
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setProfile " + selected)
-    }
+    if (root.desktopService) root.desktopService.setProfile(DockSettings.normalizeProfile(value))
   }
 
   function setAutohide(val) {
@@ -341,12 +334,23 @@ BarWidget {
   function toggle() { if (settingsWindow.open) close(); else open() }
   function closeForPopoutSwitch() { close() }
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  readonly property bool taskbarActive: !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
+  implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
+  implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)
+  Loader {
+    id: taskbarApps
+    active: root.taskbarActive && root.desktopService.dockAvailable
+    anchors.left: button.right
+    anchors.verticalCenter: parent.verticalCenter
+    sourceComponent: TaskbarApps { service: root.desktopService; bar: root.bar }
+  }
 
   WidgetButton {
     id: button
-    anchors.fill: parent
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    width: implicitWidth
+    height: implicitHeight
     bar: root.bar
     text: "󰟀" // Nerd Fonts: desktop-classic (CRT computer)
     tooltipText: "Familiar Desktop"
@@ -454,6 +458,17 @@ BarWidget {
           color: Color.popups.text
         }
         }
+        Text {
+          visible: settingsWindow.page === "general" && !!root.desktopService && !!root.desktopService.taskbar
+          Layout.fillWidth: true
+          text: root.desktopService && root.desktopService.taskbar
+              ? (root.desktopService.taskbar.busy ? "Changing taskbar layout…" : root.desktopService.taskbar.message) : ""
+          textFormat: Text.PlainText
+          wrapMode: Text.WordWrap
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          color: Color.popups.text
+        }
         GettingStarted {
           visible: settingsWindow.page === "help"
           Layout.fillWidth: true
@@ -487,6 +502,26 @@ BarWidget {
                 }
               }
             }
+          }
+        }
+
+        DockDropdown {
+          objectName: "dock-background-opacity"
+          Layout.fillWidth: true
+          visible: settingsWindow.shows("dock", "appearance") && !root.taskbarActive
+          label: "Dock background opacity"
+          value: root.dockBackgroundOpacity
+          options: [
+            { value: "theme", label: "Follow theme" },
+            { value: "0", label: "0% — Transparent" },
+            { value: "25", label: "25%" },
+            { value: "50", label: "50%" },
+            { value: "75", label: "75%" },
+            { value: "100", label: "100% — Opaque" }
+          ]
+          onChanged: function(value) {
+            root.dockBackgroundOpacity = DockSettings.normalizeBackgroundOpacity(value)
+            root.saveSettings()
           }
         }
 
@@ -794,7 +829,7 @@ BarWidget {
 
         DockDropdown {
           Layout.fillWidth: true
-          visible: settingsWindow.section === "appearance"
+          visible: settingsWindow.section === "appearance" && !root.taskbarActive
           label: "Dock position"
           value: root.dockPosition
           options: [
@@ -812,7 +847,7 @@ BarWidget {
         Text {
           Layout.fillWidth: true
           visible: settingsWindow.section === "appearance"
-          text: root.dockPosition !== "auto" && root.desktopService
+          text: root.taskbarActive ? "Windows uses the native bottom taskbar. Bar height, appearance and widgets follow Omarchy’s bar settings. Choose General or Mac to restore your previous bar." : root.dockPosition !== "auto" && root.desktopService
               && root.desktopService.dockScreenPosition !== root.dockPosition
               ? "Omarchy’s bar uses that edge. The dock uses the opposite edge until it is free."
               : "Your position choice is kept when you change layouts. Automatic follows the layout default."

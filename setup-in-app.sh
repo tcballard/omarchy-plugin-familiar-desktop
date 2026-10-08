@@ -21,6 +21,18 @@ flock -n 9 || { echo 'Setup is already running. Waiting for it to finish…'; ex
 verified() {
   local file="$1" asset="$2" expected actual
   [[ -f "$file" && ! -L "$file" && -f "$root/release-binaries.sha256" && ! -L "$root/release-binaries.sha256" ]] || return 1
+  # Explicit development installs carry their own source-bound receipt. Never
+  # modify the stable release pins or silently download stable bytes over it.
+  if [[ -e "$state/dev-build.json" ]]; then
+    [[ -f "$state/dev-build.json" && ! -L "$state/dev-build.json" ]] || return 1
+    [[ "$(git -C "$root" status --porcelain --untracked-files=all)" == '' ]] || return 1
+    expected="$(jq -er --arg source "$root" --arg sha "$(git -C "$root" rev-parse HEAD)" --arg asset "$asset" \
+      'select(.schemaVersion == 1 and .channel == "development" and .sourceDirectory == $source and .commit == $sha) | .assets[$asset]' "$state/dev-build.json")" || return 1
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
+    actual="$(sha256sum "$file")"
+    [[ "${actual%% *}" == "$expected" ]]
+    return
+  fi
   expected="$(awk -v name="$asset" '$2 == name {print $1}' "$root/release-binaries.sha256")"
   [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
   actual="$(sha256sum "$file")"
@@ -37,6 +49,10 @@ if [[ "$mode" == status ]]; then
   if ready; then echo 'Familiar is ready.'; exit 0; fi
   echo 'Set up Familiar to enable the dock and window controls.'
   exit 3
+fi
+if [[ -e "$state/dev-build.json" ]]; then
+  echo 'Development build installed. Use its install-dev.sh to update or roll back; in-app release repair is disabled.'
+  exit 1
 fi
 for tool in curl git hyprctl; do
   command -v "$tool" >/dev/null || { echo "Required system tool is missing: $tool. Update Omarchy and retry."; exit 1; }
@@ -61,6 +77,8 @@ finish() {
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+source "$root/bar-placement.sh"
+familiar_prepare_bar_placement
 # A persisted incomplete marker survives shell restart and prevents partial activation.
 printf 'pending\n' > "$state/setup-pending"
 echo 'Checking your desktop…'
@@ -84,4 +102,5 @@ timeout --foreground --kill-after=5 40 "$helper" titlebars apply --style "$style
 jq -e '.state == "active" or .state == "off"' "$log" >/dev/null
 rm -f "$state/setup-pending"
 ready
+familiar_apply_bar_placement
 echo 'Familiar is ready.'

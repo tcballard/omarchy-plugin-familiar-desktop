@@ -33,6 +33,11 @@ Item {
     // Dock state & Multi-source Live Bar Position Tracking
     property bool opened: true
     property bool pluginEnabled: true
+    Timer {
+        interval: 350
+        running: !root.pluginEnabled && taskbarController.mode === "enable" && !taskbarController.busy
+        onTriggered: { root.pendingTaskbarProfile = ""; taskbarController.run("reset") }
+    }
     readonly property var setup: setupController
     SetupController {
         id: setupController
@@ -63,7 +68,7 @@ Item {
 
     readonly property string systemBarPosition: (shell && shell.bar && shell.bar.position)
         ? shell.bar.position : detectedBarPosition
-    readonly property string dockScreenPosition: DockSettings.resolveDockPosition(
+    readonly property string dockScreenPosition: root.taskbarActive ? "bottom" : DockSettings.resolveDockPosition(
         root.dockPosition, root.profile, root.systemBarPosition)
     readonly property bool isVertical: dockScreenPosition === "left" || dockScreenPosition === "right"
     // Existing surfaces, animations and menus use the opposite edge as their
@@ -75,6 +80,13 @@ Item {
         if (shell && shell.bar && typeof shell.bar.transparent === "boolean") return shell.bar.transparent
         return detectedBarTransparent
     }
+
+    // Override only the background alpha, never the opacity of its children.
+    readonly property color dockBackgroundColor: root.dockBackgroundOpacity === "theme"
+        ? (root.isBarTransparent ? Util.alpha(Color.bar.background, 0.25) : Color.bar.background)
+        : Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, Number(root.dockBackgroundOpacity) / 100)
+    readonly property bool dockBackgroundTransparent: root.dockBackgroundOpacity === "theme"
+        ? root.isBarTransparent : Number(root.dockBackgroundOpacity) < 100
 
     // Static Standard Dock Geometry (Strictly stable, no jumping/twitching on window state)
     readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
@@ -143,6 +155,7 @@ Item {
         function setOverlayMode(val: string): string { root.overlayMode = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function showDesktop(): string { return desktopToolsAdapter.run(["show"]) ? "started" : "busy" }
         function restoreDesktop(): string { return desktopToolsAdapter.run(["restore"]) ? "started" : "busy" }
+        function taskbarStatus(): string { return JSON.stringify({mode:taskbarController.mode, active:root.taskbarActive, busy:taskbarController.busy, profile:root.profile, message:taskbarController.message}) }
         function ping(): string { return "ok" }
     }
 
@@ -217,6 +230,7 @@ Item {
 
     // Persistent stable chronological window registry (never reordered on focus or workspace switch)
     property var knownWindows: []
+    property var focusedWindowHistory: []
     property string pendingFocusAppId: ""
     property double pendingFocusTimestamp: 0
 
@@ -276,6 +290,50 @@ Item {
         if (winIndex >= 0 && winIndex < matched.length && matched[winIndex] && matched[winIndex].activate) {
             matched[winIndex].activate()
         }
+    }
+
+    readonly property var taskbar: taskbarController
+    property string pendingTaskbarProfile: ""
+    property var taskbarAnchorItem: null
+    property real taskbarItemSize: 32
+    readonly property bool taskbarSelected: taskbarController.mode === "enable" && root.systemBarPosition === "bottom"
+        && (!root.shell || !root.shell.barConfig || !root.shell.barConfig.id || root.shell.barConfig.id === "omarchy.bar")
+    property var taskbarHosts: []
+    readonly property bool taskbarActive: root.taskbarSelected && root.taskbarHosts.length > 0
+    function registerTaskbarHost(host) {
+        if (taskbarHosts.indexOf(host) === -1) taskbarHosts = taskbarHosts.concat([host])
+    }
+    function unregisterTaskbarHost(host) {
+        taskbarHosts = taskbarHosts.filter(function(item) { return item !== host })
+    }
+    function taskbarHostedOn(screen) {
+        if (!taskbarSelected) return false
+        for (var i = 0; i < taskbarHosts.length; i++) {
+            var host = taskbarHosts[i]
+            var window = host ? host.QsWindow.window : null
+            if (window && window.screen === screen) return true
+        }
+        return false
+    }
+    readonly property real popupDockOffset: root.taskbarActive ? root.taskbarItemSize : root.slotSize + 2 * (Style.gapsOut || 5) + 8
+    readonly property real taskbarAnchorX: root.taskbarAnchorItem
+        ? root.taskbarAnchorItem.mapToItem(null, root.taskbarAnchorItem.width / 2, 0).x : 0
+    TaskbarController {
+        id: taskbarController
+        onCompleted: function(operation) {
+            if (operation !== "status" && root.pendingTaskbarProfile !== "") {
+                var selected = root.pendingTaskbarProfile
+                root.pendingTaskbarProfile = ""
+                root.applyProfile(selected)
+            }
+        }
+    }
+    onTaskbarActiveChanged: {
+        root.contextAppId = ""
+        root.activeMenuItem = null
+        root.activeStackItem = null
+        root.isEditMode = false
+        root.taskbarAnchorItem = null
     }
 
     readonly property var capsLock: capsLockController
@@ -450,6 +508,7 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
+    property string dockBackgroundOpacity: "theme"
     property string dockSize: "default"
     property string dockPosition: "auto"
     property string titlebarSize: "default"
@@ -639,7 +698,7 @@ Item {
         && root.workspaceAllowed
         && root.isPinnedLoaded
     readonly property bool dockMapped: root.dockAvailable && !remapTimer.running
-    readonly property bool dockRevealed: root.dockAvailable && !root.shouldSlideOut
+    readonly property bool dockRevealed: root.dockAvailable && (root.taskbarActive || !root.shouldSlideOut)
 
     property var loadedWidgetItems: []
 
@@ -1056,6 +1115,7 @@ Item {
                 root.profile = normalized.profile
                 root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
                 root.dockPosition = normalized.dockPosition
+                root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
                 root.dockSize = normalized.dockSize
                 root.titlebarSize = normalized.titlebarSize
                 root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -1120,6 +1180,7 @@ Item {
             profile: root.profile,
             shortcutLabels: root.shortcutLabels,
             dockPosition: root.dockPosition,
+            dockBackgroundOpacity: root.dockBackgroundOpacity,
             dockSize: root.dockSize,
             titlebarSize: root.titlebarSize,
             titlebarsEnabled: root.titlebarsEnabled,
@@ -1154,6 +1215,12 @@ Item {
     }
 
     function setProfile(value) {
+        var selected = DockSettings.normalizeProfile(value)
+        if (taskbarController.run(selected === "windows" ? "enable" : "reset"))
+            root.pendingTaskbarProfile = selected
+    }
+
+    function applyProfile(value) {
         var selected = DockSettings.normalizeProfile(value)
         var defaults = DockSettings.profileDefaults(selected)
         root.profile = selected
@@ -1789,7 +1856,7 @@ Item {
     }
 
     property var dockBorderSpec: {
-        if (root.isBarTransparent || root.systemBorderSize <= 0) {
+        if (root.dockBackgroundTransparent || root.systemBorderSize <= 0) {
             return Border.none()
         }
         var raw = root.hyprlandActiveBorderRaw
@@ -2297,7 +2364,8 @@ Item {
         var allEntries = (typeof DesktopEntries !== "undefined" && DesktopEntries.applications && DesktopEntries.applications.values && DesktopEntries.applications.values.length > 0)
             ? DesktopEntries.applications.values
             : (lib && typeof lib.sortedEntries === "function" ? lib.sortedEntries("") : root.appRows)
-        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops)
+        root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, toplevels, active)
+        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
 
         // Refresh active stack item contents if open
         if (root.activeStackItem) {
@@ -2387,6 +2455,8 @@ Item {
     Connections {
         target: ToplevelManager
         function onActiveToplevelChanged() {
+            // Record each focus event even when model rebuilding is debounced.
+            root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, ToplevelManager.toplevels.values, ToplevelManager.activeToplevel)
             if (Date.now() - root.lastTerminalOpenTime < 150) {
                 terminalSettleTimer.restart()
             } else {
@@ -2718,6 +2788,7 @@ Item {
             root.baseDockMonitorName = String(Hyprland.focusedMonitor.name || "")
         }
         root.parseShellConfigFile()
+        taskbarController.run("status")
         try {
             var txt = userPinnedFile.text()
             if (txt && txt.trim().length > 0) {
@@ -2797,7 +2868,7 @@ Item {
     HyprlandFocusGrab {
         id: editGrab
         active: root.isEditMode && !root.isStackOpen && !root.isMenuOpen
-        windows: dockVariants.instances
+        windows: root.taskbarActive && root.dockWindow ? [root.dockWindow] : dockVariants.instances
         onCleared: {
             root.isEditMode = false
         }
@@ -2839,6 +2910,7 @@ Item {
     }
 
     readonly property var dockWindow: {
+        if (root.taskbarActive && root.taskbarAnchorItem) return root.taskbarAnchorItem.QsWindow.window
         var instances = dockVariants.instances
         var count = instances ? instances.length : 0
         // When a reveal is targeting a specific (possibly non-focused) screen,
@@ -2904,7 +2976,7 @@ Item {
                 // root.shouldSlideOut is false).
                 readonly property bool slidOut: root.screenSlidesOut(modelData)
                 screen: modelData
-                visible: root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
+                visible: !root.taskbarHostedOn(modelData) && root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
 
                 ScreenMoveRemap {
                     id: remapGuard
@@ -2986,18 +3058,16 @@ Item {
                 root.isEditMode = false
             }
 
-            color: root.isBarTransparent
-                ? Util.alpha(Color.bar.background, 0.25)
-                : Color.bar.background
-            border.width: (Border.canUseNative(root.dockBorderSpec) && !root.isBarTransparent) ? Border.uniformWidth(root.dockBorderSpec) : 0
-            border.color: (Border.canUseNative(root.dockBorderSpec) && !root.isBarTransparent) ? Border.color(root.dockBorderSpec) : "transparent"
+            color: root.dockBackgroundColor
+            border.width: (Border.canUseNative(root.dockBorderSpec) && !root.dockBackgroundTransparent) ? Border.uniformWidth(root.dockBorderSpec) : 0
+            border.color: (Border.canUseNative(root.dockBorderSpec) && !root.dockBackgroundTransparent) ? Border.color(root.dockBorderSpec) : "transparent"
             radius: root.systemRounding
             antialiasing: true
             smooth: true
 
             Loader {
                 anchors.fill: parent
-                active: !root.isBarTransparent && Border.needsOverlay(root.dockBorderSpec)
+                active: !root.dockBackgroundTransparent && Border.needsOverlay(root.dockBorderSpec)
                 sourceComponent: DockBorderOverlay {
                     anchors.fill: parent
                     radius: root.systemRounding
@@ -3564,7 +3634,7 @@ Item {
                 id: edgeTriggerWindow
                 required property var modelData
                 screen: modelData
-                visible: root.dockAvailable
+                visible: !root.taskbarActive && root.dockAvailable
                          && (root.visibilityMode === "hover" || root.visibilityMode === "hybrid")
                          && root.screenSlidesOut(modelData)
                          && root.screenShowsDock(modelData)

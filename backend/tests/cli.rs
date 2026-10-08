@@ -26,7 +26,8 @@ impl Fixture {
             "-- personal settings\n",
         )
         .unwrap();
-        let library = home.join("hyprbars.so");
+        let library = home.join("plugin/bin/hyprbars/test-abi/hyprbars.so");
+        fs::create_dir_all(library.parent().unwrap()).unwrap();
         fs::write(&library, "").unwrap();
         let tools = home.join("tools");
         fs::create_dir_all(&tools).unwrap();

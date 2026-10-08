@@ -23,12 +23,14 @@ TestCase {
     width: 800; height: 560
     visible: true
     when: windowShown
+    property bool taskbarActive: false
     property var desktopService: null
     property var desktopTools: null
     property var bar: null
     property var shell: null
     property string profile: "general"
     property string shortcutLabels: "standard"
+    property string dockBackgroundOpacity: "theme"
     property string dockSize: "default"
     property string titlebarSize: "default"
     property string titlebarMode: "mac"

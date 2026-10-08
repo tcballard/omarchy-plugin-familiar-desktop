@@ -504,6 +504,58 @@ Item {
         Behavior on color { ColorAnimation { duration: 150 } }
     }
 
+    // Native bar click routing and the floating dock share exactly one action path.
+    function triggerPress(button) {
+            root.previewCancelled()
+            longPressTimer.stop()
+            if (mouseArea.didDrag || mouseArea.didLongPress) {
+                mouseArea.didLongPress = false
+                return
+            }
+
+            // Middle Click (Wheel Button click) -> Immediately launch a duplicate
+            if (button === Qt.MiddleButton) {
+                if (root.itemData && !root.itemData.isStack) {
+                    clickEffectAnim.restart()
+                    DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
+                    DockModel.launchApp(root.shell, root.itemData, Util)
+                }
+                return
+            }
+
+            if (button === Qt.LeftButton) {
+                clickEffectAnim.restart()
+                if (root.isEditMode) {
+                    if (root.itemData && root.itemData.isStack) {
+                        root.itemLeftClicked(root.itemData)
+                    }
+                    return
+                }
+                if (root.itemData && root.itemData.isStack) {
+                    root.itemLeftClicked(root.itemData)
+                    return
+                }
+                if (root.itemData) {
+                    root.itemLeftClicked(root.itemData)
+                    if (root.previewTopIndex >= 0) {
+                        root.restoreOrLaunchRequested(root.itemData, root.previewTopIndex)
+                    } else {
+                        var tops = root.itemData.toplevels || []
+                        if (tops.length >= 2 && root.itemData.isActive) {
+                            var nextIdx = (root.realActiveTopIndex + 1) % tops.length
+                            root.restoreOrLaunchRequested(root.itemData, nextIdx)
+                        } else {
+                            root.restoreOrLaunchRequested(root.itemData, root.realActiveTopIndex)
+                        }
+                    }
+                    root.previewTopIndex = -1
+                }
+            } else if (button === Qt.RightButton) {
+                return
+            }
+
+    }
+
     function cycleDuplicate(forward) {
         if (!root.itemData || root.itemData.isStack || !root.itemData.isRunning || !root.itemData.toplevels) return
         var len = root.itemData.toplevels.length
@@ -720,54 +772,7 @@ Item {
             }
         }
 
-        onClicked: function(mouse) {
-            longPressTimer.stop()
-            if (didDrag || didLongPress) {
-                didLongPress = false
-                return
-            }
-
-            // Middle Click (Wheel Button click) -> Immediately launch a duplicate
-            if (mouse.button === Qt.MiddleButton) {
-                if (root.itemData && !root.itemData.isStack) {
-                    clickEffectAnim.restart()
-                    DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
-                    DockModel.launchApp(root.shell, root.itemData, Util)
-                }
-                return
-            }
-
-            if (mouse.button === Qt.LeftButton) {
-                clickEffectAnim.restart()
-                if (root.isEditMode) {
-                    if (root.itemData && root.itemData.isStack) {
-                        root.itemLeftClicked(root.itemData)
-                    }
-                    return
-                }
-                if (root.itemData && root.itemData.isStack) {
-                    root.itemLeftClicked(root.itemData)
-                    return
-                }
-                if (root.itemData) {
-                    root.itemLeftClicked(root.itemData)
-                    if (root.previewTopIndex >= 0) {
-                        root.restoreOrLaunchRequested(root.itemData, root.previewTopIndex)
-                    } else {
-                        var tops = root.itemData.toplevels || []
-                        if (tops.length >= 2 && root.itemData.isActive) {
-                            var nextIdx = (root.realActiveTopIndex + 1) % tops.length
-                            root.restoreOrLaunchRequested(root.itemData, nextIdx)
-                        } else {
-                            root.restoreOrLaunchRequested(root.itemData, root.realActiveTopIndex)
-                        }
-                    }
-                    root.previewTopIndex = -1
-                }
-            } else if (mouse.button === Qt.RightButton) {
-                return
-            }
-        }
+        onClicked: function(mouse) { root.triggerPress(mouse.button) }
 
         onDoubleClicked: function(mouse) {
             if (mouse.button === Qt.LeftButton) {

@@ -24,17 +24,17 @@ Familiar opens its setup screen automatically. Choose Windows or Mac controls an
 
 You can close setup and reopen it from Familiar's computer icon in the bar. Existing complete installations skip the setup screen. **Windows → Set up or repair window controls** opens the same flow later. Personal settings and pinned apps are retained; choosing a starting layout applies that layout's dock defaults.
 
-The maintainer tested v0.1.1-rc.4 on the XPS and accepted its in-plugin setup for v0.1.2. The stable release changes version and release metadata, with no runtime behaviour changes after that acceptance.
+Tom tested the combined v0.1.3 candidate on the XPS and authorized its merge and release on 8 October 2026. Release preparation changes version metadata, binary pins and release documents; the accepted runtime behaviour is retained.
 
 Setup requires the standard Omarchy tools (including curl, jq and coreutils), Linux x86_64 and the supported Hyprland ABI below. Missing tools or unsupported desktops are reported inside setup; it never opens a terminal or silently installs system packages. Both downloaded binaries must match `release-binaries.sha256` in the installed source. See [source identity and limits](docs/INSTALLER-SOURCE-PIN.md).
 
 ### Standalone release installer
 
-The [v0.1.2 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
+The [v0.1.3 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.3) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
 
 The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores windows on v0.1.0 updates, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 
-The maintainer accepted v0.1.1-rc.4 after XPS testing for [v0.1.2](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2). Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Settings navigation and scrolling will be improved in a later release ([#28](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/28)). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
+The combined v0.1.3 candidate was accepted after XPS testing. Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Full migration to Omarchy’s official titlebar package remains planned for v0.1.4 (#74). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
 
@@ -42,7 +42,9 @@ For a fresh installation, the installer fetches the pinned release commit into a
 
 The shared `bin/familiar-desktop` Rust binary handles window actions, title-bar setup, theme parsing, app/icon scans and badge writes. Downloads happen during explicit setup, either in Familiar or through the standalone terminal installer. Familiar never compiles code on your desktop. Its setup screen launches the bundled download scripts only after your explicit setup action.
 
-The plugin adds a **Familiar Desktop** control to the bar. Open it to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
+The plugin adds a **Familiar Desktop** control to the bar. First-time setup places it immediately before Agents in the right-hand section. If Agents is absent from that section, Familiar goes at the start of the right-hand group. Later updates and repairs preserve your chosen position. To apply the same placement to an existing installation, run `omarchy bar move io.github.tcballard.familiar-desktop --before omarchy.agents`.
+
+Open Familiar's control to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
 
 ### Dock and window controls together
 
@@ -103,12 +105,16 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 | Starting layout | Placement | Visibility | Window space |
 | --- | --- | --- | --- |
 | **General** | Opposite the Omarchy bar | Always visible | Reserves space |
-| **Windows** | Bottom when the bar is elsewhere | Always visible | Reserves space |
+| **Windows** | Apps inside the full-width bottom Omarchy bar | Follows the native bar | One reserved strip |
 | **Mac** | Bottom when the bar is elsewhere | Reveals on hover | Overlays windows |
 
-In **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
+**In development for v0.1.3:** Selecting **Windows** moves the built-in Omarchy bar to the bottom, places Familiar’s app strip on the left and the clock on the right, and hides the separate dock. Existing native widgets and their settings are retained. App activation, badges, previews and right-click window actions use the existing Familiar implementation. Scroll arrows expose overflow apps. The taskbar follows Omarchy’s bar height, background and visibility. Selecting **General** or **Mac** restores Familiar-owned placement changes while preserving later personal configuration edits. Custom replacement bars are refused without changes.
 
-The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
+For the separate dock, in **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
+
+**In development for v0.1.3:** In **Settings → Dock → Appearance → Dock background opacity**, choose **Follow theme** (the default), **0%** (transparent), **25%**, **50%**, **75%** or **100%** (opaque). This changes only the dock background; the header, icons, badges and popup appearance remain independent. The choice survives shell restarts and theme changes. Choose **Follow theme** to restore the theme-derived background. Translucent overrides hide the dock border, matching the existing transparent-dock style.
+
+The presets share pins and folders; they do not reproduce every Windows or macOS feature. Dock-specific position, opacity, visibility and extra-widget controls apply to the separate dock. In Windows mode, configure native bar widgets through Omarchy. Native bar dragging moves Familiar’s app strip as a whole.
 
 ## Controls
 
@@ -152,7 +158,7 @@ legacy migration and XPS acceptance.
 
 Use Omarchy's plugin update flow to update the checkout, then open Familiar's in-app setup to install or repair the matching binaries. The standalone installer from the selected release remains available for recovery. For removal, use the installed `uninstall.sh` shown above; the generic remove command alone does not perform the owned-configuration cleanup.
 
-The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Dock settings only change Familiar Desktop; `shell.json` is read for bar placement and is never written by this plugin. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
+The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Windows taskbar mode makes targeted, reversible edits to `shell.json`; its recovery record lives under `~/.local/state/familiar-desktop/taskbar`. Reset with `bin/familiar-desktop taskbar reset` if you need command-line recovery. Other dock settings only change Familiar Desktop. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
 If you moved bar widgets into the dock using an earlier development build, add them back through Omarchy's bar settings. This build preserves old placement metadata in its settings file but does not automatically rewrite your bar layout.
 
@@ -190,6 +196,10 @@ window menu or the file shortcuts' hover tooltip. The version-pinned installer s
 
 ### Development builds
 
+For ad-hoc branch builds, installation and rollback without RC tags, see
+[the development workflow](docs/DEVELOPMENT.md). Desktop acceptance of the exact
+commit is required before merging feature work into `main`.
+
 Only contributors building from source need Rust 1.88+ and Cargo. Run `bash build.sh` explicitly. Clippy and Qt tests run in CI; the normal installer never requests them. Release CI builds Hyprbars against a dated Arch package snapshot and verifies its header ABI, alongside a static Linux x86_64 backend. It tests it without a toolchain on PATH, and publishes it with checksums and source manifests.
 
 ### Caps Lock behaviour
@@ -216,9 +226,9 @@ the block becomes inactive when Hyprland next reloads because the plugin manifes
 is absent. Edited/damaged blocks and symlinked main configs are refused rather than
 overwritten. See [the Caps Lock guide](docs/CAPS-LOCK.md) for recovery and testing.
 
-## v0.1.2
+## v0.1.3
 
-Setup now stays inside Familiar. See [release notes](docs/v0.1.2.md) and [release evidence](docs/RELEASE-0.1.2.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.
+Adds a native Windows taskbar, independent dock opacity, window/badge fixes and titlebar ownership safeguards. See [release notes](docs/v0.1.3.md) and [release evidence](docs/RELEASE-0.1.3.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.
 
 ### Input preferences
 

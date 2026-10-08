@@ -18,6 +18,15 @@ function normalizeDockPosition(value) {
     return ["bottom", "left", "right"].indexOf(value) !== -1 ? value : "auto"
 }
 
+// Store a percentage string or "theme"; reject malformed persisted values.
+function normalizeBackgroundOpacity(value) {
+    if (typeof value !== "number" && typeof value !== "string") return "theme"
+    if (typeof value === "string" && !/^\d{1,3}$/.test(value)) return "theme"
+    var opacity = Number(value)
+    return isFinite(opacity) && opacity >= 0 && opacity <= 100 && Math.floor(opacity) === opacity
+        ? String(opacity) : "theme"
+}
+
 function oppositeEdge(edge) {
     return ({ top: "bottom", bottom: "top", left: "right", right: "left" })[edge] || "bottom"
 }
@@ -83,6 +92,7 @@ function normalize(raw) {
         profile: normalizeProfile(settings.profile),
         dockPosition: normalizeDockPosition(settings.dockPosition),
         dockSize: normalizeSize(settings.dockSize),
+        dockBackgroundOpacity: normalizeBackgroundOpacity(settings.dockBackgroundOpacity),
         titlebarSize: normalizeSize(settings.titlebarSize),
         titlebarsEnabled: settings.titlebarsEnabled === true,
         titlebarMode: normalizeTitlebarMode(settings),

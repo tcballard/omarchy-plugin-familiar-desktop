@@ -22,7 +22,7 @@ for (const profile of ['general', 'windows', 'mac']) {
     for (const position of ['auto', 'bottom', 'left', 'right']) {
       const requested = position === 'auto' ? (profile === 'general' ? opposite[bar] : 'bottom') : position;
       const expected = requested === bar ? opposite[bar] : requested;
-      const root = { profile, dockPosition: position, systemBarPosition: bar };
+      const root = { profile, dockPosition: position, systemBarPosition: bar, taskbarActive: false };
       const context = { root, DockSettings: settings };
       root.dockScreenPosition = vm.runInNewContext(positionBinding, context);
       context.dockScreenPosition = root.dockScreenPosition;

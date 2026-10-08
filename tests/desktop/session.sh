@@ -122,7 +122,12 @@ phase=shell-restart
 omarchy-shell "$plugin_id" setVisibilityMode hybrid
 setting_saved() { jq -e '.visibilityMode == "hybrid"' "$HOME/.config/omarchy/familiar-desktop-settings.json" >/dev/null; }
 wait_for setting_saved
-cp "$HOME/.config/omarchy/familiar-desktop-settings.json" "$EVIDENCE/settings-before.json"
+# Seed a custom dock appearance before restart; a subsequent production write
+# must preserve the value loaded by the new shell.
+settings="$HOME/.config/omarchy/familiar-desktop-settings.json"
+jq '.dockBackgroundOpacity = "50"' "$settings" > "$settings.tmp"
+mv "$settings.tmp" "$settings"
+cp "$settings" "$EVIDENCE/settings-before.json"
 quickshell list -a -j > "$EVIDENCE/shell-before.json"
 omarchy restart shell
 wait_for familiar_ready
@@ -130,6 +135,9 @@ quickshell list -a -j > "$EVIDENCE/shell-after.json"
 node "$SMOKE_ROOT/tests/desktop/assert-restart.cjs" "$EVIDENCE" "$OMARCHY_PATH/shell"
 wait_for setting_saved
 omarchy-shell "$plugin_id" setVisibilityMode always
+opacity_saved() { jq -e '.visibilityMode == "always" and .dockBackgroundOpacity == "50"' "$settings" >/dev/null; }
+wait_for opacity_saved
+cp "$settings" "$EVIDENCE/settings-after.json"
 wait_for two_windows
 "$helper" dock minimize-instance "$a"
 wait_for minimized_a

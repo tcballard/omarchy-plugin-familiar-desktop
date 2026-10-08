@@ -29,6 +29,7 @@ TestCase {
     property var shell: null
     property string profile: "general"
     property string shortcutLabels: "standard"
+    property string dockBackgroundOpacity: "theme"
     property string dockSize: "default"
     property string titlebarSize: "default"
     property string titlebarMode: "mac"

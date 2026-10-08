@@ -76,6 +76,13 @@ Item {
         return detectedBarTransparent
     }
 
+    // Override only the background alpha, never the opacity of its children.
+    readonly property color dockBackgroundColor: root.dockBackgroundOpacity === "theme"
+        ? (root.isBarTransparent ? Util.alpha(Color.bar.background, 0.25) : Color.bar.background)
+        : Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, Number(root.dockBackgroundOpacity) / 100)
+    readonly property bool dockBackgroundTransparent: root.dockBackgroundOpacity === "theme"
+        ? root.isBarTransparent : Number(root.dockBackgroundOpacity) < 100
+
     // Static Standard Dock Geometry (Strictly stable, no jumping/twitching on window state)
     readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
     readonly property real iconBaseSize: DockSettings.dockGeometry(dockSize).icon
@@ -451,6 +458,7 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
+    property string dockBackgroundOpacity: "theme"
     property string dockSize: "default"
     property string dockPosition: "auto"
     property string titlebarSize: "default"
@@ -1057,6 +1065,7 @@ Item {
                 root.profile = normalized.profile
                 root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
                 root.dockPosition = normalized.dockPosition
+                root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
                 root.dockSize = normalized.dockSize
                 root.titlebarSize = normalized.titlebarSize
                 root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -1121,6 +1130,7 @@ Item {
             profile: root.profile,
             shortcutLabels: root.shortcutLabels,
             dockPosition: root.dockPosition,
+            dockBackgroundOpacity: root.dockBackgroundOpacity,
             dockSize: root.dockSize,
             titlebarSize: root.titlebarSize,
             titlebarsEnabled: root.titlebarsEnabled,
@@ -1790,7 +1800,7 @@ Item {
     }
 
     property var dockBorderSpec: {
-        if (root.isBarTransparent || root.systemBorderSize <= 0) {
+        if (root.dockBackgroundTransparent || root.systemBorderSize <= 0) {
             return Border.none()
         }
         var raw = root.hyprlandActiveBorderRaw
@@ -2990,18 +3000,16 @@ Item {
                 root.isEditMode = false
             }
 
-            color: root.isBarTransparent
-                ? Util.alpha(Color.bar.background, 0.25)
-                : Color.bar.background
-            border.width: (Border.canUseNative(root.dockBorderSpec) && !root.isBarTransparent) ? Border.uniformWidth(root.dockBorderSpec) : 0
-            border.color: (Border.canUseNative(root.dockBorderSpec) && !root.isBarTransparent) ? Border.color(root.dockBorderSpec) : "transparent"
+            color: root.dockBackgroundColor
+            border.width: (Border.canUseNative(root.dockBorderSpec) && !root.dockBackgroundTransparent) ? Border.uniformWidth(root.dockBorderSpec) : 0
+            border.color: (Border.canUseNative(root.dockBorderSpec) && !root.dockBackgroundTransparent) ? Border.color(root.dockBorderSpec) : "transparent"
             radius: root.systemRounding
             antialiasing: true
             smooth: true
 
             Loader {
                 anchors.fill: parent
-                active: !root.isBarTransparent && Border.needsOverlay(root.dockBorderSpec)
+                active: !root.dockBackgroundTransparent && Border.needsOverlay(root.dockBorderSpec)
                 sourceComponent: DockBorderOverlay {
                     anchors.fill: parent
                     radius: root.systemRounding

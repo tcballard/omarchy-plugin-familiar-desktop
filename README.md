@@ -110,6 +110,8 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 
 In **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
 
+**In development for v0.1.3:** In **Settings → Dock → Appearance → Dock background opacity**, choose **Follow theme** (the default), **0%** (transparent), **25%**, **50%**, **75%** or **100%** (opaque). This changes only the dock background; the header, icons, badges and popup appearance remain independent. The choice survives shell restarts and theme changes. Choose **Follow theme** to restore the theme-derived background. Translucent overrides hide the dock border, matching the existing transparent-dock style.
+
 The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
 
 ## Controls

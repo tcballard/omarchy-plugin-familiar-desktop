@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 cargo test --manifest-path backend/Cargo.toml --locked
 node tests/test_widget_config.cjs
 node tests/test_dock_position.cjs
+node tests/test_dock_opacity.cjs
 node tests/test_uninstall.cjs
 
 node tests/test_install.cjs

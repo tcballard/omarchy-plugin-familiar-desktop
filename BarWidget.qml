@@ -22,6 +22,7 @@ BarWidget {
   property string shortcutLabels: "standard"
   property bool fileShortcutsEnabled: false
   property bool dockEnabled: true
+  property string dockBackgroundOpacity: "theme"
   property string dockSize: "default"
   property string dockPosition: "auto"
   property string titlebarSize: "default"
@@ -102,6 +103,7 @@ BarWidget {
         root.profile = normalized.profile
         root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
         root.dockPosition = normalized.dockPosition
+        root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
         root.dockSize = normalized.dockSize
         root.titlebarSize = normalized.titlebarSize
         root.titlebarsEnabled = normalized.titlebarsEnabled
@@ -163,6 +165,7 @@ BarWidget {
     s.profile = root.profile
     s.shortcutLabels = root.shortcutLabels
     s.dockPosition = root.dockPosition
+    s.dockBackgroundOpacity = root.dockBackgroundOpacity
     s.dockSize = root.dockSize
     s.titlebarSize = root.titlebarSize
     s.titlebarsEnabled = root.titlebarsEnabled
@@ -487,6 +490,26 @@ BarWidget {
                 }
               }
             }
+          }
+        }
+
+        DockDropdown {
+          objectName: "dock-background-opacity"
+          Layout.fillWidth: true
+          visible: settingsWindow.shows("dock", "appearance")
+          label: "Dock background opacity"
+          value: root.dockBackgroundOpacity
+          options: [
+            { value: "theme", label: "Follow theme" },
+            { value: "0", label: "0% — Transparent" },
+            { value: "25", label: "25%" },
+            { value: "50", label: "50%" },
+            { value: "75", label: "75%" },
+            { value: "100", label: "100% — Opaque" }
+          ]
+          onChanged: function(value) {
+            root.dockBackgroundOpacity = DockSettings.normalizeBackgroundOpacity(value)
+            root.saveSettings()
           }
         }
 

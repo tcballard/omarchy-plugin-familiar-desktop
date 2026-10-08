@@ -95,3 +95,102 @@ fn interrupted_enable_is_recoverable_and_symlinks_are_refused() {
     symlink(&config, state.join("placement.json")).unwrap();
     assert!(taskbar::change("reset", &config, &state).is_err());
 }
+
+#[test]
+fn height_override_restores_existing_preferences_byte_for_byte() {
+    for original in [
+        "",
+        "[font]\nbase-size = 14\n",
+        "[bar]\nsize-horizontal = 30 # personal\ntext = 'white'\n[font]\nbase-size = 14\n",
+        "[bar]\ntext = 'white'",
+    ] {
+        let (_dir, config, state, _) = fixture();
+        let style = config.with_extension("toml");
+        fs::write(&style, original).unwrap();
+        taskbar::change("enable", &config, &state).unwrap();
+        let installed = fs::read_to_string(&style).unwrap();
+        assert!(installed.contains("size-horizontal = 48 # Familiar Windows taskbar"));
+        taskbar::change("enable", &config, &state).unwrap();
+        assert_eq!(fs::read_to_string(&style).unwrap(), installed);
+        taskbar::change("reset", &config, &state).unwrap();
+        assert_eq!(fs::read_to_string(style).unwrap(), original);
+    }
+}
+
+#[test]
+fn height_restore_preserves_later_font_and_height_edits() {
+    for changed_height in [false, true] {
+        let (_dir, config, state, _) = fixture();
+        let style = config.with_extension("toml");
+        fs::write(
+            &style,
+            "[bar]\nsize-horizontal = 30\n[font]\nbase-size = 12\n",
+        )
+        .unwrap();
+        taskbar::change("enable", &config, &state).unwrap();
+        let mut current = fs::read_to_string(&style)
+            .unwrap()
+            .replace("base-size = 12", "base-size = 16");
+        if changed_height {
+            current = current.replace(
+                "size-horizontal = 48 # Familiar Windows taskbar",
+                "size-horizontal = 56 # personal",
+            );
+        }
+        fs::write(&style, current).unwrap();
+        taskbar::change("reset", &config, &state).unwrap();
+        let restored = fs::read_to_string(&style).unwrap();
+        assert!(restored.contains("base-size = 16"));
+        assert!(restored.contains(if changed_height {
+            "size-horizontal = 56 # personal"
+        } else {
+            "size-horizontal = 30"
+        }));
+    }
+}
+
+#[test]
+fn active_legacy_taskbar_acquires_height_and_retains_original_restore() {
+    let (_dir, config, state, original) = fixture();
+    taskbar::change("enable", &config, &state).unwrap();
+    let mut receipt = read(&state.join("placement.json"));
+    receipt.as_object_mut().unwrap().remove("style");
+    fs::write(state.join("placement.json"), receipt.to_string()).unwrap();
+    fs::remove_file(config.with_extension("toml")).unwrap();
+    taskbar::change("enable", &config, &state).unwrap();
+    assert!(
+        fs::read_to_string(config.with_extension("toml"))
+            .unwrap()
+            .contains("size-horizontal = 48")
+    );
+    taskbar::change("reset", &config, &state).unwrap();
+    assert_eq!(read(&config), original);
+    assert_eq!(
+        fs::read_to_string(config.with_extension("toml")).unwrap(),
+        ""
+    );
+}
+
+#[test]
+fn unsafe_style_files_are_refused_before_moving_bar() {
+    for content in [
+        "[bar]\n[bar]\n",
+        "[bar]\nsize-horizontal = 20\nsize-horizontal = 30\n",
+    ] {
+        let (_dir, config, state, original) = fixture();
+        fs::write(config.with_extension("toml"), content).unwrap();
+        assert!(taskbar::change("enable", &config, &state).is_err());
+        assert_eq!(read(&config), original);
+        assert!(!state.join("placement.json").exists());
+    }
+    let (dir, config, state, original) = fixture();
+    let target = dir.path().join("personal.toml");
+    fs::write(&target, "[font]\nbase-size = 12\n").unwrap();
+    symlink(&target, config.with_extension("toml")).unwrap();
+    assert!(taskbar::change("enable", &config, &state).is_err());
+    assert_eq!(read(&config), original);
+    assert_eq!(
+        fs::read_to_string(target).unwrap(),
+        "[font]\nbase-size = 12\n"
+    );
+}

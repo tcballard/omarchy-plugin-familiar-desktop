@@ -148,10 +148,11 @@ hyprctl -j layers > "$EVIDENCE/candidate-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length > 0' "$EVIDENCE/candidate-layers.json"
 phase=windows-taskbar
 cp "$HOME/.config/omarchy/shell.json" "$EVIDENCE/bar-before-taskbar.json"
+cat "$HOME/.config/omarchy/shell.toml" > "$EVIDENCE/style-before-taskbar.toml" 2>/dev/null || :
 omarchy-shell "$plugin_id" setProfile windows
 taskbar_ready() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == true and .busy == false and .profile == "windows"' >/dev/null; }
 wait_for taskbar_ready
-bar_has_apps() { omarchy-shell shell debugBarGeometry | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id and .visible == true and .width > 60)' >/dev/null; }
+bar_has_apps() { omarchy-shell shell debugBarGeometry | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id and .visible == true and .width > 100 and .height >= 48)' >/dev/null; }
 wait_for bar_has_apps
 hyprctl -j layers > "$EVIDENCE/taskbar-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length == 0' "$EVIDENCE/taskbar-layers.json"
@@ -167,6 +168,7 @@ wait_for taskbar_restored
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-taskbar.json"
 jq -S '.bar' "$EVIDENCE/bar-before-taskbar.json" > "$EVIDENCE/bar-original.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-taskbar.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
 # Roll back while the taskbar is active: the bundle must undo its native placement.
 omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready
@@ -177,6 +179,7 @@ bash "$bundle/install-dev.sh" --rollback
 [[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
 wait_for familiar_ready
 wait_for two_windows
 phase=passed

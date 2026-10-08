@@ -352,8 +352,11 @@ BarWidget {
     width: implicitWidth
     height: implicitHeight
     bar: root.bar
-    text: "󰟀" // Nerd Fonts: desktop-classic (CRT computer)
-    tooltipText: "Familiar Desktop"
+    // Keep management recognisable beside the app strip, even without Nerd Fonts.
+    text: root.taskbarActive ? "󰟀  Familiar" : "󰟀"
+    fixedWidth: root.taskbarActive ? Math.max(100, Style.space(100)) : -1
+    centerFigures: false
+    tooltipText: "Familiar settings"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) {
         root.toggle()

@@ -1,6 +1,6 @@
 //! Reversible native-bar placement. Only owned fields/entries are restored;
 //! unrelated shell preferences and widget settings remain user-owned.
-use crate::{Result, common, config_file};
+use crate::{Result, common, config_file, taskbar_style};
 use serde_json::{Value, json};
 use std::{fs, path::Path};
 
@@ -59,6 +59,7 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
     }
     let _lock = common::lock(&state_dir.join("config.lock"))?;
     let receipt_path = state_dir.join("placement.json");
+    let style_path = config_path.with_extension("toml");
     let receipt = match fs::symlink_metadata(&receipt_path) {
         Ok(_) => Some(read_json(&receipt_path)?.1),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
@@ -83,6 +84,14 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
         }
         if mode == "enable" {
             return if enabled {
+                // Upgrade an active pre-hotfix taskbar without losing its restore record.
+                if saved.get("style").is_none() {
+                    let style = taskbar_style::plan(&style_path)?;
+                    let mut upgraded = saved.clone();
+                    upgraded["style"] = style.clone();
+                    common::atomic(&receipt_path, encode(&upgraded)?.as_bytes())?;
+                    taskbar_style::apply(&style_path, &style, state_dir)?;
+                }
                 Ok(response(true))
             } else {
                 Err("Bar changed since taskbar setup. Select General to restore owned settings before enabling again.".into())
@@ -140,6 +149,9 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
             target.insert(index, item);
         }
         config_file::replace(config_path, &before, &encode(&config)?, state_dir)?;
+        if let Some(style) = saved.get("style") {
+            taskbar_style::restore(&style_path, style, state_dir)?;
+        }
         fs::remove_file(receipt_path).map_err(|e| e.to_string())?;
         return Ok(response(false));
     }
@@ -178,9 +190,11 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
             .push(item);
     }
     config["bar"]["position"] = json!("bottom");
-    let saved = json!({"version":1,"position":position,"moves":moves});
+    let style = taskbar_style::plan(&style_path)?;
+    let saved = json!({"version":1,"position":position,"moves":moves,"style":style});
     // Write recovery information first: an interrupted enable is recoverable.
     common::atomic(&receipt_path, encode(&saved)?.as_bytes())?;
+    taskbar_style::apply(&style_path, &saved["style"], state_dir)?;
     config_file::replace(config_path, &before, &encode(&config)?, state_dir)?;
     Ok(response(true))
 }

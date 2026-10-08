@@ -98,7 +98,7 @@ Item {
                         shell: root.service ? root.service.shell : null
                         barPosition: "top" // DockItem uses the edge opposite the surface.
                         slotSize: root.slotSize
-                        iconBaseSize: Math.min(24, root.slotSize - 8)
+                        iconBaseSize: Math.min(32, root.slotSize - 12)
                         showBadges: root.service ? root.service.showBadges : true
                         iconRevision: root.service ? root.service.iconRevision : 0
                         iconsReady: root.service ? root.service.iconsReady : false

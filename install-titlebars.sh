@@ -2,6 +2,10 @@
 # Download only: never invoke hyprpm or build tools on the user's desktop.
 set -Eeuo pipefail
 main() {
+  if [[ -e /usr/lib/omarchy-hyprland-titlebars/titlebars.so ]]; then
+    echo "Omarchy's titlebar package is installed. Familiar will not download a competing backend. Official-package migration is pending (issue #74); keep your existing settings and use the dock independently." >&2
+    return 1
+  fi
   local release='v0.1.2'
   local expected_abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6'
   local root_dir abi asset base expected actual destination

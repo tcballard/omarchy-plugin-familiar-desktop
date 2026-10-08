@@ -52,7 +52,18 @@ try {
   fs.mkdirSync(tools);fs.mkdirSync(plugin,{recursive:true});
   write(path.join(tools,'git'),`#!/bin/bash\nif [[ "$3" == fetch ]]; then exec ${realGit} -C "$2" fetch --no-tags "$2" "\u0024{@: -1}"; fi\nexec ${realGit} "$@"\n`);
   write(path.join(tools,'hyprctl'),`#!/bin/bash\necho 'Version ABI string: ${abi}'\n`);
-  write(path.join(tools,'omarchy'),'#!/bin/bash\necho "omarchy $*" >> "$CALLS"\n');
+  write(path.join(tools,'omarchy'),`#!/usr/bin/env node
+const fs=require('fs'), p=process.env.HOME+'/.config/omarchy/shell.json';
+fs.appendFileSync(process.env.CALLS,'omarchy '+process.argv.slice(2).join(' ')+'\\n');
+if (!fs.existsSync(p) || process.argv[2]!=='plugin') process.exit(0);
+const c=JSON.parse(fs.readFileSync(p)), id=process.argv[4], key=v=>typeof v==='string'?v:v.id;
+const lists=[...Object.values(c.bar.layout),c.plugins];
+const found=lists.find(a=>a.some(v=>key(v)===id));
+if(process.argv[3]==='disable' && found) found.splice(found.findIndex(v=>key(v)===id),1);
+if(process.argv[3]==='enable' && !found) c.bar.layout.right.push({id});
+if(process.argv[3]==='enable' && process.env.OTHER_EDIT==='1') c.idle.lock=900;
+fs.writeFileSync(p,JSON.stringify(c));
+`);
   git('init');git('config','user.email','fixture@example.invalid');git('config','user.name','Fixture');
   write(path.join(plugin,'.gitignore'),'/bin/\n');
   write(path.join(plugin,'release-binaries.sha256'),`${sha(helper('stable'))}  familiar-desktop-linux-x86_64\n${sha('stable library')}  ${asset}\n`);
@@ -68,6 +79,11 @@ try {
   write(path.join(home,'.config/omarchy/familiar-desktop-settings.json'),JSON.stringify(settings));
   execFileSync(path.join(plugin,'bin/familiar-desktop'),['titlebars','setup'],{env});
   const a=bundle(first,'dev-a'), b=bundle(second,'dev-b');
+  const shellPath=path.join(home,'.config/omarchy/shell.json');
+  const shell={version:1,plugins:[{id:'io.github.tcballard.familiar-desktop',custom:42}],idle:{lock:300},
+    bar:{position:'top',layout:{left:[{id:'omarchy.menu'}],center:[{id:'drawer',widgets:['io.github.tcballard.familiar-desktop']}],right:[{id:'omarchy.clock',format:'HH:mm'}]}}};
+  write(shellPath,JSON.stringify(shell));
+  const readShell=()=>JSON.parse(fs.readFileSync(shellPath));
   ok(status());
   // Presence of the shared package must refuse install AND old-backend rollback
   // before any helper, compositor, snapshot or checkout mutation.
@@ -88,6 +104,7 @@ try {
   write(path.join(plugin,'personal.qml'),'local');assert.notEqual(run(a).status,0);fs.unlinkSync(path.join(plugin,'personal.qml'));
   // Stable -> development; status accepts exactly these bytes at this source.
   ok(run(a));assert.equal(git('rev-parse','HEAD'),first);ok(status());assert.equal(git('status','--porcelain'),'');
+  assert.deepEqual(readShell(),shell);
   const snapA=fs.readFileSync(path.join(state,'dev-rollback'),'utf8').trim();
   assert.doesNotMatch(log(),/titlebars setup .*--enable/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(home,'.config/omarchy/familiar-desktop-settings.json'))),settings);
@@ -96,8 +113,10 @@ try {
   write(path.join(plugin,'bin/familiar-desktop'),helper('dev-a'));
   git('checkout','--detach',second);assert.notEqual(status().status,0);git('checkout','--detach',first);
   // Dev -> dev and rollback restores the previous receipt, not the stable pins.
-  ok(run(b));assert.equal(git('rev-parse','HEAD'),second);ok(status());
+  ok(run(b,[],{OTHER_EDIT:'1'}));assert.equal(git('rev-parse','HEAD'),second);ok(status());
+  shell.idle.lock=900;assert.deepEqual(readShell(),shell);
   ok(run(b,['--rollback']));assert.equal(git('rev-parse','HEAD'),first);ok(status());
+  assert.deepEqual(readShell(),shell);
   assert.equal(fs.readFileSync(path.join(plugin,'bin/familiar-desktop'),'utf8'),helper('dev-a'));
   // A rollback resets taskbar placement with the verified candidate helper before
   // replacing it with a pre-taskbar backend. A failure must stop the checkout.
@@ -109,10 +128,18 @@ try {
   fs.rmSync(taskbarRecord);
   // Stable rollback restores exact bytes and removes the development receipt.
   ok(run(a,['--rollback',snapA]));assert.equal(git('rev-parse','HEAD'),stable);ok(status());assert.ok(!fs.existsSync(path.join(state,'dev-build.json')));
+  assert.deepEqual(readShell(),shell);
   assert.equal(fs.readFileSync(path.join(plugin,'bin/familiar-desktop'),'utf8'),helper('stable'));
   // Failed setup leaves no enable call, with a usable recovery snapshot.
   write(env.CALLS,'');assert.notEqual(run(a,[],{FAIL_SETUP:'1'}).status,0);assert.doesNotMatch(log(),/plugin enable/);
   ok(run(a,['--rollback']));assert.equal(git('rev-parse','HEAD'),stable);ok(status());
+  assert.deepEqual(readShell(),shell);
+  // An inline-configured bar entry also retains its exact position/options.
+  const entry=shell.plugins.pop();shell.bar.layout.left.push(entry);write(shellPath,JSON.stringify(shell));
+  ok(run(a));assert.deepEqual(readShell(),shell);
+  // Rollback after a completed install preserves a later personal move/edit.
+  shell.bar.layout.left.pop();entry.custom=43;shell.bar.layout.center.push(entry);write(shellPath,JSON.stringify(shell));
+  ok(run(a,['--rollback']));assert.deepEqual(readShell(),shell);
   // Regression: the XPS checkout predates setup-in-app.sh. Verify its original
   // pins/ownership without executing untrusted bytes, and support rollback too.
   git('checkout','--detach',legacy);assert.ok(!fs.existsSync(path.join(plugin,'setup-in-app.sh')));

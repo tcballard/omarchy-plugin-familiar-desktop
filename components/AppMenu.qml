@@ -49,7 +49,7 @@ PanelWindow {
         {label: forceQuitAddress === selectedAddress && forceQuitAddress !== "" ? "Confirm force quit — unsaved work will be lost" : "Force quit app…", kind: "force-quit", enabled: canAct}
     ])
     readonly property int cardHeight: Math.max(80, Math.min(screenHeight - dockOffset - 12, 64 + visibleWindowCount * rowHeight + actions.length * actionHeight + errorLabel.implicitHeight))
-    readonly property int dockOffset: root.slotSize + 2 * (Style.gapsOut || 5) + 8
+    readonly property int dockOffset: root.popupDockOffset
     readonly property real appOffset: (root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0) +
                                       (root.contextAppIndex + 0.5) * root.slotSize
     readonly property real screenWidth: dockWindow && dockWindow.screen ? dockWindow.screen.width : 1920
@@ -128,7 +128,7 @@ PanelWindow {
         x: menu.root.isVertical
             ? 0
             : Math.max(6, Math.min(menu.width - width - 6,
-                (menu.width - menu.root.totalDockDimension) / 2 + menu.appOffset - width / 2))
+                (menu.root.taskbarActive ? menu.root.taskbarAnchorX : (menu.width - menu.root.totalDockDimension) / 2 + menu.appOffset) - width / 2))
         y: menu.root.isVertical
             ? Math.max(6, Math.min(menu.height - height - 6,
                 (menu.height - menu.root.totalDockDimension) / 2 + menu.appOffset - height / 2))

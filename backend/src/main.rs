@@ -1,5 +1,5 @@
 use familiar_desktop::{
-    caps_lock, common, desktop, dock, gestures, input_preferences, titlebars, window_mode,
+    caps_lock, common, desktop, dock, gestures, input_preferences, taskbar, titlebars, window_mode,
 };
 use serde_json::json;
 fn main() {
@@ -9,6 +9,7 @@ fn main() {
         return;
     }
     let result=match args.first().map(String::as_str) {
+        Some("taskbar")=>taskbar::execute(&args[1..]),
         Some("input-preference")=>input_preferences::execute(&args[1..]),
         Some("gestures")=>gestures::execute(&args[1..]),
         Some("window-mode")=>window_mode::execute(&args[1..]),

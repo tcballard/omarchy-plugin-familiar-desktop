@@ -33,6 +33,11 @@ Item {
     // Dock state & Multi-source Live Bar Position Tracking
     property bool opened: true
     property bool pluginEnabled: true
+    Timer {
+        interval: 350
+        running: !root.pluginEnabled && taskbarController.mode === "enable" && !taskbarController.busy
+        onTriggered: { root.pendingTaskbarProfile = ""; taskbarController.run("reset") }
+    }
     readonly property var setup: setupController
     SetupController {
         id: setupController
@@ -63,7 +68,7 @@ Item {
 
     readonly property string systemBarPosition: (shell && shell.bar && shell.bar.position)
         ? shell.bar.position : detectedBarPosition
-    readonly property string dockScreenPosition: DockSettings.resolveDockPosition(
+    readonly property string dockScreenPosition: root.taskbarActive ? "bottom" : DockSettings.resolveDockPosition(
         root.dockPosition, root.profile, root.systemBarPosition)
     readonly property bool isVertical: dockScreenPosition === "left" || dockScreenPosition === "right"
     // Existing surfaces, animations and menus use the opposite edge as their
@@ -150,6 +155,7 @@ Item {
         function setOverlayMode(val: string): string { root.overlayMode = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function showDesktop(): string { return desktopToolsAdapter.run(["show"]) ? "started" : "busy" }
         function restoreDesktop(): string { return desktopToolsAdapter.run(["restore"]) ? "started" : "busy" }
+        function taskbarStatus(): string { return JSON.stringify({mode:taskbarController.mode, active:root.taskbarActive, busy:taskbarController.busy, profile:root.profile, message:taskbarController.message}) }
         function ping(): string { return "ok" }
     }
 
@@ -284,6 +290,33 @@ Item {
         if (winIndex >= 0 && winIndex < matched.length && matched[winIndex] && matched[winIndex].activate) {
             matched[winIndex].activate()
         }
+    }
+
+    readonly property var taskbar: taskbarController
+    property string pendingTaskbarProfile: ""
+    property var taskbarAnchorItem: null
+    property real taskbarItemSize: 32
+    readonly property bool taskbarActive: taskbarController.mode === "enable" && root.systemBarPosition === "bottom"
+        && (!root.shell || !root.shell.barConfig || !root.shell.barConfig.id || root.shell.barConfig.id === "omarchy.bar")
+    readonly property real popupDockOffset: root.taskbarActive ? root.taskbarItemSize : root.slotSize + 2 * (Style.gapsOut || 5) + 8
+    readonly property real taskbarAnchorX: root.taskbarAnchorItem
+        ? root.taskbarAnchorItem.mapToItem(null, root.taskbarAnchorItem.width / 2, 0).x : 0
+    TaskbarController {
+        id: taskbarController
+        onCompleted: function(operation) {
+            if (operation !== "status" && root.pendingTaskbarProfile !== "") {
+                var selected = root.pendingTaskbarProfile
+                root.pendingTaskbarProfile = ""
+                root.applyProfile(selected)
+            }
+        }
+    }
+    onTaskbarActiveChanged: {
+        root.contextAppId = ""
+        root.activeMenuItem = null
+        root.activeStackItem = null
+        root.isEditMode = false
+        root.taskbarAnchorItem = null
     }
 
     readonly property var capsLock: capsLockController
@@ -648,7 +681,7 @@ Item {
         && root.workspaceAllowed
         && root.isPinnedLoaded
     readonly property bool dockMapped: root.dockAvailable && !remapTimer.running
-    readonly property bool dockRevealed: root.dockAvailable && !root.shouldSlideOut
+    readonly property bool dockRevealed: root.dockAvailable && (root.taskbarActive || !root.shouldSlideOut)
 
     property var loadedWidgetItems: []
 
@@ -1165,6 +1198,12 @@ Item {
     }
 
     function setProfile(value) {
+        var selected = DockSettings.normalizeProfile(value)
+        if (taskbarController.run(selected === "windows" ? "enable" : "reset"))
+            root.pendingTaskbarProfile = selected
+    }
+
+    function applyProfile(value) {
         var selected = DockSettings.normalizeProfile(value)
         var defaults = DockSettings.profileDefaults(selected)
         root.profile = selected
@@ -2732,6 +2771,7 @@ Item {
             root.baseDockMonitorName = String(Hyprland.focusedMonitor.name || "")
         }
         root.parseShellConfigFile()
+        taskbarController.run("status")
         try {
             var txt = userPinnedFile.text()
             if (txt && txt.trim().length > 0) {
@@ -2811,7 +2851,7 @@ Item {
     HyprlandFocusGrab {
         id: editGrab
         active: root.isEditMode && !root.isStackOpen && !root.isMenuOpen
-        windows: dockVariants.instances
+        windows: root.taskbarActive && root.dockWindow ? [root.dockWindow] : dockVariants.instances
         onCleared: {
             root.isEditMode = false
         }
@@ -2853,6 +2893,7 @@ Item {
     }
 
     readonly property var dockWindow: {
+        if (root.taskbarActive && root.taskbarAnchorItem) return root.taskbarAnchorItem.QsWindow.window
         var instances = dockVariants.instances
         var count = instances ? instances.length : 0
         // When a reveal is targeting a specific (possibly non-focused) screen,
@@ -2918,7 +2959,7 @@ Item {
                 // root.shouldSlideOut is false).
                 readonly property bool slidOut: root.screenSlidesOut(modelData)
                 screen: modelData
-                visible: root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
+                visible: !root.taskbarActive && root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
 
                 ScreenMoveRemap {
                     id: remapGuard
@@ -3576,7 +3617,7 @@ Item {
                 id: edgeTriggerWindow
                 required property var modelData
                 screen: modelData
-                visible: root.dockAvailable
+                visible: !root.taskbarActive && root.dockAvailable
                          && (root.visibilityMode === "hover" || root.visibilityMode === "hybrid")
                          && root.screenSlidesOut(modelData)
                          && root.screenShowsDock(modelData)

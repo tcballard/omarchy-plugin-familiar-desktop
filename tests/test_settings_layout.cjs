@@ -23,6 +23,7 @@ TestCase {
     width: 800; height: 560
     visible: true
     when: windowShown
+    property bool taskbarActive: false
     property var desktopService: null
     property var desktopTools: null
     property var bar: null

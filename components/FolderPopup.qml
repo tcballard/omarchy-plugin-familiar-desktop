@@ -21,7 +21,7 @@ PanelWindow {
     readonly property bool isOverlay: stackWindow.root.overlayMode === true
     readonly property int dockThickness: stackWindow.root.slotSize + 8
     readonly property int dockGap: (Style.gapsOut || 5)
-    readonly property int dockOffset: isOverlay ? (dockGap + dockThickness + dockGap) : dockGap
+    readonly property int dockOffset: stackWindow.root.taskbarActive ? 4 : (isOverlay ? (dockGap + dockThickness + dockGap) : dockGap)
 
     WlrLayershell.namespace: "omarchy-dock-stack"
     WlrLayershell.layer: isOverlay ? WlrLayer.Overlay : WlrLayer.Top

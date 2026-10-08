@@ -22,7 +22,7 @@ PanelWindow {
     readonly property bool isDirectDockPopup: !menuWindow.root.isMenuFromFolder
     readonly property int dockThickness: menuWindow.root.slotSize + 8
     readonly property int dockGap: (Style.gapsOut || 5)
-    readonly property int dockOffset: isOverlay ? (dockGap + dockThickness + dockGap) : dockGap
+    readonly property int dockOffset: menuWindow.root.taskbarActive ? 4 : (isOverlay ? (dockGap + dockThickness + dockGap) : dockGap)
     readonly property int stackOffset: (stackWindow && stackWindow.stackCard) ? stackWindow.stackCard.height + 6 : 186
 
     WlrLayershell.namespace: "omarchy-dock-menu"

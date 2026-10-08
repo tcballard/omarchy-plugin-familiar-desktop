@@ -16,6 +16,7 @@ trap 'echo "Familiar removal stopped. The plugin has not been intentionally dele
 # Recover the journal while the dock is still available. Unknown/shared
 # minimised windows require the user to restore them rather than guessing.
 "$helper" desktop prepare-remove
+"$helper" taskbar reset
 omarchy plugin disable "$plugin_id"
 "$helper" caps-lock reset
 "$helper" input-preference command reset

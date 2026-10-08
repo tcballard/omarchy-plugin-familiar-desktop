@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const id = 'io.github.tcballard.familiar-desktop';
-const steps = ['desktop prepare-remove', `plugin disable ${id}`, 'caps-lock reset', 'input-preference command reset', 'input-preference resize reset', 'gestures reset', 'window-mode reset', 'titlebars remove', `plugin remove ${id} --yes`];
+const steps = ['desktop prepare-remove', 'taskbar reset', `plugin disable ${id}`, 'caps-lock reset', 'input-preference command reset', 'input-preference resize reset', 'gestures reset', 'window-mode reset', 'titlebars remove', `plugin remove ${id} --yes`];
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'familiar-uninstall-'));
 try {
   const installed = path.join(tmp, '.config/omarchy/plugins', id);

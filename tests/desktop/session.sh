@@ -146,6 +146,27 @@ wait_for active_a
 timeout 10 grim "$EVIDENCE/candidate.png"
 hyprctl -j layers > "$EVIDENCE/candidate-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length > 0' "$EVIDENCE/candidate-layers.json"
+phase=windows-taskbar
+cp "$HOME/.config/omarchy/shell.json" "$EVIDENCE/bar-before-taskbar.json"
+omarchy-shell "$plugin_id" setProfile windows
+taskbar_ready() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == true and .busy == false and .profile == "windows"' >/dev/null; }
+wait_for taskbar_ready
+bar_has_apps() { omarchy-shell shell debugBarGeometry | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id and .visible == true and .width > 60)' >/dev/null; }
+wait_for bar_has_apps
+hyprctl -j layers > "$EVIDENCE/taskbar-layers.json"
+jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length == 0' "$EVIDENCE/taskbar-layers.json"
+omarchy-shell shell debugBarGeometry > "$EVIDENCE/taskbar-geometry.json"
+timeout 10 grim "$EVIDENCE/taskbar.png"
+omarchy restart shell
+wait_for familiar_ready
+wait_for taskbar_ready
+wait_for bar_has_apps
+omarchy-shell "$plugin_id" setProfile general
+taskbar_restored() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == false and .busy == false and .profile == "general"' >/dev/null; }
+wait_for taskbar_restored
+jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-taskbar.json"
+jq -S '.bar' "$EVIDENCE/bar-before-taskbar.json" > "$EVIDENCE/bar-original.json"
+cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-taskbar.json"
 phase=rollback
 bash "$bundle/install-dev.sh" --rollback
 [[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]

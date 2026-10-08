@@ -105,14 +105,16 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 | Starting layout | Placement | Visibility | Window space |
 | --- | --- | --- | --- |
 | **General** | Opposite the Omarchy bar | Always visible | Reserves space |
-| **Windows** | Bottom when the bar is elsewhere | Always visible | Reserves space |
+| **Windows** | Apps inside the full-width bottom Omarchy bar | Follows the native bar | One reserved strip |
 | **Mac** | Bottom when the bar is elsewhere | Reveals on hover | Overlays windows |
 
-In **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
+**In development for v0.1.3:** Selecting **Windows** moves the built-in Omarchy bar to the bottom, places Familiar’s app strip on the left and the clock on the right, and hides the separate dock. Existing native widgets and their settings are retained. App activation, badges, previews and right-click window actions use the existing Familiar implementation. Scroll arrows expose overflow apps. The taskbar follows Omarchy’s bar height, background and visibility. Selecting **General** or **Mac** restores Familiar-owned placement changes while preserving later personal configuration edits. Custom replacement bars are refused without changes.
+
+For the separate dock, in **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
 
 **In development for v0.1.3:** In **Settings → Dock → Appearance → Dock background opacity**, choose **Follow theme** (the default), **0%** (transparent), **25%**, **50%**, **75%** or **100%** (opaque). This changes only the dock background; the header, icons, badges and popup appearance remain independent. The choice survives shell restarts and theme changes. Choose **Follow theme** to restore the theme-derived background. Translucent overrides hide the dock border, matching the existing transparent-dock style.
 
-The layout names describe starting behavior; this build does not reproduce a complete Windows taskbar or macOS Dock. After selecting a preset, you can change visibility, workspace targeting, badges and widgets individually. Those adjustments remain until you choose another preset.
+The presets share pins and folders; they do not reproduce every Windows or macOS feature. Dock-specific position, opacity, visibility and extra-widget controls apply to the separate dock. In Windows mode, configure native bar widgets through Omarchy. Native bar dragging moves Familiar’s app strip as a whole.
 
 ## Controls
 
@@ -156,7 +158,7 @@ legacy migration and XPS acceptance.
 
 Use Omarchy's plugin update flow to update the checkout, then open Familiar's in-app setup to install or repair the matching binaries. The standalone installer from the selected release remains available for recovery. For removal, use the installed `uninstall.sh` shown above; the generic remove command alone does not perform the owned-configuration cleanup.
 
-The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Dock settings only change Familiar Desktop; `shell.json` is read for bar placement and is never written by this plugin. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
+The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Windows taskbar mode makes targeted, reversible edits to `shell.json`; its recovery record lives under `~/.local/state/familiar-desktop/taskbar`. Reset with `bin/familiar-desktop taskbar reset` if you need command-line recovery. Other dock settings only change Familiar Desktop. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
 If you moved bar widgets into the dock using an earlier development build, add them back through Omarchy's bar settings. This build preserves old placement metadata in its settings file but does not automatically rewrite your bar layout.
 

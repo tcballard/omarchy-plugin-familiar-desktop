@@ -148,6 +148,18 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
                 });
             target.insert(index, item);
         }
+        // A service/drawer-only install needs a temporary bar entry. Remove
+        // only our unchanged entry; retain later user moves or inline settings.
+        if saved["insertedFamiliar"] == true {
+            let positions = locate(&config["bar"]["layout"], ID);
+            if positions.len() == 1 && positions[0].0 == "left" {
+                let index = positions[0].1;
+                let entries = config["bar"]["layout"]["left"].as_array_mut().unwrap();
+                if entries[index] == json!({"id": ID}) {
+                    entries.remove(index);
+                }
+            }
+        }
         config_file::replace(config_path, &before, &encode(&config)?, state_dir)?;
         if let Some(style) = saved.get("style") {
             taskbar_style::restore(&style_path, style, state_dir)?;
@@ -159,10 +171,20 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
     if bar_id != "omarchy.bar" && !bar_id.is_empty() {
         return Err("Windows taskbar currently requires the built-in Omarchy bar. Your custom bar was left unchanged.".into());
     }
-    if locate(&config["bar"]["layout"], ID).len() != 1 {
-        return Err(
-            "Place Familiar once in the Omarchy bar before enabling Windows taskbar".into(),
-        );
+    let familiar_positions = locate(&config["bar"]["layout"], ID);
+    if familiar_positions.len() > 1 {
+        return Err("Duplicate bar entries; no changes made".into());
+    }
+    // Some Omarchy revisions treat a combined service/widget in `plugins` as
+    // already enabled, even with explicit bar placement. A drawer also keeps
+    // its widget outside bar.layout. Own the missing entry in this transaction
+    // rather than relying on enablePlugin or changing the user's drawer.
+    let inserted_familiar = familiar_positions.is_empty();
+    if inserted_familiar {
+        config["bar"]["layout"]["left"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id": ID}));
     }
     let position = json!({"present":config["bar"].get("position").is_some(),"value":config["bar"]["position"]});
     let mut moves = Vec::new();
@@ -191,7 +213,8 @@ pub fn change(mode: &str, config_path: &Path, state_dir: &Path) -> Result<Value>
     }
     config["bar"]["position"] = json!("bottom");
     let style = taskbar_style::plan(&style_path)?;
-    let saved = json!({"version":1,"position":position,"moves":moves,"style":style});
+    let saved = json!({"version":1,"position":position,"moves":moves,"style":style,
+        "insertedFamiliar":inserted_familiar});
     // Write recovery information first: an interrupted enable is recoverable.
     common::atomic(&receipt_path, encode(&saved)?.as_bytes())?;
     taskbar_style::apply(&style_path, &saved["style"], state_dir)?;

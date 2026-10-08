@@ -147,6 +147,21 @@ timeout 10 grim "$EVIDENCE/candidate.png"
 hyprctl -j layers > "$EVIDENCE/candidate-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length > 0' "$EVIDENCE/candidate-layers.json"
 phase=windows-taskbar
+# Reproduce a combined service/widget already enabled outside bar.layout.
+# enablePlugin on the XPS shell reports success without placing this entry.
+shell_config="$HOME/.config/omarchy/shell.json"
+jq --arg id "$plugin_id" '
+  .bar.layout |= with_entries(.value |= map(select((if type == "object" then .id else . end) != $id))) |
+  .plugins = ((.plugins // [] | map(select((if type == "object" then .id else . end) != $id))) + [{id:$id}])
+' "$shell_config" > "$shell_config.tmp"
+mv "$shell_config.tmp" "$shell_config"
+omarchy-shell shell reloadConfig
+omarchy plugin enable "$plugin_id" --section right --index 0
+# Both tested shells must retain a service-only fixture before activation.
+jq --arg id "$plugin_id" '.bar.layout |= with_entries(.value |= map(select((if type == "object" then .id else . end) != $id)))' \
+  "$shell_config" > "$shell_config.tmp"
+mv "$shell_config.tmp" "$shell_config"
+omarchy-shell shell reloadConfig
 cp "$HOME/.config/omarchy/shell.json" "$EVIDENCE/bar-before-taskbar.json"
 cat "$HOME/.config/omarchy/shell.toml" > "$EVIDENCE/style-before-taskbar.toml" 2>/dev/null || :
 omarchy-shell "$plugin_id" setProfile windows
@@ -168,6 +183,15 @@ wait_for taskbar_restored
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-taskbar.json"
 jq -S '.bar' "$EVIDENCE/bar-before-taskbar.json" > "$EVIDENCE/bar-original.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-taskbar.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+# Mac must restore the same service-only arrangement too.
+omarchy-shell "$plugin_id" setProfile windows
+wait_for taskbar_ready
+omarchy-shell "$plugin_id" setProfile mac
+mac_restored() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == false and .busy == false and .profile == "mac"' >/dev/null; }
+wait_for mac_restored
+jq -S '.bar' "$shell_config" > "$EVIDENCE/bar-after-mac.json"
+cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-mac.json"
 cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
 # Roll back while the taskbar is active: the bundle must undo its native placement.
 omarchy-shell "$plugin_id" setProfile windows

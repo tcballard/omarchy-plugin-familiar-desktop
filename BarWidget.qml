@@ -334,7 +334,9 @@ BarWidget {
   function toggle() { if (settingsWindow.open) close(); else open() }
   function closeForPopoutSwitch() { close() }
 
-  readonly property bool taskbarActive: !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
+  // Drawer widgets stay mounted under an invisible host. They must not claim
+  // to provide a taskbar and suppress the floating dock on that monitor.
+  readonly property bool taskbarActive: root.visible && !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
   implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
   implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)
   Loader {
@@ -355,7 +357,6 @@ BarWidget {
     // Keep management recognisable beside the app strip, even without Nerd Fonts.
     text: root.taskbarActive ? "󰟀  Familiar" : "󰟀"
     fixedWidth: root.taskbarActive ? Math.max(100, Style.space(100)) : -1
-    centerFigures: false
     tooltipText: "Familiar settings"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) {

@@ -40,6 +40,70 @@ fn round_trip_and_restart_keep_all_widgets_and_settings() {
     assert_eq!(read(&config), original);
 }
 #[test]
+fn service_and_drawer_only_install_gets_a_reversible_taskbar_entry() {
+    for changed in ["none", "settings", "moved", "removed", "interrupted"] {
+        let (_dir, config, state, mut original) = fixture();
+        let id = "io.github.tcballard.familiar-desktop";
+        original["bar"]["layout"]["right"]
+            .as_array_mut()
+            .unwrap()
+            .remove(1);
+        original["plugins"] = json!([{"id": id, "personal": 42}]);
+        original["bar"]["layout"]["center"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":"3lymn.plugin-drawer", "widgets":[id,"other.widget"], "scale":0.5}));
+        fs::write(&config, original.to_string()).unwrap();
+        taskbar::change("enable", &config, &state).unwrap();
+        assert_eq!(
+            taskbar::change("status", &config, &state).unwrap()["mode"],
+            "enable"
+        );
+        assert_eq!(read(&config)["plugins"], original["plugins"]);
+        let receipt = fs::read(state.join("placement.json")).unwrap();
+        taskbar::change("enable", &config, &state).unwrap();
+        assert_eq!(fs::read(state.join("placement.json")).unwrap(), receipt);
+        let mut current = read(&config);
+        match changed {
+            "settings" => current["bar"]["layout"]["left"][2]["personal"] = json!(99),
+            "moved" => {
+                let item = current["bar"]["layout"]["left"]
+                    .as_array_mut()
+                    .unwrap()
+                    .remove(2);
+                current["bar"]["layout"]["right"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(item);
+            }
+            "removed" => {
+                current["bar"]["layout"]["left"]
+                    .as_array_mut()
+                    .unwrap()
+                    .remove(2);
+            }
+            "interrupted" => current = original.clone(),
+            _ => {}
+        }
+        fs::write(&config, current.to_string()).unwrap();
+        taskbar::change("reset", &config, &state).unwrap();
+        let mut expected = original.clone();
+        if changed == "settings" {
+            expected["bar"]["layout"]["left"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"id":id,"personal":99}));
+        } else if changed == "moved" {
+            expected["bar"]["layout"]["right"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"id":id}));
+        }
+        assert_eq!(read(&config), expected, "{changed}");
+        assert!(!state.join("placement.json").exists());
+    }
+}
+#[test]
 fn reset_preserves_later_personal_changes_and_new_widget_settings() {
     let (_dir, config, state, _) = fixture();
     taskbar::change("enable", &config, &state).unwrap();

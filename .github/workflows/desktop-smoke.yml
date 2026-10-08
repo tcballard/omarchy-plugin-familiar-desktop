@@ -14,9 +14,14 @@ jobs:
     needs: candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The XPS fork changes news, but these public base shell APIs match it.
+        omarchy: [0f8af9be307d5d4f12cc0f6394892cac651ed5e6, f99d33a8ddee7b36509a71a6d20d5d23355ce8b1]
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      OMARCHY_SHA: 0f8af9be307d5d4f12cc0f6394892cac651ed5e6
+      OMARCHY_SHA: ${{ matrix.omarchy }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -41,7 +46,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: desktop-smoke-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: desktop-smoke-${{ matrix.omarchy }}-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: smoke-evidence/
           retention-days: 14
           if-no-files-found: error

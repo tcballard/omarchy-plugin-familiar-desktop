@@ -7,15 +7,15 @@ if (process.argv.includes('--fixtures')) {
  function fixture({backendMismatch=false,libraryMismatch=false,pinFault='',wrongVersion=false,missingLibrary=false}={}) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'familiar-packaging-'));
   const write=(name,bytes)=>{const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);};
-  const backend=`#!/bin/sh\nprintf 'familiar-desktop ${wrongVersion?'9.9.9':'0.1.2'}\\n'\n`;
+  const backend=`#!/bin/sh\nprintf 'familiar-desktop ${wrongVersion?'9.9.9':'0.1.3'}\\n'\n`;
   const bars='fixture library\n';
   write('backend-built',backend);fs.chmodSync(path.join(root,'backend-built'),0o755);
   if(!missingLibrary)write('hyprbars-assets/'+library,bars);
   write('hyprbars-assets/BUILD.json','{"fixture":true}\n');
-  write('manifest.json','{"version":"0.1.2"}\n');
-  write('backend/Cargo.toml','[package]\nname="familiar-desktop"\nversion="0.1.2"\nedition="2024"\n');
+  write('manifest.json','{"version":"0.1.3"}\n');
+  write('backend/Cargo.toml','[package]\nname="familiar-desktop"\nversion="0.1.3"\nedition="2024"\n');
   write('backend/src/main.rs','fn main() {}\n');
-  for(const name of ['scripts/prepare-release.cjs','scripts/install-candidate.sh','install.sh','docs/XPS-TEST.md','docs/RELEASE-0.1.2.md','docs/v0.1.2.md','docs/ROLLBACK.md'])
+  for(const name of ['scripts/prepare-release.cjs','scripts/install-candidate.sh','install.sh','docs/XPS-TEST.md','docs/RELEASE-0.1.3.md','docs/v0.1.3.md','docs/ROLLBACK.md'])
    write(name,fs.readFileSync(path.join(repository,name)));
   let pins=`${backendMismatch?'0'.repeat(64):digest(backend)}  ${binary}\n${libraryMismatch?'0'.repeat(64):digest(bars)}  ${library}\n`;
   if(pinFault==='duplicate')pins+=pins.split('\n')[0]+'\n';
@@ -57,9 +57,9 @@ if (process.argv.includes('--fixtures')) {
    const manifest=JSON.parse(fs.readFileSync(path.join(dir,'RELEASE-MANIFEST.json')));
    assert.equal(manifest.sourcePinsMatch,scenario.reviewed,scenario.name);
    assert.equal(manifest.source.commit,f.sha);
-   assert.equal(f.run('tar',['-xOf',path.join(dir,'familiar-desktop-0.1.2-source.tar.gz'),'familiar-desktop-0.1.2/release-binaries.sha256']),f.pins);
+   assert.equal(f.run('tar',['-xOf',path.join(dir,'familiar-desktop-0.1.3-source.tar.gz'),'familiar-desktop-0.1.3/release-binaries.sha256']),f.pins);
    assert.equal(fs.readFileSync(path.join(f.root,'release-binaries.sha256'),'utf8'),f.pins);
-   for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md','RELEASE-0.1.2.md','v0.1.2.md','ROLLBACK.md'])
+   for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md','RELEASE-0.1.3.md','v0.1.3.md','ROLLBACK.md'])
     assert.equal(fs.existsSync(path.join(dir,name)),scenario.reviewed,`${scenario.name}: ${name}`);
    assert.deepEqual(fs.readFileSync(path.join(dir,binary)),fs.readFileSync(path.join(f.root,'backend-built')));
    assert.deepEqual(fs.readFileSync(path.join(dir,library)),Buffer.from('fixture library\n'));
@@ -80,7 +80,7 @@ const version=JSON.parse(fs.readFileSync('manifest.json')).version;
 const manifest=JSON.parse(fs.readFileSync('release-assets/RELEASE-MANIFEST.json'));
 assert.equal(manifest.sourcePinsMatch,!ci,'Validation-only smoke must be explicit; default smoke requires committed pins.');
 assert.equal(manifest.source.commit,execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim());
-for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md','RELEASE-0.1.2.md','v0.1.2.md','ROLLBACK.md'])
+for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md','RELEASE-0.1.3.md','v0.1.3.md','ROLLBACK.md'])
  assert.equal(fs.existsSync(path.join('release-assets',name)),!ci,name);
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'familiar-release-'));
 try {

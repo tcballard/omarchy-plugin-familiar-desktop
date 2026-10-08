@@ -24,17 +24,17 @@ Familiar opens its setup screen automatically. Choose Windows or Mac controls an
 
 You can close setup and reopen it from Familiar's computer icon in the bar. Existing complete installations skip the setup screen. **Windows → Set up or repair window controls** opens the same flow later. Personal settings and pinned apps are retained; choosing a starting layout applies that layout's dock defaults.
 
-The maintainer tested v0.1.1-rc.4 on the XPS and accepted its in-plugin setup for v0.1.2. The stable release changes version and release metadata, with no runtime behaviour changes after that acceptance.
+Tom tested the combined v0.1.3 candidate on the XPS and authorized its merge and release on 8 October 2026. Release preparation changes version metadata, binary pins and release documents; the accepted runtime behaviour is retained.
 
 Setup requires the standard Omarchy tools (including curl, jq and coreutils), Linux x86_64 and the supported Hyprland ABI below. Missing tools or unsupported desktops are reported inside setup; it never opens a terminal or silently installs system packages. Both downloaded binaries must match `release-binaries.sha256` in the installed source. See [source identity and limits](docs/INSTALLER-SOURCE-PIN.md).
 
 ### Standalone release installer
 
-The [v0.1.2 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
+The [v0.1.3 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.3) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
 
 The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores windows on v0.1.0 updates, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 
-The maintainer accepted v0.1.1-rc.4 after XPS testing for [v0.1.2](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.2). Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Settings navigation and scrolling will be improved in a later release ([#28](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/28)). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
+The combined v0.1.3 candidate was accepted after XPS testing. Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Full migration to Omarchy’s official titlebar package remains planned for v0.1.4 (#74). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
 
@@ -226,9 +226,9 @@ the block becomes inactive when Hyprland next reloads because the plugin manifes
 is absent. Edited/damaged blocks and symlinked main configs are refused rather than
 overwritten. See [the Caps Lock guide](docs/CAPS-LOCK.md) for recovery and testing.
 
-## v0.1.2
+## v0.1.3
 
-Setup now stays inside Familiar. See [release notes](docs/v0.1.2.md) and [release evidence](docs/RELEASE-0.1.2.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.
+Adds a native Windows taskbar, independent dock opacity, window/badge fixes and titlebar ownership safeguards. See [release notes](docs/v0.1.3.md) and [release evidence](docs/RELEASE-0.1.3.md). The repository `install.sh` is a CI template; standalone recovery uses the generated release asset.
 
 ### Input preferences
 

@@ -296,8 +296,25 @@ Item {
     property string pendingTaskbarProfile: ""
     property var taskbarAnchorItem: null
     property real taskbarItemSize: 32
-    readonly property bool taskbarActive: taskbarController.mode === "enable" && root.systemBarPosition === "bottom"
+    readonly property bool taskbarSelected: taskbarController.mode === "enable" && root.systemBarPosition === "bottom"
         && (!root.shell || !root.shell.barConfig || !root.shell.barConfig.id || root.shell.barConfig.id === "omarchy.bar")
+    property var taskbarHosts: []
+    readonly property bool taskbarActive: root.taskbarSelected && root.taskbarHosts.length > 0
+    function registerTaskbarHost(host) {
+        if (taskbarHosts.indexOf(host) === -1) taskbarHosts = taskbarHosts.concat([host])
+    }
+    function unregisterTaskbarHost(host) {
+        taskbarHosts = taskbarHosts.filter(function(item) { return item !== host })
+    }
+    function taskbarHostedOn(screen) {
+        if (!taskbarSelected) return false
+        for (var i = 0; i < taskbarHosts.length; i++) {
+            var host = taskbarHosts[i]
+            var window = host ? host.QsWindow.window : null
+            if (window && window.screen === screen) return true
+        }
+        return false
+    }
     readonly property real popupDockOffset: root.taskbarActive ? root.taskbarItemSize : root.slotSize + 2 * (Style.gapsOut || 5) + 8
     readonly property real taskbarAnchorX: root.taskbarAnchorItem
         ? root.taskbarAnchorItem.mapToItem(null, root.taskbarAnchorItem.width / 2, 0).x : 0
@@ -2959,7 +2976,7 @@ Item {
                 // root.shouldSlideOut is false).
                 readonly property bool slidOut: root.screenSlidesOut(modelData)
                 screen: modelData
-                visible: !root.taskbarActive && root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
+                visible: !root.taskbarHostedOn(modelData) && root.dockMapped && root.screenShowsDock(modelData) && !remapGuard.remapping
 
                 ScreenMoveRemap {
                     id: remapGuard

@@ -167,10 +167,16 @@ wait_for taskbar_restored
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-taskbar.json"
 jq -S '.bar' "$EVIDENCE/bar-before-taskbar.json" > "$EVIDENCE/bar-original.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-taskbar.json"
+# Roll back while the taskbar is active: the bundle must undo its native placement.
+omarchy-shell "$plugin_id" setProfile windows
+wait_for taskbar_ready
 phase=rollback
 bash "$bundle/install-dev.sh" --rollback
 [[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
 [[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
+[[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
+jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
+cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
 wait_for familiar_ready
 wait_for two_windows
 phase=passed

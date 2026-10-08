@@ -15,7 +15,7 @@ Item {
     readonly property var items: service ? service.dockItems : []
     // Leave the native status widgets room; overflow stays reachable by arrows.
     readonly property real screenWidth: root.QsWindow.window && root.QsWindow.window.screen ? root.QsWindow.window.screen.width : 1280
-    readonly property real capacity: Math.max(slotSize, Math.min(slotSize * 7, screenWidth * 0.22))
+    readonly property real capacity: Math.max(slotSize, Math.min(slotSize * 7, Math.floor((screenWidth * 0.22 - 2 * slotSize) / slotSize) * slotSize))
     readonly property bool overflow: items.length * slotSize > capacity
     implicitWidth: Math.min(items.length * slotSize, capacity) + (overflow ? slotSize * 2 : 0)
     implicitHeight: slotSize
@@ -25,7 +25,9 @@ Item {
         service.taskbarItemSize = slotSize
     }
     onVisibleChanged: if (!visible) preview.close()
+    Component.onCompleted: if (service) service.registerTaskbarHost(root)
     Component.onDestruction: {
+        if (service) service.unregisterTaskbarHost(root)
         if (service && service.taskbarAnchorItem && service.taskbarAnchorItem.QsWindow.window === root.QsWindow.window)
             service.taskbarAnchorItem = null
     }

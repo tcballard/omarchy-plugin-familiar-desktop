@@ -102,6 +102,19 @@ else
 fi
 printf 'Installing source %s\nRollback snapshot: %s\n' "$target" "$snapshot"
 trap 'echo "Installation did not complete. Recover with: bash $bundle/install-dev.sh --rollback $snapshot" >&2' ERR
+# Reset taskbar placement with this bundle's verified helper, before replacing
+# the installed backend (the previous stable version may not know taskbar).
+# This helper operates only on the user's placement journal, not titlebar ownership.
+if [[ -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" || -L "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]; then
+  (cd "$bundle" && sha256sum --check --strict SHA256SUMS)
+  verify_assets "$bundle" "$bundle/DEV-BUILD.json"
+  taskbar_helper="$(mktemp "$state/taskbar-helper.XXXXXXXX")"
+  install -m 755 "$bundle/familiar-desktop-linux-x86_64" "$taskbar_helper"
+  taskbar_status=0
+  "$taskbar_helper" taskbar reset || taskbar_status=$?
+  rm -f "$taskbar_helper"
+  [[ "$taskbar_status" == 0 ]] || exit "$taskbar_status"
+fi
 # Do not run unverified partial binaries when recovering a failed install.
 if [[ "$mode" == install ]]; then
   "$plugin/bin/familiar-desktop" desktop restore

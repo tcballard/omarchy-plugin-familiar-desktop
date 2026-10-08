@@ -334,7 +334,7 @@ BarWidget {
   function toggle() { if (settingsWindow.open) close(); else open() }
   function closeForPopoutSwitch() { close() }
 
-  readonly property bool taskbarActive: !!root.desktopService && root.desktopService.taskbarActive && !root.vertical
+  readonly property bool taskbarActive: !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
   implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
   implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)
   Loader {

@@ -18,6 +18,7 @@ const git = (...args) => execFileSync(realGit,['-C',plugin,...args],{env,encodin
 const helper = label => `#!/bin/bash
 set -eu
 echo '${label}' "$(basename "$0") $*" >> "$CALLS"
+if [[ "$1" == taskbar && "\u0024{FAIL_TASKBAR:-}" == 1 ]]; then exit 9; fi
 if [[ "$1" == titlebars && "$2" == setup ]]; then
   [[ "\u0024{FAIL_SETUP:-}" != 1 ]] || exit 1
   # Like the real helper, --enable would reset user choices.
@@ -87,6 +88,14 @@ try {
   ok(run(b));assert.equal(git('rev-parse','HEAD'),second);ok(status());
   ok(run(b,['--rollback']));assert.equal(git('rev-parse','HEAD'),first);ok(status());
   assert.equal(fs.readFileSync(path.join(plugin,'bin/familiar-desktop'),'utf8'),helper('dev-a'));
+  // A rollback resets taskbar placement with the verified candidate helper before
+  // replacing it with a pre-taskbar backend. A failure must stop the checkout.
+  const taskbarRecord=path.join(state,'taskbar/placement.json');
+  write(taskbarRecord,'{}');write(env.CALLS,'');
+  const refused=run(a,['--rollback',snapA],{FAIL_TASKBAR:'1'});
+  assert.notEqual(refused.status,0);assert.equal(git('rev-parse','HEAD'),first);
+  assert.ok(log().includes('taskbar reset'));
+  fs.rmSync(taskbarRecord);
   // Stable rollback restores exact bytes and removes the development receipt.
   ok(run(a,['--rollback',snapA]));assert.equal(git('rev-parse','HEAD'),stable);ok(status());assert.ok(!fs.existsSync(path.join(state,'dev-build.json')));
   assert.equal(fs.readFileSync(path.join(plugin,'bin/familiar-desktop'),'utf8'),helper('stable'));

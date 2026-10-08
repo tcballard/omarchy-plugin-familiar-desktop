@@ -8,6 +8,7 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(),'familiar-dev-test-'));
 const home = path.join(temp,'home'), tools = path.join(temp,'tools');
 const plugin = path.join(home,'.config/omarchy/plugins/io.github.tcballard.familiar-desktop');
 const state = path.join(home,'.local/state/familiar-desktop');
+const officialLibrary = path.join(temp,'system/titlebars.so');
 const abi = 'efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6';
 const asset = `hyprbars-linux-x86_64-${abi}.so`;
 const realGit = execFileSync('which',['git'],{encoding:'utf8'}).trim();
@@ -39,7 +40,7 @@ function bundle(commit, label) {
   const dir = path.join(temp,label);fs.mkdirSync(dir);
   write(path.join(dir,'familiar-desktop-linux-x86_64'),helper(label));
   write(path.join(dir,asset),label+' library');
-  write(path.join(dir,'install-dev.sh'),fs.readFileSync('scripts/install-dev.sh','utf8').replace('@SOURCE_SHA@',commit));
+  write(path.join(dir,'install-dev.sh'),fs.readFileSync('scripts/install-dev.sh','utf8').replace('@SOURCE_SHA@',commit).replaceAll('/usr/lib/omarchy-hyprland-titlebars/titlebars.so',officialLibrary));
   write(path.join(dir,'DEV-BUILD.json'),JSON.stringify({schemaVersion:1,channel:'development',repository:'tcballard/omarchy-plugin-familiar-desktop',commit,runId:'123',runAttempt:'1',assets:{'familiar-desktop-linux-x86_64':sha(helper(label)),[asset]:sha(label+' library')}}));
   sums(dir);return dir;
 }
@@ -68,6 +69,16 @@ try {
   execFileSync(path.join(plugin,'bin/familiar-desktop'),['titlebars','setup'],{env});
   const a=bundle(first,'dev-a'), b=bundle(second,'dev-b');
   ok(status());
+  // Presence of the shared package must refuse install AND old-backend rollback
+  // before any helper, compositor, snapshot or checkout mutation.
+  write(officialLibrary,'official');write(env.CALLS,'');
+  for (const args of [[],['--rollback']]) {
+    const refused=run(a,args);
+    assert.notEqual(refused.status,0);assert.match(refused.stderr,/No source, binaries or configuration changed/);
+    assert.equal(git('rev-parse','HEAD'),stable);assert.equal(log(),'');
+    assert.ok(!fs.existsSync(path.join(state,'dev-rollback')));
+  }
+  fs.rmSync(officialLibrary);
   // Reject corrupted transport and source/receipt mismatch before disabling.
   write(env.CALLS,'');fs.appendFileSync(path.join(a,asset),'tamper');assert.notEqual(run(a).status,0);assert.doesNotMatch(log(),/plugin disable/);
   write(path.join(a,asset),'dev-a library');sums(a);

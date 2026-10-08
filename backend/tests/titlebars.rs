@@ -70,11 +70,13 @@ impl Fixture {
             binary: root.join("plugin/bin/familiar-desktop"),
             directory: root.join("titlebars"),
             config: root.join("looknfeel.lua"),
+            official_library: root.join("system/titlebars.so"),
         };
         fs::create_dir_all(&paths.directory).unwrap();
         fs::create_dir_all(&paths.source).unwrap();
         fs::write(paths.source.join("manifest.json"), "{}").unwrap();
-        let library = root.join("hyprbars.so");
+        let library = paths.source.join("bin/hyprbars/test-abi/hyprbars.so");
+        fs::create_dir_all(library.parent().unwrap()).unwrap();
         fs::write(&library, "").unwrap();
         let original =
             "-- personal overrides\nhl.config({ decoration = { rounding = 9 } })\n".to_string();
@@ -627,4 +629,85 @@ fn legacy_hook_migrates_surgically_without_restoring_unknown_old_whitespace() {
     f.setup().unwrap();
     titlebars::remove(&f.paths, &mut f.hypr).unwrap();
     assert_eq!(fs::read_to_string(&f.paths.config).unwrap(), baseline);
+}
+
+#[test]
+fn existing_owner_does_not_authorize_adopting_a_loaded_backend() {
+    let mut f = Fixture::new();
+    f.setup().unwrap();
+    f.hypr.loaded = true;
+    f.hypr.calls.clear();
+    let before = f.generated();
+    assert!(f.setup().unwrap_err().contains("already in use"));
+    assert_eq!(f.generated(), before);
+    assert_eq!(f.hypr.calls, vec![vec!["-j", "plugin", "list"]]);
+}
+
+#[test]
+fn system_and_symlinked_libraries_are_never_owned_or_unloaded() {
+    use std::os::unix::fs::symlink;
+    for indirect in [false, true] {
+        let mut f = Fixture::new();
+        f.setup().unwrap();
+        let foreign = f.paths.home.join("foreign/hyprbars.so");
+        fs::create_dir_all(foreign.parent().unwrap()).unwrap();
+        fs::write(&foreign, "shared backend").unwrap();
+        let candidate = if indirect {
+            let p = f.paths.source.join("bin/hyprbars/alias/hyprbars.so");
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            symlink(&foreign, &p).unwrap();
+            p
+        } else {
+            foreign.clone()
+        };
+        f.args.library = Some(candidate.clone());
+        f.hypr.calls.clear();
+        assert!(f.setup().unwrap_err().contains("outside Familiar"));
+        let state_file = f.paths.directory.join("owner.json");
+        let mut state = common::read_json(&state_file).unwrap();
+        state["library"] = json!(candidate);
+        common::atomic(&state_file, state.to_string().as_bytes()).unwrap();
+        let before = fs::read_to_string(&f.paths.config).unwrap();
+        assert!(f.apply().unwrap_err().contains("outside Familiar"));
+        assert!(
+            titlebars::remove(&f.paths, &mut f.hypr)
+                .unwrap_err()
+                .contains("outside Familiar")
+        );
+        assert_eq!(fs::read_to_string(&f.paths.config).unwrap(), before);
+        assert!(
+            !f.hypr
+                .calls
+                .iter()
+                .any(|c| c[0] == "plugin" || c[0] == "reload")
+        );
+        assert_eq!(fs::read_to_string(foreign).unwrap(), "shared backend");
+    }
+}
+
+#[test]
+fn official_package_pauses_loader_without_touching_shared_backend_or_settings() {
+    let mut f = Fixture::new();
+    f.setup().unwrap();
+    f.apply().unwrap();
+    assert!(f.generated().contains("local official = io.open"));
+    fs::create_dir_all(f.paths.official_library.parent().unwrap()).unwrap();
+    fs::write(&f.paths.official_library, "official").unwrap();
+    f.hypr.calls.clear();
+    assert!(
+        f.setup()
+            .unwrap_err()
+            .contains("Omarchy's titlebar package")
+    );
+    assert_eq!(f.apply().unwrap()["state"], "blocked");
+    assert!(!f.generated().contains("hl.plugin.load"));
+    f.args.operation = "disable".into();
+    assert_eq!(f.apply().unwrap()["state"], "blocked");
+    titlebars::remove(&f.paths, &mut f.hypr).unwrap();
+    assert!(f.hypr.calls.is_empty());
+    assert_eq!(fs::read_to_string(&f.paths.config).unwrap(), f.original);
+    assert_eq!(
+        fs::read_to_string(&f.paths.official_library).unwrap(),
+        "official"
+    );
 }

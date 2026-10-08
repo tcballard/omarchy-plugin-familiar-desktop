@@ -13,6 +13,10 @@ library="$plugin/bin/hyprbars/$abi/hyprbars.so"
 receipt="$state/dev-build.json"
 mode="${1:-install}"
 [[ ( "$mode" == install && $# -le 1 ) || ( "$mode" == --rollback && $# -le 2 ) ]] || { echo 'Usage: bash install-dev.sh [--rollback [SNAPSHOT]]'; exit 2; }
+if [[ -e /usr/lib/omarchy-hyprland-titlebars/titlebars.so ]]; then
+  echo "Omarchy's titlebar package is installed. This development installer cannot migrate it or safely restore an older bundled backend. No source, binaries or configuration changed; official-package migration is tracked in #74." >&2
+  exit 1
+fi
 for tool in git jq sha256sum flock omarchy hyprctl install; do
   command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 1; }
 done

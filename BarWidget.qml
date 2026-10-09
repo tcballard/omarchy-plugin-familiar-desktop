@@ -339,16 +339,20 @@ BarWidget {
   readonly property bool taskbarActive: root.visible && !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
   readonly property bool barButtonVisible: {
     // Item.visible on the loaded widget remains true when Plugin Drawer's
-    // hiddenHost ancestor is false. Drawer previews also live in a separate
-    // popup window. The bar click router checks the button itself and maps
-    // global targets across slots, so only the visible bar copy may register.
-    if (!root.bar || root.QsWindow.window !== root.bar || !root.bar.visible) return false
+    // hiddenHost ancestor is false. Drawer previews may be visible in a
+    // popup. The bar click router sees every registered button, so only a
+    // copy owned by its own bar ModuleSlot may register as a click target.
+    if (!root.bar || !root.bar.visible) return false
     var item = root
+    var inBarSlot = false
     while (item) {
       if (!item.visible) return false
+      if (item !== root && "activeItem" in item && "region" in item &&
+          item.moduleName === root.moduleName && item.activeItem === root)
+        inBarSlot = true
       item = item.parent
     }
-    return true
+    return inBarSlot
   }
   implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
   implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)

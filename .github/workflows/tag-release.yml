@@ -48,8 +48,9 @@ jobs:
           fi
           git fetch origin --tags
           if git show-ref --verify --quiet "refs/tags/$tag"; then
-            echo "Tag $tag already exists; refusing to replace it." >&2
-            exit 1
+            # A rerun after a failed verification must not be blocked by its own
+            # tag: continue only when the tag points at the expected commit.
+            test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$SOURCE_SHA" || { echo "Tag $tag already exists at a different commit; refusing to replace it." >&2; exit 1; }
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -69,8 +70,10 @@ jobs:
             (cd /tmp && sha256sum "$bundle" > "$bundle.sha256")
             cp "docs/$tag.md" /tmp/familiar-rc-notes.md
             printf '\nExact source: \x60%s\x60. [Verified main build](https://github.com/%s/actions/runs/%s).\n' "$SOURCE_SHA" "$GH_REPO" "$run_id" >> /tmp/familiar-rc-notes.md
-            git tag -a "$tag" "$SOURCE_SHA" -m "Familiar $tag; verified main $SOURCE_SHA"
-            git push origin "refs/tags/$tag"
+            if ! git show-ref --verify --quiet "refs/tags/$tag"; then
+              git tag -a "$tag" "$SOURCE_SHA" -m "Familiar $tag; verified main $SOURCE_SHA"
+              git push origin "refs/tags/$tag"
+            fi
             gh release create "$tag" --verify-tag --draft --prerelease --title "$tag" --notes-file /tmp/familiar-rc-notes.md "/tmp/$bundle" "/tmp/$bundle.sha256"
             gh release download "$tag" --dir /tmp/familiar-rc-download
             (cd /tmp/familiar-rc-download && sha256sum --check --strict "$bundle.sha256")
@@ -80,22 +83,32 @@ jobs:
             cmp "/tmp/$bundle" /tmp/familiar-public-rc.zip
           else
           # A final tag without a published GitHub Release left v0.1.3 onboarding
-          # downloading a 404 (issue #79). Publish the release from the prepared
-          # notes, let the release workflow upload the versioned assets onboarding
-          # downloads, then smoke-check the public URLs against the reviewed pins.
+          # downloading a 404 (issue #79). Verify the actual build artifact like an
+          # RC, upload the versioned assets onboarding downloads in this same
+          # workflow (GITHUB_TOKEN releases do not trigger release.yml), smoke-check
+          # the public URLs while still a draft, and only then promote to latest.
           test -f "docs/$tag.md"
-          git tag -a "$tag" "$SOURCE_SHA" -m "Familiar $tag; verified main $SOURCE_SHA"
-          git push origin "refs/tags/$tag"
+          gh run download "$run_id" --name familiar-desktop-release --dir /tmp/familiar-release-assets
+          (cd /tmp/familiar-release-assets && sha256sum --check --strict SHA256SUMS)
+          jq -e --arg sha "$SOURCE_SHA" --arg version "$version" '.source.commit == $sha and .version == $version and .sourcePinsMatch == true' /tmp/familiar-release-assets/RELEASE-MANIFEST.json
+          jq -e --arg sha "$SOURCE_SHA" '.source.commit == $sha' /tmp/familiar-release-assets/SOURCE-MANIFEST.json
+          grep -Fx "candidate_sha='$SOURCE_SHA'" /tmp/familiar-release-assets/install-candidate.sh
+          grep -Fx "release_sha='$SOURCE_SHA'" /tmp/familiar-release-assets/install.sh
+          chmod u+x /tmp/familiar-release-assets/familiar-desktop-linux-x86_64
+          test "$(/tmp/familiar-release-assets/familiar-desktop-linux-x86_64 --version)" = "familiar-desktop $version"
           cp "docs/$tag.md" /tmp/familiar-release-notes.md
           printf '\nExact source: \x60%s\x60. [Verified main build](https://github.com/%s/actions/runs/%s).\n' "$SOURCE_SHA" "$GH_REPO" "$run_id" >> /tmp/familiar-release-notes.md
-          gh release create "$tag" --verify-tag --draft --title "$tag" --notes-file /tmp/familiar-release-notes.md
-          gh release edit "$tag" --draft=false --latest
-          deadline="$((SECONDS + 1800))"
-          while :; do
-            names="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.assets[].name')"
-            if [[ -z "$(comm -23 <(awk '{print $2}' release-binaries.sha256 | sort) <(sort <<<"$names"))" ]]; then break; fi
-            if (( SECONDS >= deadline )); then echo "Timed out waiting for published release assets: $(awk '{print $2}' release-binaries.sha256 | tr '\n' ' ')" >&2; exit 1; fi
-            sleep 30
-          done
+          if ! git show-ref --verify --quiet "refs/tags/$tag"; then
+            git tag -a "$tag" "$SOURCE_SHA" -m "Familiar $tag; verified main $SOURCE_SHA"
+            git push origin "refs/tags/$tag"
+          fi
+          assets=()
+          while IFS= read -r name; do
+            file="/tmp/familiar-release-assets/$name"
+            [[ -f "$file" ]] || { echo "Pinned asset $name missing from the verified build artifact." >&2; exit 1; }
+            assets+=("$file")
+          done < <(awk '{print $2}' release-binaries.sha256)
+          gh release create "$tag" --verify-tag --draft --title "$tag" --notes-file /tmp/familiar-release-notes.md "${assets[@]}"
           node scripts/verify-release-download.cjs --tag "$tag" --repo "$GH_REPO"
+          gh release edit "$tag" --draft=false --latest
           fi

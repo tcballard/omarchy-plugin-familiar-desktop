@@ -211,7 +211,7 @@ probe_ready() { hyprctl -j layers | jq -e 'any(.. | objects; .namespace? == "fam
 wait_for probe_ready
 sleep 1
 "$probe/pointer" 640 664 1280 800 272
-pointer_ready() { rg -q 'FAMILIAR_INPUT_HOVER' "$probe/qs.log" && rg -q 'FAMILIAR_INPUT_CLICK' "$probe/qs.log"; }
+pointer_ready() { grep -Fq 'FAMILIAR_INPUT_HOVER' "$probe/qs.log" && grep -Fq 'FAMILIAR_INPUT_CLICK' "$probe/qs.log"; }
 wait_for pointer_ready
 kill "$probe_pid"
 wait "$probe_pid" || true

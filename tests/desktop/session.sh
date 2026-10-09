@@ -181,7 +181,9 @@ bar_y=$(hyprctl -j layers | jq -r '[.. | objects | select(.namespace? == "omarch
 "$probe/pointer" "$settings_x" "$((bar_y + 24))" 1280 800 272
 settings_open() { hyprctl -j layers | jq -e 'any(.. | objects; .namespace? == "familiar-desktop-settings")' >/dev/null; }
 wait_for settings_open
-"$probe/pointer" 100 100 1280 800 272
+# The backdrop intentionally does not dismiss this modal on every shell;
+# close through the shell's supported bar-widget action after the real click.
+omarchy-shell shell hide "$plugin_id"
 settings_closed() { hyprctl -j layers | jq -e 'all(.. | objects; .namespace? != "familiar-desktop-settings")' >/dev/null; }
 wait_for settings_closed
 hyprctl -j layers > "$EVIDENCE/taskbar-layers.json"

@@ -57,3 +57,12 @@ change merely to activate this policy. GitHub's manual-dispatch button becomes
 available once the accepted workflow reaches the default branch.
 
 Reference: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets
+
+## Release notes and Merge and Tell
+
+Every release note must include a Thanks section crediting the scoped code
+contributors, issue reporters and testing/reproduction help, with verified
+handles and issue/PR links. Review unresolved items separately so acknowledgements
+do not imply that every reported issue is fixed. Prepare affected issue/PR
+follow-ups alongside the release; post them only when authorized. Use
+[RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) before publication and announcement.

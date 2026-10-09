@@ -9,8 +9,11 @@ const abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.
 const backendAsset='familiar-desktop-linux-x86_64',libraryAsset=`hyprbars-linux-x86_64-${abi}.so`;
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 let passed=0;
+const fixtures=[];
+process.on("exit",()=>{ for(const dir of fixtures) fs.rmSync(dir,{recursive:true,force:true}); });
 function fixture({pinsFault='',installerRelease='',manifestVersion=version}={}) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'familiar-smoke-'));
+  fixtures.push(root);fs.mkdirSync(path.join(root,'temp'));
   const write=(name,bytes)=>{const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);};
   const backend=`#!/bin/sh\nprintf 'familiar-desktop ${version}\\n'\n`;
   const library='fixture hyprbars library\n';
@@ -31,7 +34,9 @@ function smoke(f,{tag=`v${version}`,missing=''}={}) {
   const bin=path.join(f.root,'bin');fs.mkdirSync(bin);
   const urls=path.join(f.root,'urls');
   fs.writeFileSync(path.join(bin,'curl'),`#!/bin/bash\nfor arg; do [[ "$arg" != https://* ]] || url="$arg"; done\necho "$url" >> "$URLS"\nif [[ -n "$MISSING" && "$url" == *"$MISSING" ]]; then echo 'curl: (22) The requested URL returned error: 404' >&2; exit 22; fi\ncp -- "$ASSETS/\${url##*/}" "\${@: -1}"\n`,{mode:0o755});
-  return spawnSync(process.execPath,[script,'--tag',tag,'--repo','tcballard/omarchy-plugin-familiar-desktop','--root',f.root,'--curl',path.join(bin,'curl')],{encoding:'utf8',env:{...process.env,PATH:bin+':/usr/bin:/bin',ASSETS:f.assets,URLS:urls,MISSING:missing}});
+  const result=spawnSync(process.execPath,[script,'--tag',tag,'--repo','tcballard/omarchy-plugin-familiar-desktop','--root',f.root,'--curl',path.join(bin,'curl')],{encoding:'utf8',env:{...process.env,PATH:bin+':/usr/bin:/bin',ASSETS:f.assets,URLS:urls,MISSING:missing,TMPDIR:path.join(f.root,"temp")}});
+  assert.deepEqual(fs.readdirSync(path.join(f.root,'temp')),[], 'Downloaded temporary files must be cleaned up on success and failure');
+  return result;
 }
 function scenario(name,check){check();passed++;console.log(`${name}.`);}
 // Healthy release: both onboarding URLs resolve and match the reviewed pins.
@@ -72,4 +77,12 @@ r=smoke(fixture(),{tag:''});
 assert.notEqual(r.status,0);
 assert.match(r.stderr,/Usage/);
 passed++;console.log('Missing --tag is rejected.');
+for(const installer of ['install-backend.sh','install-titlebars.sh']) {
+  f=fixture();
+  const file=path.join(f.root,installer);
+  fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('github.com/tcballard/', 'github.com/wrong-owner/'));
+  r=smoke(f);assert.notEqual(r.status,0);assert.match(r.stderr,/download base differs/);passed++;
+}
+f=fixture();fs.appendFileSync(path.join(f.root,'release-binaries.sha256'),'0'.repeat(64)+'  ../outside\n');
+r=smoke(f);assert.notEqual(r.status,0);assert.match(r.stderr,/Malformed/);passed++;
 console.log(`${passed} release smoke-check scenarios passed.`);

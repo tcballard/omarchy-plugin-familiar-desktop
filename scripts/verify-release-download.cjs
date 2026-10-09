@@ -10,27 +10,34 @@ for(let i=0;i<args.length;i++){
   else if(args[i]==='--repo')options.repo=args[++i];
   else if(args[i]==='--root')options.root=args[++i];
   else if(args[i]==='--curl')options.curl=args[++i];
-  else {console.error(`Unknown argument: ${args[i]}\nUsage: node scripts/verify-release-download.cjs --tag v0.1.3 [--repo owner/name] [--root DIR] [--curl PATH]`);process.exit(2);}
+  else {console.error(`Unknown argument: ${args[i]}\nUsage: node scripts/verify-release-download.cjs --tag vX.Y.Z [--repo owner/name] [--root DIR] [--curl PATH]`);process.exit(2);}
 }
-if(!options.tag){console.error('Usage: node scripts/verify-release-download.cjs --tag v0.1.3 [--repo owner/name] [--root DIR] [--curl PATH]');process.exit(2);}
-const fail=message=>{console.error(message);process.exit(1);};
+if(!options.tag){console.error('Usage: node scripts/verify-release-download.cjs --tag vX.Y.Z [--repo owner/name] [--root DIR] [--curl PATH]');process.exit(2);}
+const fail=message=>{throw new Error(message);};
+function main() {
+if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(options.repo)) fail("Invalid repository");
 const root=path.resolve(options.root);
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 // The pinned digests are the same reviewed file the installers verify against.
 const pins=new Map();
 for(const row of read('release-binaries.sha256').trim().split('\n')){
   const match=/^([0-9a-f]{64})  (\S+)$/.exec(row);
-  if(!match||pins.has(match[2]))fail(`Malformed or duplicate reviewed source digest in release-binaries.sha256: ${row}`);
+  if(!match||!(/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(match[2]))||pins.has(match[2]))fail(`Malformed or duplicate reviewed source digest in release-binaries.sha256: ${row}`);
   pins.set(match[2],match[1]);
 }
 if(!pins.size)fail('release-binaries.sha256 contains no assets');
 const version=JSON.parse(read('manifest.json')).version;
-if(options.tag!==`v${version}`)fail(`Tag ${options.tag} does not match manifest.json version ${version}`);
+if(!/^\d+\.\d+\.\d+$/.test(version)||options.tag!==`v${version}`)fail(`Tag ${options.tag} does not match manifest.json version ${version}`);
 // Rebuild the exact URLs onboarding constructs; a stale installer release pin
 // would download a different release than the one being checked.
 const required=new Set();
 for(const installer of ['install-backend.sh','install-titlebars.sh']){
   const source=read(installer);
+  const base=/^\s*base="([^"]+)"/m.exec(source);
+  if(!base || base[1]!==`https://github.com/${options.repo}/releases/download/$release`)
+    fail(`${installer} download base differs from the public URL being checked`);
+  if(installer==='install-titlebars.sh' && !source.includes('asset="hyprbars-linux-x86_64-$abi.so"'))
+    fail('install-titlebars.sh asset pattern differs from the public URL being checked');
   const match=/^\s*(?:local )?release='([^']+)'/m.exec(source);
   if(!match)fail(`${installer} does not declare a release`);
   if(match[1]!==options.tag)fail(`${installer} downloads ${match[1]}, not ${options.tag}; onboarding would fetch a different release than the one being published`);
@@ -58,7 +65,7 @@ try{
     if(digest!==pins.get(name))fail(`Checksum mismatch for ${url}\nExpected ${pins.get(name)} (reviewed pin)\nDownloaded ${digest}`);
     if(name==='familiar-desktop-linux-x86_64'){
       fs.chmodSync(destination,0o755);
-      const output=spawnSync(destination,['--version'],{encoding:'utf8'});
+      const output=spawnSync(destination,['--version'],{encoding:'utf8',timeout:10000});
       if(output.status!==0||output.stdout.trim()!==`familiar-desktop ${version}`)fail(`Downloaded backend at ${url} reports '${(output.stdout+output.stderr).trim()}', expected 'familiar-desktop ${version}'`);
     }
     verified++;
@@ -66,3 +73,6 @@ try{
   }
   console.log(`Verified ${verified} onboarding download URLs for ${options.tag} against reviewed pins.`);
 }finally{fs.rmSync(temp,{recursive:true,force:true});}
+
+}
+try { main(); } catch (error) { console.error(error.message); process.exitCode=1; }

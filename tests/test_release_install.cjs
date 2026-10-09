@@ -80,7 +80,7 @@ const version=JSON.parse(fs.readFileSync('manifest.json')).version;
 const manifest=JSON.parse(fs.readFileSync('release-assets/RELEASE-MANIFEST.json'));
 assert.equal(manifest.sourcePinsMatch,!ci,'Validation-only smoke must be explicit; default smoke requires committed pins.');
 assert.equal(manifest.source.commit,execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim());
-for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md','RELEASE-0.1.3.md','v0.1.3.md','ROLLBACK.md'])
+for(const name of ['install.sh','install-candidate.sh','XPS-TEST.md',`RELEASE-${version}.md`,`v${version}.md`,'ROLLBACK.md'])
  assert.equal(fs.existsSync(path.join('release-assets',name)),!ci,name);
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'familiar-release-'));
 try {

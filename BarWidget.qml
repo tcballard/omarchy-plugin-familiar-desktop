@@ -354,6 +354,10 @@ BarWidget {
     width: implicitWidth
     height: implicitHeight
     bar: root.bar
+    // The Plugin Drawer keeps a hidden copy mounted. Omarchy's global bar
+    // click router sees child targets even when an ancestor is invisible, so
+    // that copy must not intercept clicks meant for the real bar widgets.
+    interactive: root.visible
     // Keep management recognisable beside the app strip, even without Nerd Fonts.
     text: root.taskbarActive ? "󰟀  Familiar" : "󰟀"
     fixedWidth: root.taskbarActive ? Math.max(100, Style.space(100)) : -1

@@ -63,7 +63,10 @@ r=run({flaky:'reload'});assert.equal(r.status,0,r.stderr);assert.match(r.log,/om
 r=run({flaky:'always'});assert.notEqual(r.status,0);assert.match(r.stderr,/did not respond to 'refresh'/);passed++;
 r=run({style:'bogus'});assert.notEqual(r.status,0);assert.equal(r.log,'');passed++;
 for(const fault of ['download','corrupt','duplicate','version','substitution']){
- r=run({existing:true,fault});assert.notEqual(r.status,0);assert.equal(r.binary,'previous backend');assert.doesNotMatch(r.log,/setup|plugin enable|cargo|rustup|clippy|forbidden-build/);assert.deepEqual(r.staging,[]);if(fault==='corrupt'||fault==='substitution')assert.doesNotMatch(r.log,/helper/);passed++;
+ r=run({existing:true,fault});assert.notEqual(r.status,0);assert.equal(r.binary,'previous backend');assert.doesNotMatch(r.log,/setup|plugin enable|cargo|rustup|clippy|forbidden-build/);assert.deepEqual(r.staging,[]);if(fault==='corrupt'||fault==='substitution')assert.doesNotMatch(r.log,/helper/);
+ // A failed download must report the exact release URL so setup logs are actionable (issue #79).
+ if(fault==='download')assert.match(r.stderr,new RegExp(`Backend download failed: https://github\\.com/tcballard/omarchy-plugin-familiar-desktop/releases/download/v${version}/familiar-desktop-linux-x86_64`));
+ passed++;
 }
 r=run({existing:true,arch:'aarch64'});assert.notEqual(r.status,0);assert.equal(r.binary,'previous backend');assert.match(r.stderr,/Linux x86_64/);assert.doesNotMatch(r.log,/curl|plugin enable/);passed++;
 // The settings repair action must use the release installer, never a source build.
@@ -75,6 +78,7 @@ for(const options of [{badAbi:true},{titlebarFault:'corrupt'},{titlebarFault:'su
  assert.doesNotMatch(result.log,/hyprpm|cargo|rustup|clippy|sudo|plugin enable/);
  if(!options.repair)assert.doesNotMatch(result.log,/helper titlebars setup/);
  if(options.badAbi)assert.doesNotMatch(result.log,/curl/);
+ if(options.titlebarFault==='download')assert.match(result.stderr,new RegExp(`Window-controls download failed: https://github\\.com/tcballard/omarchy-plugin-familiar-desktop/releases/download/v${version}/hyprbars-linux-x86_64-`));
 }
 console.log('ABI mismatch, corrupt/missing Hyprbars, and loader rejection fail without source-build fallback.');
 

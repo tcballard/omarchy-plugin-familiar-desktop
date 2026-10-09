@@ -20,7 +20,10 @@ main() {
   [[ -f "$root_dir/release-binaries.sha256" && ! -L "$root_dir/release-binaries.sha256" ]] || { echo 'Missing reviewed binary digests.' >&2; return 1; }
   expected="$(awk -v name="$asset" '$2 == name {print $1}' "$root_dir/release-binaries.sha256")"
   [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo 'Missing or ambiguous backend checksum in reviewed source.' >&2; return 1; }
-  curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/$asset" -o "$backend_staging/$asset"
+  if ! curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/$asset" -o "$backend_staging/$asset"; then
+    printf 'Backend download failed: %s\nCheck that the release and this asset are published: https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/%s\nIf they are missing, the release is incomplete; retry after a corrected release exists.\n' "$base/$asset" "$release" >&2
+    return 1
+  fi
   actual="$(sha256sum "$backend_staging/$asset")"
   [[ "${actual%% *}" == "$expected" ]] || { echo 'Backend checksum mismatch; existing backend kept.' >&2; return 1; }
   chmod 755 "$backend_staging/$asset"

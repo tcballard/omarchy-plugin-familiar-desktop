@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.tcballard.familiar-desktop",
   "name": "Familiar Desktop",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "Tom Ballard and rosakodu",
   "license": "MIT",
   "description": "Mouse-friendly dock and optional title-bar controls with General, Windows, and Mac layouts for Omarchy Quattro.",

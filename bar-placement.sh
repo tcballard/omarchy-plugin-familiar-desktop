@@ -16,7 +16,7 @@ familiar_apply_bar_placement() {
   [[ -e "$state/bar-placement-pending" ]] || return 0
   # Keep the default on the right even if Agents was moved to another section.
   if jq -e '.bar.layout.right // [] | any(.[]; (if type == "object" then .id else . end) == "omarchy.agents")' "$config/omarchy/shell.json" >/dev/null 2>&1; then
-    if timeout --kill-after=2 10 omarchy bar move "$id" --before omarchy.agents; then
+    if timeout --kill-after=2 10 omarchy bar move "$id" --after omarchy.agents; then
       rm -f "$state/bar-placement-pending"
       return 0
     fi

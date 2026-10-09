@@ -19,7 +19,7 @@ try {
   for (const agents of ['omarchy.agents', {id:'omarchy.agents'}]) {
     layout(['omarchy.tray', agents, 'omarchy.network']); fs.writeFileSync(log,'');
     run('familiar_prepare_bar_placement; familiar_apply_bar_placement');
-    assert.match(fs.readFileSync(log,'utf8'), /--before omarchy.agents\n$/);
+    assert.match(fs.readFileSync(log,'utf8'), /--after omarchy.agents\n$/);
     assert.equal(fs.existsSync(marker),false);
   }
   // Ownership created during setup must not prevent retrying a pending placement.
@@ -32,5 +32,10 @@ try {
   fs.unlinkSync(owner); layout(['omarchy.network']);
   run('familiar_prepare_bar_placement; familiar_apply_bar_placement');
   assert.match(fs.readFileSync(log,'utf8'), /--section right --index 0\n$/);
-  console.log('Bar placement: before Agents, missing anchor, existing installs, and failed-placement retry passed.');
+  fs.writeFileSync(path.join(config, 'omarchy/shell.json'), JSON.stringify({bar:{layout:{left:['omarchy.agents'],right:['omarchy.network']}}}));
+  fs.writeFileSync(log,'');
+  run('familiar_prepare_bar_placement; familiar_apply_bar_placement');
+  assert.match(fs.readFileSync(log,'utf8'), /--section right --index 0\n$/);
+  assert.doesNotMatch(fs.readFileSync(log,'utf8'), /--after/);
+  console.log('Bar placement: after Agents, absent/moved anchor, existing installs, and failed-placement retry passed.');
 } finally { fs.rmSync(tmp,{recursive:true,force:true}); }

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       rc_number:
-        description: "RC number (for example 1); leave empty for a final tag only"
+        description: "RC number (for example 1); leave empty to publish a verified final release"
         required: false
         type: string
 permissions:
@@ -53,8 +53,9 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          run_id="$(jq -r --arg sha "$SOURCE_SHA" '[.workflow_runs[] | select(.path == ".github/workflows/release.yml" and .head_sha == $sha)] | sort_by(.id) | last | .id' /tmp/release-runs.json)"
+          [[ "$run_id" =~ ^[0-9]+$ ]] || { echo "No successful release.yml run found for $SOURCE_SHA." >&2; exit 1; }
           if [[ -n "$RC_NUMBER" ]]; then
-            run_id="$(jq -r --arg sha "$SOURCE_SHA" '[.workflow_runs[] | select(.path == ".github/workflows/release.yml" and .head_sha == $sha)] | sort_by(.id) | last | .id' /tmp/release-runs.json)"
             gh run download "$run_id" --name familiar-desktop-release --dir /tmp/familiar-rc-assets
             (cd /tmp/familiar-rc-assets && sha256sum --check --strict SHA256SUMS)
             jq -e --arg sha "$SOURCE_SHA" --arg version "$version" '.source.commit == $sha and .version == $version' /tmp/familiar-rc-assets/RELEASE-MANIFEST.json
@@ -78,6 +79,5 @@ jobs:
             curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 180 "https://github.com/$GH_REPO/releases/download/$tag/$bundle" -o /tmp/familiar-public-rc.zip
             cmp "/tmp/$bundle" /tmp/familiar-public-rc.zip
           else
-          git tag -a "$tag" "$SOURCE_SHA" -m "Familiar $tag; verified main $SOURCE_SHA"
-          git push origin "refs/tags/$tag"
+            RELEASE_RUN_ID="$run_id" bash scripts/publish-final-release.sh
           fi

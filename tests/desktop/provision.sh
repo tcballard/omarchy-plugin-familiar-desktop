@@ -8,7 +8,7 @@ echo 'Server = https://archive.archlinux.org/repos/2026/09/30/$repo/os/$arch' > 
 retry() { local n; for n in 1 2 3; do "$@" && return; sleep 5; done; return 1; }
 retry pacman -Syyuu --noconfirm
 retry pacman -S --needed --noconfirm git jq nodejs dbus sudo socat curl inotify-tools hyprland quickshell \
-  mesa foot grim qt6-declarative qt6-wayland qt6-multimedia qt6-svg qt6-imageformats ttf-dejavu
+  mesa foot grim gcc wayland qt6-declarative qt6-wayland qt6-multimedia qt6-svg qt6-imageformats ttf-dejavu
 pacman -Q > "$root/smoke-evidence/packages.txt"
 uname -a > "$root/smoke-evidence/kernel.txt"
 ls -l /dev/dri > "$root/smoke-evidence/virtual-gpu.txt"

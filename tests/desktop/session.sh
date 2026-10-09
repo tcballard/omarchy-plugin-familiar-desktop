@@ -147,12 +147,45 @@ timeout 10 grim "$EVIDENCE/candidate.png"
 hyprctl -j layers > "$EVIDENCE/candidate-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length > 0' "$EVIDENCE/candidate-layers.json"
 phase=windows-taskbar
+# Reproduce a combined service/widget already enabled outside bar.layout.
+# enablePlugin on the XPS shell reports success without placing this entry.
+shell_config="$HOME/.config/omarchy/shell.json"
+jq --arg id "$plugin_id" '
+  .bar.layout |= with_entries(.value |= map(select((if type == "object" then .id else . end) != $id))) |
+  .plugins = ((.plugins // [] | map(select((if type == "object" then .id else . end) != $id))) + [{id:$id}])
+' "$shell_config" > "$shell_config.tmp"
+mv "$shell_config.tmp" "$shell_config"
+omarchy-shell shell reloadConfig
+omarchy plugin enable "$plugin_id" --section right --index 0
+# Both tested shells must retain a service-only fixture before activation.
+jq --arg id "$plugin_id" '.bar.layout |= with_entries(.value |= map(select((if type == "object" then .id else . end) != $id)))' \
+  "$shell_config" > "$shell_config.tmp"
+mv "$shell_config.tmp" "$shell_config"
+omarchy-shell shell reloadConfig
 cp "$HOME/.config/omarchy/shell.json" "$EVIDENCE/bar-before-taskbar.json"
+cat "$HOME/.config/omarchy/shell.toml" > "$EVIDENCE/style-before-taskbar.toml" 2>/dev/null || :
 omarchy-shell "$plugin_id" setProfile windows
 taskbar_ready() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == true and .busy == false and .profile == "windows"' >/dev/null; }
 wait_for taskbar_ready
-bar_has_apps() { omarchy-shell shell debugBarGeometry | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id and .visible == true and .width > 60)' >/dev/null; }
+bar_has_apps() { omarchy-shell shell debugBarGeometry | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id and .visible == true and .width > 100 and .height >= 48)' >/dev/null; }
 wait_for bar_has_apps
+phase=windows-settings-button
+probe="$EVIDENCE/input-probe"
+mkdir -p "$probe"
+wayland-scanner client-header "$SMOKE_ROOT/tests/desktop/wlr-virtual-pointer-unstable-v1.xml" "$probe/pointer.h"
+wayland-scanner private-code "$SMOKE_ROOT/tests/desktop/wlr-virtual-pointer-unstable-v1.xml" "$probe/pointer-protocol.c"
+cc -D_DEFAULT_SOURCE -I "$probe" -o "$probe/pointer" "$SMOKE_ROOT/tests/desktop/pointer.c" "$probe/pointer-protocol.c" -lwayland-client
+settings_x=$(omarchy-shell shell debugBarGeometry | jq -r --arg id "$plugin_id" '.[] | select(.id == $id and .visible == true) | .x + 40')
+bar_y=$(hyprctl -j layers | jq -r '[.. | objects | select(.namespace? == "omarchy-bar") | .y][0]')
+"$probe/pointer" 640 500 1280 800 0
+"$probe/pointer" "$settings_x" "$((bar_y + 24))" 1280 800 272
+settings_open() { hyprctl -j layers | jq -e 'any(.. | objects; .namespace? == "familiar-desktop-settings")' >/dev/null; }
+wait_for settings_open
+# The backdrop intentionally does not dismiss this modal on every shell;
+# close through the shell's supported bar-widget action after the real click.
+omarchy-shell shell hide "$plugin_id"
+settings_closed() { hyprctl -j layers | jq -e 'all(.. | objects; .namespace? != "familiar-desktop-settings")' >/dev/null; }
+wait_for settings_closed
 hyprctl -j layers > "$EVIDENCE/taskbar-layers.json"
 jq -e '[.. | objects | select(.namespace? == "familiar-desktop-dock")] | length == 0' "$EVIDENCE/taskbar-layers.json"
 omarchy-shell shell debugBarGeometry > "$EVIDENCE/taskbar-geometry.json"
@@ -167,6 +200,33 @@ wait_for taskbar_restored
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-taskbar.json"
 jq -S '.bar' "$EVIDENCE/bar-before-taskbar.json" > "$EVIDENCE/bar-original.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-taskbar.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+# Mac must restore the same service-only arrangement too.
+omarchy-shell "$plugin_id" setProfile windows
+wait_for taskbar_ready
+omarchy-shell "$plugin_id" setProfile mac
+mac_restored() { omarchy-shell "$plugin_id" taskbarStatus | jq -e '.active == false and .busy == false and .profile == "mac"' >/dev/null; }
+wait_for mac_restored
+jq -S '.bar' "$shell_config" > "$EVIDENCE/bar-after-mac.json"
+cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-mac.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+# Exercise the installed input-region component with a real Wayland pointer.
+# The old item-based mask stayed at y=58 after its card animated to y=2,
+# leaving the visible centre unclickable even though the dock layer existed.
+phase=mac-dock-pointer
+cp "$plugin/components/DockInputRegion.qml" "$probe/DockInputRegion.qml"
+cp "$SMOKE_ROOT/tests/desktop/dock-input-probe.qml" "$probe/shell.qml"
+"$probe/pointer" 100 400 1280 800 0
+qs -p "$probe/shell.qml" > "$probe/qs.log" 2>&1 &
+probe_pid=$!
+probe_ready() { hyprctl -j layers | jq -e 'any(.. | objects; .namespace? == "familiar-input-probe")' >/dev/null; }
+wait_for probe_ready
+sleep 1
+"$probe/pointer" 640 664 1280 800 272
+pointer_ready() { grep -Fq 'FAMILIAR_INPUT_HOVER' "$probe/qs.log" && grep -Fq 'FAMILIAR_INPUT_CLICK' "$probe/qs.log"; }
+wait_for pointer_ready
+kill "$probe_pid"
+wait "$probe_pid" || true
 # Roll back while the taskbar is active: the bundle must undo its native placement.
 omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready
@@ -177,6 +237,7 @@ bash "$bundle/install-dev.sh" --rollback
 [[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
+cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
 wait_for familiar_ready
 wait_for two_windows
 phase=passed

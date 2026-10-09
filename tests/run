@@ -14,6 +14,8 @@ node tests/test_candidate_install.cjs
 node tests/test_dev_install.cjs
 node tests/test_dev_bundle.cjs
 node tests/test_release_tag.cjs
+node tests/test_release_smoke.cjs
+node tests/test_release_publish.cjs
 node tests/test_release_install.cjs --fixtures
 
 node tests/test_repair.cjs
@@ -26,5 +28,6 @@ node tests/test_bar_placement.cjs
 node tests/test_notification_privacy.cjs
 node tests/test_notification_counts.cjs
 node tests/test_window_history.cjs
+node tests/test_app_menu_selection.cjs
 
 node tests/test_widget_anchor.cjs

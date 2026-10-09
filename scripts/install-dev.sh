@@ -119,6 +119,55 @@ if [[ -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" || -L "$HO
   rm -f "$taskbar_helper"
   [[ "$taskbar_status" == 0 ]] || exit "$taskbar_status"
 fi
+# Keep the owner's service/bar placement across disable/enable. Older Omarchy
+# versions silently ignore bar placement when the id already exists in plugins;
+# conversely re-enabling after removal inserts a new default bar widget.
+shell_config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
+placement=''
+if [[ -f "$shell_config" && ! -L "$shell_config" ]]; then
+  if [[ "$mode" == install ]]; then
+    placement="$snapshot/shell.json"
+    cp "$shell_config" "$placement"
+    (cd "$snapshot"; for file in ./*; do [[ "$file" == ./SHA256SUMS ]] || sha256sum "$file"; done > SHA256SUMS)
+  elif [[ -f "$snapshot/shell.json" && ! -L "$snapshot/shell.json" ]] &&
+      jq -e '.placementRestored != true' "$snapshot/snapshot.json" >/dev/null; then
+    # Failed installation may have removed the entry; recover its saved place.
+    placement="$snapshot/shell.json"
+  else
+    # A completed install (or legacy snapshot) keeps today's personal placement.
+    placement="$(mktemp "$state/placement-recovery.XXXXXXXX")"
+    cp "$shell_config" "$placement"
+  fi
+fi
+restore_placement() {
+  [[ -n "$placement" ]] || return 0
+  local before after
+  before="$(mktemp "$state/placement-current.XXXXXXXX")"
+  after="$(mktemp "$shell_config.familiar.XXXXXXXX")"
+  cp "$shell_config" "$before"
+  jq --arg id "$plugin_id" --slurpfile original "$placement" '
+    def key: if type == "object" then .id else . end;
+    reduce [["plugins"], ["bar","layout","left"], ["bar","layout","center"],
+            ["bar","layout","right"], ["disabledPlugins"]][] as $path (.;
+      ($original[0] | getpath($path) // []) as $old |
+      (getpath($path) // [] | map(select(key != $id))) as $current |
+      (reduce range(0; $old|length) as $i ($current;
+        if ($old[$i]|key) != $id then . else
+          ($old[$i+1] | key) as $next |
+          (if $i > 0 then ($old[$i-1]|key) else null end) as $prev |
+          (map(key) | index($next)) as $n |
+          (map(key) | index($prev)) as $p |
+          (if $n != null then $n elif $p != null then $p+1 else ([$i,length]|min) end) as $at |
+          .[:$at] + [$old[$i]] + .[$at:]
+        end)) as $restored |
+      if getpath($path) == null and ($restored|length) == 0 then .
+      else setpath($path; $restored) end)
+  ' "$before" > "$after"
+  # Never overwrite a concurrent shell/config edit. The recovery copy remains.
+  cmp -s "$shell_config" "$before" || { echo "Shell changed during placement restore; retained $placement" >&2; return 1; }
+  mv "$after" "$shell_config"
+  rm -f "$before"
+}
 # Do not run unverified partial binaries when recovering a failed install.
 if [[ "$mode" == install ]]; then
   "$plugin/bin/familiar-desktop" desktop restore
@@ -154,6 +203,12 @@ fi
 flock -u 9
 installed_ready
 omarchy plugin enable "$plugin_id"
+restore_placement
+if [[ "$mode" == install ]]; then
+  jq '.placementRestored = true' "$snapshot/snapshot.json" > "$snapshot/snapshot.json.new"
+  mv "$snapshot/snapshot.json.new" "$snapshot/snapshot.json"
+  (cd "$snapshot"; for file in ./*; do [[ "$file" == ./SHA256SUMS ]] || sha256sum "$file"; done > SHA256SUMS)
+fi
 omarchy restart shell
 trap - ERR
 printf '\nSource installed: %s\nRollback: bash %q --rollback %q\n' "$target" "$bundle/install-dev.sh" "$snapshot"

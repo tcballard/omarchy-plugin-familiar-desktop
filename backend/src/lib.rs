@@ -13,3 +13,4 @@ pub mod gestures;
 pub mod input_preferences;
 
 pub mod taskbar;
+mod taskbar_style;

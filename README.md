@@ -12,6 +12,10 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 *Rendered QML preview of the settings modal, using illustrative colours. A live Omarchy screenshot will replace this preview after on-device testing.*
 
+## Hotfix testing
+
+This branch prepares **v0.1.4** and is not a published release. Use the exact-SHA development bundle linked from [PR #77](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/77) and follow [HOTFIX-SMOKE.md](docs/HOTFIX-SMOKE.md). The public install instructions below apply after release; v0.1.3 currently has an unpublished draft and its public downloads return 404. [Prepared release notes and thanks](docs/v0.1.4.md) describe the combined fixes.
+
 ## Install
 
 On Omarchy Quattro, run:
@@ -34,7 +38,7 @@ The [v0.1.3 release](https://github.com/tcballard/omarchy-plugin-familiar-deskto
 
 The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores windows on v0.1.0 updates, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 
-The combined v0.1.3 candidate was accepted after XPS testing. Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Full migration to Omarchy’s official titlebar package remains planned for v0.1.4 (#74). The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
+The combined v0.1.3 candidate was accepted after XPS testing. Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Full migration to Omarchy’s official titlebar package remains tracked separately in #74. The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
 
@@ -42,7 +46,7 @@ For a fresh installation, the installer fetches the pinned release commit into a
 
 The shared `bin/familiar-desktop` Rust binary handles window actions, title-bar setup, theme parsing, app/icon scans and badge writes. Downloads happen during explicit setup, either in Familiar or through the standalone terminal installer. Familiar never compiles code on your desktop. Its setup screen launches the bundled download scripts only after your explicit setup action.
 
-The plugin adds a **Familiar Desktop** control to the bar. First-time setup places it immediately before Agents in the right-hand section. If Agents is absent from that section, Familiar goes at the start of the right-hand group. Later updates and repairs preserve your chosen position. To apply the same placement to an existing installation, run `omarchy bar move io.github.tcballard.familiar-desktop --before omarchy.agents`.
+The plugin adds a **Familiar Desktop** control to the bar. First-time setup places it immediately to the right of Agents in the right-hand section. If Agents is absent from that section, Familiar goes at the start of the right-hand group. Later updates and repairs preserve your chosen position. To apply the same placement to an existing installation, run `omarchy bar move io.github.tcballard.familiar-desktop --after omarchy.agents`.
 
 Open Familiar's control to choose a starting layout and adjust dock settings. If you already use another dock, disable it before enabling this one so the two do not occupy the same edge.
 
@@ -96,7 +100,7 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 ## Made for everyday use
 
 - **See what is running.** Pinned apps and running windows stay within reach, with indicators and notification badges from the dock implementation.
-- **Choose a window by name.** Right-click an app for a scrollable window list, window recovery and arrangement, New Window, Pin or Unpin, and actions to minimise or close the selected window.
+- **Choose a window by name.** Right-click an app for a compact menu with Go to / restore, Bring here, New Window, Pin or Unpin, and Minimise. Apps with multiple windows show a scrollable window list.
 - **Use the mouse or keyboard.** Left-click launches or switches, middle-click opens a new window, and the existing dock supports keyboard selection and window cycling.
 - **Keep your setup.** Pins and folders are shared between layouts; changing a preset does not install applications, themes or global shortcuts.
 
@@ -108,11 +112,11 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 | **Windows** | Apps inside the full-width bottom Omarchy bar | Follows the native bar | One reserved strip |
 | **Mac** | Bottom when the bar is elsewhere | Reveals on hover | Overlays windows |
 
-**In development for v0.1.3:** Selecting **Windows** moves the built-in Omarchy bar to the bottom, places Familiar’s app strip on the left and the clock on the right, and hides the separate dock. Existing native widgets and their settings are retained. App activation, badges, previews and right-click window actions use the existing Familiar implementation. Scroll arrows expose overflow apps. The taskbar follows Omarchy’s bar height, background and visibility. Selecting **General** or **Mac** restores Familiar-owned placement changes while preserving later personal configuration edits. Custom replacement bars are refused without changes.
+**Prepared for v0.1.4:** Selecting **Windows** moves the built-in Omarchy bar to the bottom, places Familiar’s app strip on the left and the clock on the right, and hides the separate dock. Existing native widgets and their settings are retained. App activation, badges, previews and right-click window actions use the existing Familiar implementation. Scroll arrows expose overflow apps. On the `v0.1.3-hotfix` development branch, Windows mode uses a 48px taskbar height at the default font scale, with 32px app icons and a labelled Familiar settings button outside the scrolling app strip. Background and visibility still follow Omarchy. The height override follows the native font-scaling preference and restores the previous height when leaving Windows mode. Selecting **General** or **Mac** restores Familiar-owned placement changes while preserving later personal configuration edits. Custom replacement bars are refused without changes. If Familiar is enabled as a service or kept in a plugin drawer, Windows activation creates a temporary native bar entry; General/Mac removes that unchanged entry and preserves the original drawer and service settings. The widget supports both the original Quattro button API and newer shell revisions.
 
 For the separate dock, in **Settings → Dock → Dock position**, choose **Automatic**, **Bottom**, **Left** or **Right**. Automatic keeps the starting-layout placement above. Left and Right arrange icons vertically, with menus opening into the screen. Your explicit position survives layout changes and shell restarts. If Omarchy’s bar occupies your chosen edge, Familiar temporarily uses the opposite edge and explains this in settings; your preference takes effect again when that edge is free.
 
-**In development for v0.1.3:** In **Settings → Dock → Appearance → Dock background opacity**, choose **Follow theme** (the default), **0%** (transparent), **25%**, **50%**, **75%** or **100%** (opaque). This changes only the dock background; the header, icons, badges and popup appearance remain independent. The choice survives shell restarts and theme changes. Choose **Follow theme** to restore the theme-derived background. Translucent overrides hide the dock border, matching the existing transparent-dock style.
+**Prepared for v0.1.4:** In **Settings → Dock → Appearance → Dock background opacity**, choose **Follow theme** (the default), **0%** (transparent), **25%**, **50%**, **75%** or **100%** (opaque). This changes only the dock background; the header, icons, badges and popup appearance remain independent. The choice survives shell restarts and theme changes. Choose **Follow theme** to restore the theme-derived background. Translucent overrides hide the dock border, matching the existing transparent-dock style.
 
 The presets share pins and folders; they do not reproduce every Windows or macOS feature. Dock-specific position, opacity, visibility and extra-widget controls apply to the separate dock. In Windows mode, configure native bar widgets through Omarchy. Native bar dragging moves Familiar’s app strip as a whole.
 
@@ -122,7 +126,7 @@ The presets share pins and folders; they do not reproduce every Windows or macOS
 | --- | --- |
 | Launch or switch to an app | Left-click its icon |
 | Visit an open window | Right-click its icon, select a window, then choose **Go to / restore** |
-| Recover or arrange a window | Select it in the app menu, then choose **Bring here** or **Arrange selected window** |
+| Recover a window | Select it in the app menu, then choose **Go to window / restore** or **Bring here** |
 | Show Home, Downloads and Bin | Enable file shortcuts in Familiar settings |
 | Open another window | Middle-click its icon or choose **New Window** |
 | Pin, unpin, minimize or close | Right-click its icon and choose the action |
@@ -158,7 +162,7 @@ legacy migration and XPS acceptance.
 
 Use Omarchy's plugin update flow to update the checkout, then open Familiar's in-app setup to install or repair the matching binaries. The standalone installer from the selected release remains available for recovery. For removal, use the installed `uninstall.sh` shown above; the generic remove command alone does not perform the owned-configuration cleanup.
 
-The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Windows taskbar mode makes targeted, reversible edits to `shell.json`; its recovery record lives under `~/.local/state/familiar-desktop/taskbar`. Reset with `bin/familiar-desktop taskbar reset` if you need command-line recovery. Other dock settings only change Familiar Desktop. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
+The plugin writes `~/.config/omarchy/familiar-desktop-settings.json`, `~/.config/omarchy/familiar-desktop-pinned.json` and `~/.local/state/omarchy/familiar-desktop-badges.json`. Removing it leaves these preferences and badge data in place. Dock widgets appear alongside existing bar widgets. Windows taskbar mode makes targeted, reversible edits to `shell.json` and, on the hotfix branch, the horizontal bar-size setting in `~/.config/omarchy/shell.toml`; its recovery record lives under `~/.local/state/familiar-desktop/taskbar`. Reset with `bin/familiar-desktop taskbar reset` if you need command-line recovery. Other dock settings only change Familiar Desktop. Switching dock widgets off preserves your selection for when you turn them back on. It does not install the [Familiar theme](https://github.com/tcballard/omarchy-theme-familiar), Task Manager or OmaStore.
 
 If you moved bar widgets into the dock using an earlier development build, add them back through Omarchy's bar settings. This build preserves old placement metadata in its settings file but does not automatically rewrite your bar layout.
 
@@ -180,13 +184,12 @@ MIT licensed. Original work © 2026 rosakodu; Familiar Desktop changes © 2026 T
 
 ### Window actions and file shortcuts
 
-Familiar includes an expanded dock window menu. Select a named window
+Familiar includes a compact dock window menu. Select a named window
 and use **Go to / restore** to visit it, or **Bring here** to move it to the
 currently focused workspace. Workspace and minimised labels help locate windows.
-**Arrange selected window** offers left/right half, centre, maximise, floating,
-return to tiling, and next monitor. Half-screen and centre actions make only the
-selected window floating; returning to tiling uses the current Hyprland layout.
-These actions are available through the dock menu, not the title-bar buttons.
+The menu shows at most three window rows at a time and scrolls for more.
+Single-window apps skip the window list. Apps without open windows show only
+New Window and Pin or Unpin.
 
 Enable **Home, Downloads and Bin shortcuts** in Familiar settings to add three
 file-manager launchers to the dock. They default to off. Downloads follows

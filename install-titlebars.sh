@@ -6,7 +6,7 @@ main() {
     echo "Omarchy's titlebar package is installed. Familiar will not download a competing backend. Official-package migration is pending (issue #74); keep your existing settings and use the dock independently." >&2
     return 1
   fi
-  local release='v0.1.3'
+  local release='v0.1.4'
   local expected_abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6'
   local root_dir abi asset base expected actual destination
   root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,7 +27,10 @@ main() {
   [[ -f "$root_dir/release-binaries.sha256" && ! -L "$root_dir/release-binaries.sha256" ]] || { echo 'Missing reviewed binary digests.' >&2; return 1; }
   expected="$(awk -v name="$asset" '$2 == name {print $1}' "$root_dir/release-binaries.sha256")"
   [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo 'Missing or ambiguous Hyprbars checksum in reviewed source.' >&2; return 1; }
-  curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/$asset" -o "$titlebars_staging/hyprbars.so"
+  if ! curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 20 --max-time 180 "$base/$asset" -o "$titlebars_staging/hyprbars.so"; then
+    printf 'Window-controls download failed: %s\nCheck that the release and this asset are published: https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/%s\nIf they are missing, the release is incomplete; retry after a corrected release exists.\n' "$base/$asset" "$release" >&2
+    return 1
+  fi
   actual="$(sha256sum "$titlebars_staging/hyprbars.so")"
   [[ "${actual%% *}" == "$expected" ]] || { echo 'Hyprbars checksum mismatch; existing library kept.' >&2; return 1; }
   chmod 644 "$titlebars_staging/hyprbars.so"

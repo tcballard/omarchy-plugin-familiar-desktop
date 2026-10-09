@@ -3002,10 +3002,11 @@ Item {
                 // client, since autohide puts this window on the Overlay layer
                 // -- for a dock that cannot be hovered anyway. Revealing it is
                 // the separate edge trigger's job. Hand the strip back.
-                mask: Region {
-                    item: dockLayer.slidOut ? null : dockSurface
-                    width: 0
-                    height: 0
+                mask: DockInputRegion {
+                    surface: dockSurface
+                    translationX: autohideTranslate.x
+                    translationY: autohideTranslate.y
+                    hidden: dockLayer.slidOut
                 }
 
                 anchors {

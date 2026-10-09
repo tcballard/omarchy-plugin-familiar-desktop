@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
+import "../AppMenuSelection.js" as MenuSelection
 
 // A named, mouse-first window list. It uses the same output and layer as the
 // dock, and only the card accepts pointer input outside the dock itself.
@@ -13,42 +14,29 @@ PanelWindow {
     required property var dockWindow
     readonly property var app: root.contextApp
     readonly property var windows: app && app.toplevels ? app.toplevels : []
-    readonly property int rowHeight: 44
-    readonly property int cardWidth: 300
-    readonly property int actionHeight: 40
-    readonly property int visibleWindowCount: Math.min(8, windows.length)
+    readonly property int rowHeight: 36
+    readonly property int cardWidth: 260
+    readonly property int actionHeight: 32
+    readonly property int visibleWindowCount: windows.length > 1 ? Math.min(3, windows.length) : 0
     property string selectedWindowAddress: ""
-    property bool showArrange: false
-    property string forceQuitAddress: ""
-    readonly property int selectedIndex: {
+    readonly property var windowAddresses: {
+        var addresses = []
         for (var i = 0; i < windows.length; i++) {
-            if (selectedWindowAddress && root.targetWindowArg(app, i) === selectedWindowAddress) return i
+            addresses.push(root.targetWindowArg(app, i))
         }
-        return -1
+        return addresses
     }
-    readonly property string selectedAddress: selectedIndex >= 0 ? root.targetWindowArg(app, selectedIndex) : ""
+    readonly property int selectedIndex: MenuSelection.selectedIndex(windowAddresses, selectedWindowAddress, app ? app.activeTopIndex : 0)
+    readonly property string selectedAddress: selectedIndex >= 0 ? windowAddresses[selectedIndex] : ""
     readonly property bool canAct: selectedAddress !== "" && !root.desktopActionBusy && !root.desktopTools.busy
-    readonly property var actions: [
-        {label: "Go to / restore selected window", kind: "go-window", enabled: canAct},
-        {label: "Bring selected window here", kind: "bring-here", enabled: canAct},
-        {label: showArrange ? "Hide arrangement actions ▴" : "Arrange selected window ▾", kind: "arrange", enabled: canAct}
-    ].concat(showArrange ? [
-        {label: "Left half (floating)", kind: "arrange-left", enabled: canAct},
-        {label: "Right half (floating)", kind: "arrange-right", enabled: canAct},
-        {label: "Maximise", kind: "arrange-maximize", enabled: canAct},
-        {label: "Centre (floating)", kind: "arrange-center", enabled: canAct},
-        {label: "Make floating", kind: "arrange-float", enabled: canAct},
-        {label: "Return to tiling", kind: "arrange-tile", enabled: canAct},
-        {label: "Move to next monitor", kind: "arrange-next-monitor", enabled: canAct}
+    readonly property var actions: (windows.length ? [
+        {label: "Go to window / restore", kind: "go-window", enabled: canAct},
+        {label: "Bring here", kind: "bring-here", enabled: canAct}
     ] : []).concat([
         {label: "New Window", kind: "new", enabled: !root.desktopActionBusy && !root.desktopTools.busy},
-        {label: app && app.isPinned ? "Unpin from Dock" : "Pin to Dock", kind: "pin", enabled: true},
-        {label: "Minimise selected window", kind: "minimize", enabled: canAct},
-        {label: "Close selected window", kind: "close", enabled: canAct},
-        {label: "Quit app (request close for its windows)", kind: "quit-app", enabled: canAct},
-        {label: forceQuitAddress === selectedAddress && forceQuitAddress !== "" ? "Confirm force quit — unsaved work will be lost" : "Force quit app…", kind: "force-quit", enabled: canAct}
-    ])
-    readonly property int cardHeight: Math.max(80, Math.min(screenHeight - dockOffset - 12, 64 + visibleWindowCount * rowHeight + actions.length * actionHeight + errorLabel.implicitHeight))
+        {label: app && app.isPinned ? "Unpin from Dock" : "Pin to Dock", kind: "pin", enabled: true}
+    ], windows.length ? [{label: "Minimise", kind: "minimize", enabled: canAct}] : [])
+    readonly property int cardHeight: Math.max(80, Math.min(screenHeight - dockOffset - 12, menuContent.implicitHeight + 14))
     readonly property int dockOffset: root.popupDockOffset
     readonly property real appOffset: (root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0) +
                                       (root.contextAppIndex + 0.5) * root.slotSize
@@ -81,30 +69,14 @@ PanelWindow {
 
     onVisibleChanged: if (visible) {
         selectedWindowAddress = windows.length ? root.targetWindowArg(app, Math.min(app.activeTopIndex || 0, windows.length - 1)) : ""
-        showArrange = false
-        forceQuitAddress = ""
         card.forceActiveFocus()
     }
 
-    onSelectedWindowAddressChanged: forceQuitAddress = ""
-
     function dismiss() { root.contextAppId = ""; root.contextAppIndex = -1 }
-    function chooseWindow(index) {
-        root.restoreOrLaunchItem(app, index)
-        dismiss()
-    }
     function action(kind) {
         if (!app) return
-        if (kind === "arrange") { showArrange = !showArrange; return }
-        if (kind === "go-window" || kind === "bring-here" || kind.indexOf("arrange-") === 0) {
+        if (kind === "go-window" || kind === "bring-here") {
             if (canAct) root.desktopAction(kind, selectedAddress)
-            return
-        }
-        if (kind === "quit-app") { root.desktopTools.run(["quit-app", selectedAddress]); return }
-        if (kind === "force-quit") {
-            if (forceQuitAddress !== selectedAddress) { forceQuitAddress = selectedAddress; return }
-            root.desktopTools.run(["force-quit", selectedAddress, "--confirm"])
-            forceQuitAddress = ""
             return
         }
         if (kind === "new") {
@@ -114,9 +86,6 @@ PanelWindow {
             root.setPinned(DockModel.togglePinned(root.pinnedIds, app.appId, root.maxDockItems))
         } else if (kind === "minimize") {
             root.minimizeItem(app, selectedIndex)
-        } else if (kind === "close") {
-            var index = selectedIndex
-            if (windows[index] && typeof windows[index].close === "function") windows[index].close()
         }
         dismiss()
     }
@@ -154,10 +123,10 @@ PanelWindow {
 
             Text {
                 width: parent.width
-                height: 40
+                height: 32
                 leftPadding: 9
                 verticalAlignment: Text.AlignVCenter
-                text: menu.app ? (menu.app.name || menu.app.appId) + " · " + menu.windows.length + " windows" : ""
+                text: menu.app ? (menu.app.name || menu.app.appId) + (menu.windows.length > 1 ? " · " + menu.windows.length + " windows" : "") : ""
                 elide: Text.ElideRight
                 textFormat: Text.PlainText
                 font.family: Style.font.family
@@ -169,6 +138,7 @@ PanelWindow {
             Flickable {
                 width: parent.width
                 height: menu.visibleWindowCount * menu.rowHeight
+                visible: menu.visibleWindowCount > 0
                 contentWidth: width
                 contentHeight: menu.windows.length * menu.rowHeight
                 clip: true
@@ -214,7 +184,9 @@ PanelWindow {
             Text {
                 id: errorLabel
                 width: parent.width
-                text: menu.root.desktopTools.message || menu.root.desktopActionError || (menu.windows.length ? "Select a window above, then choose an action." : "No open windows.")
+                text: menu.root.desktopTools.message || menu.root.desktopActionError
+                visible: text !== ""
+                height: visible ? implicitHeight : 0
                 wrapMode: Text.WordWrap
                 color: Color.popups.text
                 font.family: Style.font.family

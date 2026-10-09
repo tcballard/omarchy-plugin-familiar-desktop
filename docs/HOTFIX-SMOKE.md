@@ -2,6 +2,8 @@
 
 Use the exact-SHA development bundle identified in PR #77. Verify `SHA256SUMS`, read `DEV-BUILD.json`, and run its `bash install-dev.sh`. Keep the printed rollback snapshot path. The installed source and both binaries must match that receipt; do not delete it or use the public setup/repair path before release.
 
+For a fresh-install test, use the matching CI release artifact's `install-candidate.sh` after backed-up removal. Check that Familiar appears immediately to the right of Agents in the native bar before enabling Windows. If Agents is not in the right section, Familiar should appear at that section's start. An update or repair must retain an existing custom placement. Windows moves the combined app strip into its taskbar layout; General/Mac must restore the fresh-install placement.
+
 Tom’s acceptance of this exact build is pending. Record the source SHA, CI run/attempt and your result on PR #77 before authorizing merge or publication.
 
 1. Open Familiar settings from its labelled taskbar button. In General/Mac, check access through your original Plugin Drawer placement.

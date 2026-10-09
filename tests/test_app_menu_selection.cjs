@@ -1,0 +1,22 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const selection = vm.createContext({});
+vm.runInContext(fs.readFileSync('AppMenuSelection.js', 'utf8').replace(/^\.pragma library\s*/m, ''), selection);
+
+const index = selection.selectedIndex;
+assert.equal(index(['0xa', '0xb'], '', 1), 1, 'opening defaults to the last-used window');
+assert.equal(index(['0xc', '0xd'], '0xa', 1), 1, 'switching apps while visible discards the previous app selection');
+assert.equal(index(['0xc', '0xd'], '0xc', 1), 0, 'explicit selection wins over focus changes');
+assert.equal(index(['0xd', '0xc'], '0xc', 0), 1, 'refresh and reorder retain the selected identity');
+assert.equal(index(['0xd'], '0xc', 0), 0, 'closing a selected window chooses a surviving window');
+assert.equal(index([''], '', 0), 0, 'an unresolved mapping retains a default index');
+let addresses = [''];
+let preferred = '';
+const target = () => addresses[index(addresses, preferred, 0)] || '';
+assert.equal(target(), '', 'no action target until the compositor supplies an address');
+addresses = ['0xe'];
+assert.equal(target(), '0xe', 'late mapping enables actions without reopening or clicking a row');
+assert.equal(index([], '0xe', 0), -1, 'a launcher with no windows has no window actions');
+assert.equal(index(['0xe'], '', 9), 0, 'an old active index falls back safely');
+console.log('App menu selection: opening, app switch, explicit selection, reorder, closure and late mapping passed.');

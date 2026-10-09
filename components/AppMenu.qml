@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
+import "../AppMenuSelection.js" as MenuSelection
 
 // A named, mouse-first window list. It uses the same output and layer as the
 // dock, and only the card accepts pointer input outside the dock itself.
@@ -20,13 +21,15 @@ PanelWindow {
     property string selectedWindowAddress: ""
     property bool showArrange: false
     property string forceQuitAddress: ""
-    readonly property int selectedIndex: {
+    readonly property var windowAddresses: {
+        var addresses = []
         for (var i = 0; i < windows.length; i++) {
-            if (selectedWindowAddress && root.targetWindowArg(app, i) === selectedWindowAddress) return i
+            addresses.push(root.targetWindowArg(app, i))
         }
-        return -1
+        return addresses
     }
-    readonly property string selectedAddress: selectedIndex >= 0 ? root.targetWindowArg(app, selectedIndex) : ""
+    readonly property int selectedIndex: MenuSelection.selectedIndex(windowAddresses, selectedWindowAddress, app ? app.activeTopIndex : 0)
+    readonly property string selectedAddress: selectedIndex >= 0 ? windowAddresses[selectedIndex] : ""
     readonly property bool canAct: selectedAddress !== "" && !root.desktopActionBusy && !root.desktopTools.busy
     readonly property var actions: [
         {label: "Go to / restore selected window", kind: "go-window", enabled: canAct},
@@ -86,7 +89,7 @@ PanelWindow {
         card.forceActiveFocus()
     }
 
-    onSelectedWindowAddressChanged: forceQuitAddress = ""
+    onSelectedAddressChanged: forceQuitAddress = ""
 
     function dismiss() { root.contextAppId = ""; root.contextAppIndex = -1 }
     function chooseWindow(index) {

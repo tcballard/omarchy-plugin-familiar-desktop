@@ -338,21 +338,12 @@ BarWidget {
   // to provide a taskbar and suppress the floating dock on that monitor.
   readonly property bool taskbarActive: root.visible && !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
   readonly property bool barButtonVisible: {
-    // Item.visible on the loaded widget remains true when Plugin Drawer's
-    // hiddenHost ancestor is false. Drawer previews may be visible in a
-    // popup. The bar click router sees every registered button, so only a
-    // copy owned by its own bar ModuleSlot may register as a click target.
-    if (!root.bar || !root.bar.visible) return false
-    var item = root
-    var inBarSlot = false
-    while (item) {
-      if (!item.visible) return false
-      if (item !== root && "activeItem" in item && "region" in item &&
-          item.moduleName === root.moduleName && item.activeItem === root)
-        inBarSlot = true
-      item = item.parent
-    }
-    return inBarSlot
+    // Plugin Drawer mounts another copy under an invisible host and may put
+    // previews in its popup. Only the instance owned by a native bar slot may
+    // join the bar's global click router.
+    return root.visible && !!root.bar &&
+      typeof root.bar.moduleWidgets === "function" &&
+      root.bar.moduleWidgets(root.moduleName).indexOf(root) !== -1
   }
   implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
   implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)

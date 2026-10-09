@@ -193,6 +193,28 @@ wait_for mac_restored
 jq -S '.bar' "$shell_config" > "$EVIDENCE/bar-after-mac.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-mac.json"
 cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+# Exercise the installed input-region component with a real Wayland pointer.
+# The old item-based mask stayed at y=58 after its card animated to y=2,
+# leaving the visible centre unclickable even though the dock layer existed.
+phase=mac-dock-pointer
+probe="$EVIDENCE/input-probe"
+mkdir -p "$probe"
+cp "$plugin/components/DockInputRegion.qml" "$probe/DockInputRegion.qml"
+cp "$SMOKE_ROOT/tests/desktop/dock-input-probe.qml" "$probe/shell.qml"
+wayland-scanner client-header "$SMOKE_ROOT/tests/desktop/wlr-virtual-pointer-unstable-v1.xml" "$probe/pointer.h"
+wayland-scanner private-code "$SMOKE_ROOT/tests/desktop/wlr-virtual-pointer-unstable-v1.xml" "$probe/pointer-protocol.c"
+cc -D_DEFAULT_SOURCE -I "$probe" -o "$probe/pointer" "$SMOKE_ROOT/tests/desktop/pointer.c" "$probe/pointer-protocol.c" -lwayland-client
+"$probe/pointer" 100 400 1280 800 0
+qs -p "$probe/shell.qml" > "$probe/qs.log" 2>&1 &
+probe_pid=$!
+probe_ready() { hyprctl -j layers | jq -e 'any(.. | objects; .namespace? == "familiar-input-probe")' >/dev/null; }
+wait_for probe_ready
+sleep 1
+"$probe/pointer" 640 664 1280 800 272
+pointer_ready() { rg -q 'FAMILIAR_INPUT_HOVER' "$probe/qs.log" && rg -q 'FAMILIAR_INPUT_CLICK' "$probe/qs.log"; }
+wait_for pointer_ready
+kill "$probe_pid"
+wait "$probe_pid" || true
 # Roll back while the taskbar is active: the bundle must undo its native placement.
 omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready

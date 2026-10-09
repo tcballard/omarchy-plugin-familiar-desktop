@@ -8,7 +8,7 @@ Tom’s acceptance of this exact build is pending. Record the source SHA, CI run
 2. Select Windows. Expect one full-width bottom bar, 48px at the default font scale, 32px app icons and no separate floating dock. Existing native widgets and pins remain.
 3. Launch a disposable app, focus it from the taskbar and open its right-click menu. Select the window row before Minimise; restore it by clicking its taskbar icon. Check overflow arrows if needed.
 4. Restart the Omarchy shell. Windows mode, settings access and pins must persist.
-5. Select General, then repeat Windows → Mac. Both must restore the original bar arrangement and height. Return to your preferred profile.
+5. Select General, then repeat Windows → Mac. Both must restore the original bar arrangement and height. In Mac, hover over a running app to see its preview, click an app to focus it, and right-click for its menu. Repeat after a shell restart. Return to your preferred profile.
 6. Optional rollback: run the same bundle’s `bash install-dev.sh --rollback <printed-snapshot-path>`. It restores the prior exact build and placement while retaining subsequent personal changes. Reinstall the candidate if you wish to accept it after rollback testing.
 
 Installer failure diagnostics and publication ordering are covered by isolated automated tests. Do not disrupt a working development installation to manufacture an initial-install 404. After authorized publication, run the release URL verifier and test fresh setup/retry in a disposable account before announcing that #79 is resolved for users.

@@ -4,7 +4,7 @@ Use the exact-SHA development bundle identified in PR #77. Verify `SHA256SUMS`, 
 
 For a fresh-install test, use the matching CI release artifact's `install-candidate.sh` after backed-up removal. Check that Familiar appears immediately to the right of Agents in the native bar before enabling Windows. If Agents is not in the right section, Familiar should appear at that section's start. An update or repair must retain an existing custom placement. Windows moves the combined app strip into its taskbar layout; General/Mac must restore the fresh-install placement.
 
-In both Mac and Windows, right-click a running app and check that Go to / restore and Bring selected window here are enabled immediately, before clicking a window row. Switch directly to another app's menu and repeat. Select a different window explicitly and verify the action targets it after a dock refresh. Use disposable windows to test arrangement, minimise/restore and close; launchers with no windows should keep window actions disabled.
+In both Mac and Windows, right-click a running app and check that Go to / restore and Bring here are enabled immediately, before clicking a window row. Switch directly to another app's menu and repeat. Select a different window explicitly and verify the action targets it after a dock refresh. Use disposable windows to test minimise/restore. Check the compact menu has at most five actions and three visible window rows, with scrolling for additional windows; single-window apps skip the list and launchers with no windows show only New Window and Pin/Unpin.
 
 Tom’s acceptance of this exact build is pending. Record the source SHA, CI run/attempt and your result on PR #77 before authorizing merge or publication.
 

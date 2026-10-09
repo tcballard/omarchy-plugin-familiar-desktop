@@ -100,7 +100,7 @@ Launching apps uses Omarchy's app launcher, with `uwsm-app` and `gtk-launch` as 
 ## Made for everyday use
 
 - **See what is running.** Pinned apps and running windows stay within reach, with indicators and notification badges from the dock implementation.
-- **Choose a window by name.** Right-click an app for a scrollable window list, window recovery and arrangement, New Window, Pin or Unpin, and actions to minimise or close the selected window.
+- **Choose a window by name.** Right-click an app for a compact menu with Go to / restore, Bring here, New Window, Pin or Unpin, and Minimise. Apps with multiple windows show a scrollable window list.
 - **Use the mouse or keyboard.** Left-click launches or switches, middle-click opens a new window, and the existing dock supports keyboard selection and window cycling.
 - **Keep your setup.** Pins and folders are shared between layouts; changing a preset does not install applications, themes or global shortcuts.
 
@@ -126,7 +126,7 @@ The presets share pins and folders; they do not reproduce every Windows or macOS
 | --- | --- |
 | Launch or switch to an app | Left-click its icon |
 | Visit an open window | Right-click its icon, select a window, then choose **Go to / restore** |
-| Recover or arrange a window | Select it in the app menu, then choose **Bring here** or **Arrange selected window** |
+| Recover a window | Select it in the app menu, then choose **Go to window / restore** or **Bring here** |
 | Show Home, Downloads and Bin | Enable file shortcuts in Familiar settings |
 | Open another window | Middle-click its icon or choose **New Window** |
 | Pin, unpin, minimize or close | Right-click its icon and choose the action |
@@ -184,13 +184,12 @@ MIT licensed. Original work © 2026 rosakodu; Familiar Desktop changes © 2026 T
 
 ### Window actions and file shortcuts
 
-Familiar includes an expanded dock window menu. Select a named window
+Familiar includes a compact dock window menu. Select a named window
 and use **Go to / restore** to visit it, or **Bring here** to move it to the
 currently focused workspace. Workspace and minimised labels help locate windows.
-**Arrange selected window** offers left/right half, centre, maximise, floating,
-return to tiling, and next monitor. Half-screen and centre actions make only the
-selected window floating; returning to tiling uses the current Hyprland layout.
-These actions are available through the dock menu, not the title-bar buttons.
+The menu shows at most three window rows at a time and scrolls for more.
+Single-window apps skip the window list. Apps without open windows show only
+New Window and Pin or Unpin.
 
 Enable **Home, Downloads and Bin shortcuts** in Familiar settings to add three
 file-manager launchers to the dock. They default to off. Downloads follows

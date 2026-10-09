@@ -19,6 +19,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Checks out the release tag: the pins and installers the smoke check
+      # reads are the exact content onboarding downloads.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@v4
         with:
           name: familiar-desktop-release
@@ -29,3 +32,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" release-assets/*
+      - name: Smoke-check the public onboarding download URLs
+        # A release whose assets never became downloadable is what broke v0.1.3
+        # onboarding (issue #79); fail the run instead of shipping a 404.
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/verify-release-download.cjs --tag "$TAG" --repo "$GH_REPO"

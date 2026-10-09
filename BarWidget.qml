@@ -337,6 +337,19 @@ BarWidget {
   // Drawer widgets stay mounted under an invisible host. They must not claim
   // to provide a taskbar and suppress the floating dock on that monitor.
   readonly property bool taskbarActive: root.visible && !!root.desktopService && root.desktopService.taskbarSelected && !root.vertical
+  readonly property bool barButtonVisible: {
+    // Item.visible on the loaded widget remains true when Plugin Drawer's
+    // hiddenHost ancestor is false. Drawer previews also live in a separate
+    // popup window. The bar click router checks the button itself and maps
+    // global targets across slots, so only the visible bar copy may register.
+    if (!root.bar || root.QsWindow.window !== root.bar || !root.bar.visible) return false
+    var item = root
+    while (item) {
+      if (!item.visible) return false
+      item = item.parent
+    }
+    return true
+  }
   implicitWidth: button.implicitWidth + (taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitWidth : 0)
   implicitHeight: Math.max(button.implicitHeight, taskbarApps.active && taskbarApps.item ? taskbarApps.item.implicitHeight : 0)
   Loader {
@@ -354,10 +367,7 @@ BarWidget {
     width: implicitWidth
     height: implicitHeight
     bar: root.bar
-    // The Plugin Drawer keeps a hidden copy mounted. Omarchy's global bar
-    // click router sees child targets even when an ancestor is invisible, so
-    // that copy must not intercept clicks meant for the real bar widgets.
-    interactive: root.visible
+    interactive: root.barButtonVisible
     // Keep management recognisable beside the app strip, even without Nerd Fonts.
     text: root.taskbarActive ? "󰟀  Familiar" : "󰟀"
     fixedWidth: root.taskbarActive ? Math.max(100, Style.space(100)) : -1

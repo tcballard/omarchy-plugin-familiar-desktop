@@ -2808,6 +2808,7 @@ Item {
                         totalCount: root.dockItems.length
                         barPosition: root.barPosition
                         shell: root.shell
+                        knownWindows: root.knownWindows
                         slotSize: root.slotSize
                         iconBaseSize: root.iconBaseSize
                         iconRevision: root.iconRevision

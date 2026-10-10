@@ -13,6 +13,7 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | App matching and window history | `DockModel.js` facade → `DockMatcher.js`; normalized lookup in `DesktopCatalog.js`, curated data in `AppCatalog.js` | `test_desktop_catalog.cjs`, `tst_DockMatcher.qml`, `test_window_history.cjs`, `test_app_identity.cjs` |
 | Popup selection and editing | `components/DockInteraction.qml`; `FolderIconPicker.qml` takes data and emits actions | `tst_DockInteraction.qml`, `tst_FolderIconPicker.qml` |
 | Drag ordering and cancellation | `DockDrag.js` supplies shared slot/drop calculations; `components/DockDragState.qml` owns dock/folder drag state | `test_dock_drag.cjs`, `tst_DockDragState.qml` |
+| App tile activation and window selection | `components/AppTileInteraction.qml` is used by `DockItem.qml` and `components/FolderPopup.qml` | `tst_AppTileInteraction.qml`, `test_dock_scroll.cjs`, desktop smoke |
 | Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `tst_NotificationTracker.qml` |
 | Runtime icon sources | `IconResolver.js`, using candidates and disk cache supplied by `DockModel.js` | `test_app_identity.cjs` |
 | Pins, folders and launching | `DockPinned.js`, `DockAutoName.js`, `DockLauncher.js`; menu/popup QML | Node model checks, desktop smoke |
@@ -49,6 +50,10 @@ DockDragState owns the drag indices. Dock and folder delegates request start,
 hover and cancellation through `service.drag`; exposed service indices are
 read-only. DockDrag computes neighbour slots and the same rail target for hover
 feedback and drop, including merge intent and outer-edge insertion.
+AppTileInteraction owns each app tile's window preview index, smooth wheel
+accumulation and expiry. Dock and folder views route its launch/restore requests
+to the service, and keep their own visuals, edit actions and rail/grid dragging.
+Launch callers supply the current known windows explicitly for CLI hints.
 
 The matcher library's disk icons and CLI hints are updated by the service and
 shared through `DockModel`; settings views do not mutate them. Notification event

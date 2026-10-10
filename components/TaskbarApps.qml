@@ -96,6 +96,7 @@ Item {
                         itemIndex: index
                         totalCount: root.items.length
                         shell: root.service ? root.service.shell : null
+                        knownWindows: root.service ? root.service.knownWindows : []
                         barPosition: "top" // DockItem uses the edge opposite the surface.
                         slotSize: root.slotSize
                         iconBaseSize: Math.min(32, root.slotSize - 12)

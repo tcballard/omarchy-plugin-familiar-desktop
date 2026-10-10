@@ -344,36 +344,19 @@ PanelWindow {
                             readonly property int slotCol: visualSubSlot % stackCard.gridCols
                             readonly property int slotRow: Math.floor(visualSubSlot / stackCard.gridCols)
 
-                            property int subPreviewTopIndex: -1
-                            property bool isSubWheelScrolling: false
-
-                            Timer {
-                                id: subWheelCursorTimer
-                                interval: 1200
-                                repeat: false
-                                onTriggered: {
-                                    subItemRoot.isSubWheelScrolling = false
+                            readonly property int subPreviewTopIndex: subInteraction.previewIndex
+                            readonly property bool isSubWheelScrolling: subInteraction.cycling
+                            readonly property int subEffectiveTopIndex: subInteraction.effectiveIndex
+                            AppTileInteraction {
+                                id: subInteraction
+                                itemData: modelData
+                                hovered: subMouse.containsMouse
+                                onFeedbackRequested: subClickEffectAnim.restart()
+                                onLaunchRequested: function(item) {
+                                    DockModel.setPendingCliHint(item.appId || item.desktopId || "", stackWindow.root.knownWindows)
+                                    DockModel.launchApp(stackWindow.root.shell, item, Util)
                                 }
-                            }
-
-                            readonly property int subRealActiveTopIndex: (modelData && typeof modelData.activeTopIndex === "number") ? modelData.activeTopIndex : 0
-
-                            readonly property int subEffectiveTopIndex: {
-                                var total = (modelData && modelData.toplevels) ? modelData.toplevels.length : 0
-                                if (total === 0) return 0
-                                if (subItemRoot.subPreviewTopIndex >= 0 && subItemRoot.subPreviewTopIndex < total) return subItemRoot.subPreviewTopIndex
-                                return subItemRoot.subRealActiveTopIndex
-                            }
-
-                            Timer {
-                                id: subPreviewResetTimer
-                                interval: 1500
-                                repeat: false
-                                onTriggered: {
-                                    if (!subMouse.containsMouse) {
-                                        subItemRoot.subPreviewTopIndex = -1
-                                    }
-                                }
+                                onRestoreRequested: function(item, index) { stackWindow.root.restoreOrLaunchItem(item, index) }
                             }
 
                             x: slotCol * 50
@@ -609,19 +592,6 @@ PanelWindow {
                                 }
                             }
 
-                            function cycleSubDuplicate(forward) {
-                                if (!modelData || !modelData.isRunning || !modelData.toplevels) return
-                                var len = modelData.toplevels.length
-                                if (len <= 1) return
-
-                                subItemRoot.isSubWheelScrolling = true
-                                subWheelCursorTimer.restart()
-                                subPreviewResetTimer.stop()
-                                var curIdx = subItemRoot.subEffectiveTopIndex
-                                var nextIdx = forward ? ((curIdx + 1) % len) : ((curIdx - 1 + len) % len)
-                                subItemRoot.subPreviewTopIndex = nextIdx
-                            }
-
                             MouseArea {
                                 id: subMouse
                                 anchors.fill: parent
@@ -646,39 +616,10 @@ PanelWindow {
                                     subMouse.forceActiveFocus()
                                 }
 
-                                Keys.onRightPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        subItemRoot.cycleSubDuplicate(true)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onLeftPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        subItemRoot.cycleSubDuplicate(false)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onTabPressed: function(event) {
-                                    if (modelData) {
-                                        subClickEffectAnim.restart()
-                                        DockModel.setPendingCliHint(modelData.appId || modelData.desktopId || "", (stackWindow.root && stackWindow.root.knownWindows) ? stackWindow.root.knownWindows : [])
-                                        DockModel.launchApp(stackWindow.root.shell, modelData, Util)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onReturnPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2 && subItemRoot.subPreviewTopIndex >= 0) {
-                                        var top = modelData.toplevels[subItemRoot.subPreviewTopIndex]
-                                        if (top && typeof top.activate === "function") {
-                                            top.activate()
-                                            subItemRoot.subPreviewTopIndex = -1
-                                            event.accepted = true
-                                        }
-                                    }
-                                }
+                                Keys.onRightPressed: function(event) { event.accepted = subInteraction.cycle(true) }
+                                Keys.onLeftPressed: function(event) { event.accepted = subInteraction.cycle(false) }
+                                Keys.onTabPressed: function(event) { event.accepted = subInteraction.launch() }
+                                Keys.onReturnPressed: function(event) { event.accepted = subInteraction.confirmPreview() }
 
                                 onPressed: function(mouse) {
                                     if (mouse.button === Qt.LeftButton) {
@@ -703,9 +644,7 @@ PanelWindow {
                                 }
 
                                 onPositionChanged: function(mouse) {
-                                    if (subItemRoot.isSubWheelScrolling) {
-                                        subItemRoot.isSubWheelScrolling = false
-                                    }
+                                    subInteraction.pointerMoved()
                                     if (subMouse.drag.active) {
                                         subLongPressTimer.stop()
                                         if (!isDraggingActive) {
@@ -744,8 +683,7 @@ PanelWindow {
                                 }
 
                                 onExited: {
-                                    subItemRoot.isSubWheelScrolling = false
-                                    subPreviewResetTimer.restart()
+                                    subInteraction.leave()
                                 }
 
                                 onCanceled: {
@@ -759,15 +697,7 @@ PanelWindow {
                                 }
 
                                 onWheel: function(wheel) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        if (wheel.angleDelta.y < 0 || wheel.angleDelta.x > 0) {
-                                            subItemRoot.cycleSubDuplicate(true)
-                                            wheel.accepted = true
-                                        } else if (wheel.angleDelta.y > 0 || wheel.angleDelta.x < 0) {
-                                            subItemRoot.cycleSubDuplicate(false)
-                                            wheel.accepted = true
-                                        }
-                                    }
+                                    wheel.accepted = subInteraction.wheel(wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
                                 }
 
                                 onClicked: function(mouse) {
@@ -776,38 +706,12 @@ PanelWindow {
                                         return
                                     }
 
-                                    // Middle Click (Wheel Button click) -> Immediately launch duplicate
                                     if (mouse.button === Qt.MiddleButton) {
+                                        subInteraction.launch()
+                                    } else if (mouse.button === Qt.LeftButton) {
                                         subClickEffectAnim.restart()
-                                        DockModel.setPendingCliHint(modelData.appId || modelData.desktopId || "", (stackWindow.root && stackWindow.root.knownWindows) ? stackWindow.root.knownWindows : [])
-                                        DockModel.launchApp(stackWindow.root.shell, modelData, Util)
-                                        return
-                                    }
-
-                                    if (mouse.button === Qt.LeftButton) {
-                                        subClickEffectAnim.restart()
-                                        if (modelData) {
-                                            stackWindow.root.clearBadge(modelData)
-                                        }
-                                        if (stackWindow.root.isEditMode) {
-                                            return
-                                        }
-                                        if (modelData) {
-                                            if (subItemRoot.subPreviewTopIndex >= 0) {
-                                                stackWindow.root.restoreOrLaunchItem(modelData, subItemRoot.subPreviewTopIndex)
-                                            } else {
-                                                var subTops = modelData.toplevels || []
-                                                if (subTops.length >= 2 && modelData.isActive) {
-                                                    var subNextIdx = (subItemRoot.subRealActiveTopIndex + 1) % subTops.length
-                                                    stackWindow.root.restoreOrLaunchItem(modelData, subNextIdx)
-                                                } else {
-                                                    stackWindow.root.restoreOrLaunchItem(modelData, subItemRoot.subRealActiveTopIndex)
-                                                }
-                                            }
-                                            subItemRoot.subPreviewTopIndex = -1
-                                        }
-                                    } else if (mouse.button === Qt.RightButton) {
-                                        return
+                                        if (modelData) stackWindow.root.clearBadge(modelData)
+                                        if (!stackWindow.root.isEditMode) subInteraction.restore()
                                     }
                                 }
                             }

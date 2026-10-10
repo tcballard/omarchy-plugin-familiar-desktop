@@ -7,20 +7,18 @@ import qs.Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 import "IconResolver.js" as Icons
-import "DockScroll.js" as DockScroll
 import "DockDrag.js" as Drag
 import "components"
 
 Item {
     id: root
 
-    property real pendingScroll: 0
-    Timer { id: scrollReset; interval: 180; onTriggered: root.pendingScroll = 0 }
     property var itemData: null
     property int itemIndex: 0
     property int totalCount: 1
     property string barPosition: "bottom"
     property var shell: null
+    property var knownWindows: []
     property real slotSize: 42
     property real iconBaseSize: 24
     property int systemBorderSize: Style.normalBorderWidth > 0 ? Style.normalBorderWidth : 2
@@ -293,36 +291,20 @@ Item {
         }
     }
 
-    property int previewTopIndex: -1
-    property bool isWheelScrolling: false
-
-    Timer {
-        id: wheelCursorTimer
-        interval: 1200
-        repeat: false
-        onTriggered: {
-            root.isWheelScrolling = false
+    readonly property int previewTopIndex: appInteraction.previewIndex
+    readonly property bool isWheelScrolling: appInteraction.cycling
+    readonly property int realActiveTopIndex: appInteraction.activeIndex
+    readonly property int effectiveTopIndex: appInteraction.effectiveIndex
+    AppTileInteraction {
+        id: appInteraction
+        itemData: root.itemData
+        hovered: mouseArea.containsMouse
+        onFeedbackRequested: clickEffectAnim.restart()
+        onLaunchRequested: function(item) {
+            DockModel.setPendingCliHint(item.appId || item.desktopId || "", root.knownWindows)
+            DockModel.launchApp(root.shell, item, Util)
         }
-    }
-
-    readonly property int realActiveTopIndex: (root.itemData && typeof root.itemData.activeTopIndex === "number") ? root.itemData.activeTopIndex : 0
-
-    readonly property int effectiveTopIndex: {
-        var total = (root.itemData && root.itemData.toplevels) ? root.itemData.toplevels.length : 0
-        if (total === 0) return 0
-        if (root.previewTopIndex >= 0 && root.previewTopIndex < total) return root.previewTopIndex
-        return root.realActiveTopIndex
-    }
-
-    Timer {
-        id: previewResetTimer
-        interval: 1500
-        repeat: false
-        onTriggered: {
-            if (!mouseArea.containsMouse) {
-                root.previewTopIndex = -1
-            }
-        }
+        onRestoreRequested: function(item, index) { root.restoreOrLaunchRequested(item, index) }
     }
 
     // 0. iOS / macOS-Style Theme Notification Badge with Count (Anchored to top-right of iconWrapper)
@@ -465,67 +447,23 @@ Item {
 
     // Native bar click routing and the floating dock share exactly one action path.
     function triggerPress(button) {
-            root.previewCancelled()
-            longPressTimer.stop()
-            if (mouseArea.didDrag || mouseArea.didLongPress) {
-                mouseArea.didLongPress = false
-                return
+        root.previewCancelled()
+        longPressTimer.stop()
+        if (mouseArea.didDrag || mouseArea.didLongPress) {
+            mouseArea.didLongPress = false
+            return
+        }
+        if (button === Qt.MiddleButton) {
+            appInteraction.launch()
+        } else if (button === Qt.LeftButton) {
+            clickEffectAnim.restart()
+            if (root.itemData && root.itemData.isStack) {
+                root.itemLeftClicked(root.itemData)
+            } else if (root.itemData && !root.isEditMode) {
+                root.itemLeftClicked(root.itemData)
+                appInteraction.restore()
             }
-
-            // Middle Click (Wheel Button click) -> Immediately launch a duplicate
-            if (button === Qt.MiddleButton) {
-                if (root.itemData && !root.itemData.isStack) {
-                    clickEffectAnim.restart()
-                    DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
-                    DockModel.launchApp(root.shell, root.itemData, Util)
-                }
-                return
-            }
-
-            if (button === Qt.LeftButton) {
-                clickEffectAnim.restart()
-                if (root.isEditMode) {
-                    if (root.itemData && root.itemData.isStack) {
-                        root.itemLeftClicked(root.itemData)
-                    }
-                    return
-                }
-                if (root.itemData && root.itemData.isStack) {
-                    root.itemLeftClicked(root.itemData)
-                    return
-                }
-                if (root.itemData) {
-                    root.itemLeftClicked(root.itemData)
-                    if (root.previewTopIndex >= 0) {
-                        root.restoreOrLaunchRequested(root.itemData, root.previewTopIndex)
-                    } else {
-                        var tops = root.itemData.toplevels || []
-                        if (tops.length >= 2 && root.itemData.isActive) {
-                            var nextIdx = (root.realActiveTopIndex + 1) % tops.length
-                            root.restoreOrLaunchRequested(root.itemData, nextIdx)
-                        } else {
-                            root.restoreOrLaunchRequested(root.itemData, root.realActiveTopIndex)
-                        }
-                    }
-                    root.previewTopIndex = -1
-                }
-            } else if (button === Qt.RightButton) {
-                return
-            }
-
-    }
-
-    function cycleDuplicate(forward) {
-        if (!root.itemData || root.itemData.isStack || !root.itemData.isRunning || !root.itemData.toplevels) return
-        var len = root.itemData.toplevels.length
-        if (len <= 1) return
-
-        root.isWheelScrolling = true
-        wheelCursorTimer.restart()
-        previewResetTimer.stop()
-        var curIdx = root.effectiveTopIndex
-        var nextIdx = forward ? ((curIdx + 1) % len) : ((curIdx - 1 + len) % len)
-        root.previewTopIndex = nextIdx
+        }
     }
 
     MouseArea {
@@ -555,39 +493,10 @@ Item {
             mouseArea.forceActiveFocus()
         }
 
-        Keys.onRightPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                root.cycleDuplicate(true)
-                event.accepted = true
-            }
-        }
-
-        Keys.onLeftPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                root.cycleDuplicate(false)
-                event.accepted = true
-            }
-        }
-
-        Keys.onTabPressed: function(event) {
-            if (root.itemData) {
-                clickEffectAnim.restart()
-                DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
-                DockModel.launchApp(root.shell, root.itemData, Util)
-                event.accepted = true
-            }
-        }
-
-        Keys.onReturnPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2 && root.previewTopIndex >= 0) {
-                var top = root.itemData.toplevels[root.previewTopIndex]
-                if (top && typeof top.activate === "function") {
-                    top.activate()
-                    root.previewTopIndex = -1
-                    event.accepted = true
-                }
-            }
-        }
+        Keys.onRightPressed: function(event) { event.accepted = appInteraction.cycle(true) }
+        Keys.onLeftPressed: function(event) { event.accepted = appInteraction.cycle(false) }
+        Keys.onTabPressed: function(event) { event.accepted = appInteraction.launch() }
+        Keys.onReturnPressed: function(event) { event.accepted = appInteraction.confirmPreview() }
 
         onPressed: function(mouse) {
             root.previewCancelled()
@@ -602,21 +511,14 @@ Item {
                     return
                 }
                 if (root.itemData) {
-                    if (root.itemData.isStack) {
-                        clickEffectAnim.restart()
-                        root.itemRightClicked(root.itemData, root)
-                    } else {
-                        clickEffectAnim.restart()
-                        root.itemRightClicked(root.itemData, root)
-                    }
+                    clickEffectAnim.restart()
+                    root.itemRightClicked(root.itemData, root)
                 }
             }
         }
 
         onPositionChanged: function(mouse) {
-            if (root.isWheelScrolling) {
-                root.isWheelScrolling = false
-            }
+            appInteraction.pointerMoved()
             if (mouseArea.drag.active) {
                 longPressTimer.stop()
                 if (!root.isDragging) {
@@ -662,8 +564,7 @@ Item {
 
         onExited: {
             longPressTimer.stop()
-            root.isWheelScrolling = false
-            previewResetTimer.restart()
+            appInteraction.leave()
         }
 
         onCanceled: {
@@ -679,15 +580,7 @@ Item {
         }
 
         onWheel: function(wheel) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                var result = DockScroll.step(root.pendingScroll, wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
-                root.pendingScroll = result.pending
-                scrollReset.restart()
-                if (result.direction !== 0) root.cycleDuplicate(result.direction > 0)
-                wheel.accepted = true
-            } else {
-                wheel.accepted = false
-            }
+            wheel.accepted = appInteraction.wheel(wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
         }
 
         onClicked: function(mouse) { root.triggerPress(mouse.button) }

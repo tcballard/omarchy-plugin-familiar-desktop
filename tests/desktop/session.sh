@@ -107,7 +107,7 @@ wait_for familiar_ready
 phase=palette
 palette="$XDG_RUNTIME_DIR/palette-probe"
 mkdir -p "$palette"
-ln -s "$OMARCHY_PATH/shell" "$palette/qs"
+ln -s "$OMARCHY_PATH/shell/Commons" "$palette/Commons"
 cp "$SMOKE_ROOT/tests/desktop/palette-probe.qml" "$palette/shell.qml"
 timeout 15 qs -p "$palette/shell.qml" > "$EVIDENCE/palette-probe.log" 2>&1
 grep -q 'PASS: qualified Commons palette' "$EVIDENCE/palette-probe.log"
@@ -125,11 +125,12 @@ phase=native-input
 "$helper" gestures desktop | tee "$EVIDENCE/gestures-enable.json"
 "$helper" input-preference command enable | tee "$EVIDENCE/shortcuts-enable.json"
 hyprctl configerrors > "$EVIDENCE/native-input-config-errors.txt"
-[[ ! -s "$EVIDENCE/native-input-config-errors.txt" ]]
+[[ -z "$(cat "$EVIDENCE/native-input-config-errors.txt")" ]]
 hyprctl eval "dofile('$SMOKE_ROOT/tests/desktop/native-input-probe.lua')" | tee "$EVIDENCE/native-input-probe.txt"
 grep -qx 'ok' "$EVIDENCE/native-input-probe.txt"
 sleep 0.2
-! grep -Eq 'Runtime error in lua|dispatcher objects cannot be called' "$EVIDENCE/hyprland.log"
+cp "$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprland.log" "$EVIDENCE/native-input-hyprland.log"
+! grep -Eq 'Runtime error in lua|dispatcher objects cannot be called' "$EVIDENCE/native-input-hyprland.log"
 "$helper" input-preference command reset
 "$helper" gestures reset
 phase=windows

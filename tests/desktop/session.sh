@@ -121,6 +121,18 @@ b=$(hyprctl -j clients | jq -er '.[] | select(.class == "familiar-smoke-b") | .a
 "$helper" dock activate-instance "$a"
 active_a() { timeout 3 hyprctl -j activewindow | jq -e --arg a "$a" '.address == $a' >/dev/null; }
 wait_for active_a
+phase=native-input
+"$helper" gestures desktop | tee "$EVIDENCE/gestures-enable.json"
+"$helper" input-preference command enable | tee "$EVIDENCE/shortcuts-enable.json"
+hyprctl configerrors > "$EVIDENCE/native-input-config-errors.txt"
+[[ ! -s "$EVIDENCE/native-input-config-errors.txt" ]]
+hyprctl eval "dofile('$SMOKE_ROOT/tests/desktop/native-input-probe.lua')" | tee "$EVIDENCE/native-input-probe.txt"
+grep -qx 'ok' "$EVIDENCE/native-input-probe.txt"
+sleep 0.2
+! grep -Eq 'Runtime error in lua|dispatcher objects cannot be called' "$EVIDENCE/hyprland.log"
+"$helper" input-preference command reset
+"$helper" gestures reset
+phase=windows
 "$helper" dock minimize-instance "$a"
 minimized_a() { timeout 3 hyprctl -j clients | jq -e --arg a "$a" 'any(.[]; .address == $a and .workspace.name == "special:minimized")' >/dev/null; }
 wait_for minimized_a
@@ -243,17 +255,17 @@ omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready
 phase=rollback
 if [[ $EXPECTED_QT == 6.11.2 ]]; then
-bash "$bundle/install-dev.sh" --rollback
-[[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
-[[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
-[[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
-jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
-cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
-cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+  bash "$bundle/install-dev.sh" --rollback
+  [[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
+  [[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
+  [[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
+  jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
+  cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
+  cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
 else
   echo 'Qt 6.12: old-release UI/rollback compatibility is outside this candidate check.'
 fi
 wait_for familiar_ready
 wait_for two_windows
 phase=passed
-echo 'PASS: real shell, stable-to-development install, two windows, focus, minimise/restore, shell restart, dock layer and rollback.'
+echo 'PASS: real shell, source-matched installation, native palette/input, two windows, focus, minimise/restore, shell restart and dock layer.'

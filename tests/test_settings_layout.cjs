@@ -142,9 +142,11 @@ TestCase {
             {name: "dock-overlay", section: "visibility", key: "overlayMode"},
             {name: "dock-badges", section: "extras", key: "showBadges"},
             {name: "dock-widgets", section: "extras", key: "widgetsEnabled"}
+            ,{name: "skipBrowserTitlebars", page: "windows", section: "titlebars", key: "skipBrowserTitlebars"}
         ]
         settingsWindow.page = "dock"
         for (var test of cases) {
+            settingsWindow.page = test.page || "dock"
             settingsWindow.section = test.section
             wait(20)
             var row = findChild(cardColumn, test.name)
@@ -162,6 +164,7 @@ TestCase {
             compare(root.lastPreference.value, expected, "the service owns the value")
         }
         var saved = owner.snapshot()
+        settingsWindow.page = "dock"
         for (var mode of ["always", "hover", "keybind", "hybrid"]) {
             owner.visibilityMode = mode
             compare(findChild(cardColumn, "dock-autohide").checked, mode === "hover" || mode === "hybrid")

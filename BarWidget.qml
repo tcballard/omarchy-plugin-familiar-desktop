@@ -16,20 +16,19 @@ BarWidget {
   id: root
   moduleName: "io.github.tcballard.familiar-desktop"
 
-  property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
   property var shell: root.bar ? root.bar.shell : null
-  property string profile: "general"
-  property string shortcutLabels: "standard"
-  property bool fileShortcutsEnabled: false
-  property bool dockEnabled: true
-  property string dockBackgroundOpacity: "theme"
-  property string dockSize: "default"
-  property string dockPosition: "auto"
-  property string titlebarSize: "default"
-  property bool titlebarsEnabled: false
-  property string titlebarMode: "theme"
-  property string titlebarStyle: "windows"
-  property string titlebarExclusions: ""
+  readonly property string profile: desktopService ? desktopService.profile : "general"
+  readonly property string shortcutLabels: desktopService ? desktopService.shortcutLabels : "standard"
+  readonly property bool fileShortcutsEnabled: desktopService ? desktopService.fileShortcutsEnabled : false
+  readonly property bool dockEnabled: desktopService ? desktopService.dockEnabled : true
+  readonly property string dockBackgroundOpacity: desktopService ? desktopService.dockBackgroundOpacity : "theme"
+  readonly property string dockSize: desktopService ? desktopService.dockSize : "default"
+  readonly property string dockPosition: desktopService ? desktopService.dockPosition : "auto"
+  readonly property string titlebarSize: desktopService ? desktopService.titlebarSize : "default"
+  readonly property bool titlebarsEnabled: desktopService ? desktopService.titlebarsEnabled : false
+  readonly property string titlebarMode: desktopService ? desktopService.titlebarMode : "theme"
+  readonly property string titlebarStyle: desktopService ? desktopService.titlebarStyle : "windows"
+  readonly property string titlebarExclusions: desktopService ? desktopService.titlebarExclusions : ""
   property string titlebarStatusText: ""
   property bool titlebarOptionsOpen: false
   property bool gettingStartedOpen: false
@@ -41,14 +40,14 @@ BarWidget {
     }
   }
   readonly property var desktopService: root.shell && typeof root.shell.serviceFor === "function" ? root.shell.serviceFor(moduleName) : null
-  property string visibilityMode: "always"
+  readonly property string visibilityMode: desktopService ? desktopService.visibilityMode : "always"
   readonly property bool autohide: root.visibilityMode !== "always"
-  property bool overlayMode: false
-  property string visibleWorkspace: "all"
-  property bool showFolderTitles: true
-  property bool showBadges: true
-  property bool windowPreviews: true
-  property bool widgetsEnabled: true
+  readonly property bool overlayMode: desktopService ? desktopService.overlayMode : false
+  readonly property string visibleWorkspace: desktopService ? desktopService.visibleWorkspace : "all"
+  readonly property bool showFolderTitles: desktopService ? desktopService.showFolderTitles : true
+  readonly property bool showBadges: desktopService ? desktopService.showBadges : true
+  readonly property bool windowPreviews: desktopService ? desktopService.windowPreviews : true
+  readonly property bool widgetsEnabled: desktopService ? desktopService.widgetsEnabled : true
   readonly property bool settingsOpen: settingsWindow.open
   onSettingsOpenChanged: {
     if (settingsOpen && desktopService) {
@@ -59,209 +58,23 @@ BarWidget {
       if (desktopService.windowMode) desktopService.windowMode.run("status")
     }
   }
-  property bool isSavingSettings: false
-
-  Timer {
-    id: saveSettingsTimer
-    interval: 350
-    repeat: false
-    onTriggered: {
-      root.isSavingSettings = false
-    }
-  }
-
-  FileView {
-    id: settingsFile
-    path: root.settingsPath
-    watchChanges: true
-    atomicWrites: true
-    printErrors: false
-    onLoaded: root.readSettings()
-    onFileChanged: {
-      if (!root.isSavingSettings) {
-        reload()
-        root.readSettings()
-      }
-    }
-  }
-
-  property var dockWidgets: ["omarchy.apps"]
-  property string appMenuPosition: "left"
-  property string widgetPosition: "right"
-  property var widgetSavedPositions: ({})
-  property string preferredVisibilityMode: "hover"
+  readonly property string preferredVisibilityMode: desktopService ? desktopService.preferredVisibilityMode : "hover"
+  readonly property string appMenuPosition: desktopService ? desktopService.appMenuPosition : "left"
+  readonly property string widgetPosition: desktopService ? desktopService.widgetPosition : "right"
+  readonly property var dockWidgets: desktopService ? desktopService.dockWidgets : ["omarchy.apps"]
+  readonly property var widgetSavedPositions: desktopService ? desktopService.widgetSavedPositions : ({})
   readonly property string effectiveMode: root.autohide ? root.visibilityMode : (root.preferredVisibilityMode || "hover")
 
-  function readSettings() {
-    if (root.isSavingSettings) return
-    try {
-      var txt = settingsFile.text()
-      if (txt && txt.trim().length > 0) {
-        var s = JSON.parse(txt)
-        root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
-        var normalized = DockSettings.normalize(s)
-        root.profile = normalized.profile
-        root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
-        root.dockPosition = normalized.dockPosition
-        root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
-        root.dockSize = normalized.dockSize
-        root.titlebarSize = normalized.titlebarSize
-        root.titlebarsEnabled = normalized.titlebarsEnabled
-        root.titlebarMode = normalized.titlebarMode
-        root.titlebarStyle = normalized.titlebarStyle
-        root.titlebarExclusions = normalized.titlebarExclusions
-        root.visibilityMode = normalized.visibilityMode
-        if (s && s.preferredVisibilityMode !== undefined) {
-          var pvm = String(s.preferredVisibilityMode).trim().toLowerCase()
-          if (pvm === "hover" || pvm === "keybind") root.preferredVisibilityMode = pvm
-        } else if (normalized.visibilityMode === "hover" || normalized.visibilityMode === "keybind") {
-          root.preferredVisibilityMode = normalized.visibilityMode
-        }
-        root.overlayMode = normalized.overlayMode
-        root.visibleWorkspace = normalized.visibleWorkspace
-        if (s && s.dockEnabled !== undefined) {
-          root.dockEnabled = (s.dockEnabled === true || s.dockEnabled === "true" || s.dockEnabled === 1 || s.dockEnabled === "1")
-        } else {
-          root.dockEnabled = true
-        }
-        if (s && s.showFolderTitles !== undefined) {
-          root.showFolderTitles = (s.showFolderTitles === true)
-        }
-        root.windowPreviews = s.windowPreviews !== false
-        if (s && s.showBadges !== undefined) {
-          root.showBadges = (s.showBadges === true)
-        }
-        if (s && s.widgetsEnabled !== undefined) {
-          root.widgetsEnabled = (s.widgetsEnabled === true)
-        }
-        if (s && s.appMenuPosition !== undefined) {
-          root.appMenuPosition = s.appMenuPosition
-        }
-        if (s && s.widgetPosition !== undefined) {
-          root.widgetPosition = s.widgetPosition
-        }
-        if (s && s.dockWidgets !== undefined && Array.isArray(s.dockWidgets)) {
-          root.dockWidgets = DockWidgets.normalizeDockWidgets(s.dockWidgets)
-        }
-        if (s && s.widgetSavedPositions !== undefined && typeof s.widgetSavedPositions === "object") {
-          root.widgetSavedPositions = s.widgetSavedPositions
-        }
-      }
-    } catch(e) {}
+  function setPreference(key, value) {
+    return desktopService ? desktopService.setPreference(key, value) : false
   }
-
-  function saveSettings() {
-    root.isSavingSettings = true
-    saveSettingsTimer.restart()
-    var s = {}
-    try {
-      var txt = settingsFile.text()
-      if (txt && txt.trim().length > 0) {
-        s = JSON.parse(txt) || {}
-      }
-    } catch(e) {}
-
-    s.dockEnabled = root.dockEnabled
-    s.profile = root.profile
-    s.shortcutLabels = root.shortcutLabels
-    s.dockPosition = root.dockPosition
-    s.dockBackgroundOpacity = root.dockBackgroundOpacity
-    s.dockSize = root.dockSize
-    s.titlebarSize = root.titlebarSize
-    s.titlebarsEnabled = root.titlebarsEnabled
-    s.titlebarMode = root.titlebarMode
-    s.titlebarStyle = root.titlebarStyle
-    s.titlebarExclusions = root.titlebarExclusions
-    s.visibilityMode = root.visibilityMode
-    s.preferredVisibilityMode = root.preferredVisibilityMode
-    s.autohide = DockSettings.legacyAutohide(root.visibilityMode)
-    s.overlayMode = root.overlayMode
-    s.visibleWorkspace = root.visibleWorkspace
-    s.showFolderTitles = root.showFolderTitles
-    s.fileShortcutsEnabled = root.fileShortcutsEnabled
-    s.showBadges = root.showBadges
-    s.windowPreviews = root.windowPreviews
-    s.widgetsEnabled = root.widgetsEnabled
-    s.appMenuPosition = root.appMenuPosition || s.appMenuPosition || "left"
-    s.widgetPosition = root.widgetPosition || s.widgetPosition || "right"
-    s.widgetSavedPositions = root.widgetSavedPositions || s.widgetSavedPositions || {}
-    s.dockWidgets = DockWidgets.normalizeDockWidgets(root.dockWidgets)
-
-
-    settingsFile.setText(JSON.stringify(s, null, 2) + "\n")
-  }
-
-  function setDockEnabled(val) {
-    root.dockEnabled = val
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setDockEnabled " + (val ? "true" : "false"))
-    }
-  }
-
-  function setProfile(value) {
-    if (root.desktopService) root.desktopService.setProfile(DockSettings.normalizeProfile(value))
-  }
-
-  function setAutohide(val) {
-    if (!root.dockEnabled) {
-      root.dockEnabled = true
-    }
-    var hasKeybind = (root.visibilityMode === "keybind" || root.visibilityMode === "hybrid")
-    if (val) {
-      root.visibilityMode = hasKeybind ? "hybrid" : "hover"
-    } else {
-      root.visibilityMode = hasKeybind ? "keybind" : "always"
-    }
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setVisibilityMode " + root.visibilityMode)
-    }
-  }
-
-  function setKeybindMode(val) {
-    if (!root.dockEnabled) {
-      root.dockEnabled = true
-    }
-    var hasHover = (root.visibilityMode === "hover" || root.visibilityMode === "hybrid")
-    if (val) {
-      root.visibilityMode = hasHover ? "hybrid" : "keybind"
-    } else {
-      root.visibilityMode = hasHover ? "hover" : "always"
-    }
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setVisibilityMode " + root.visibilityMode)
-    }
-  }
-
-  function setOverlayMode(val) {
-    root.overlayMode = val
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setOverlayMode " + (val ? "true" : "false"))
-    }
-  }
-
-  function setVisibilityMode(mode) {
-    var norm = DockSettings.normalizeVisibilityMode(mode, false)
-    if (norm === "hover" || norm === "keybind") {
-      root.preferredVisibilityMode = norm
-    }
-    root.visibilityMode = norm
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setVisibilityMode " + root.visibilityMode)
-    }
-  }
-
-  function setVisibleWorkspace(workspace) {
-    root.visibleWorkspace = DockSettings.normalizeVisibleWorkspace(workspace)
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      DockCommands.run(Util, ["omarchy-shell", "io.github.tcballard.familiar-desktop", "setVisibleWorkspace", root.visibleWorkspace])
-    }
-  }
+  function setDockEnabled(value) { if (desktopService) desktopService.setDockEnabled(value) }
+  function setProfile(value) { if (desktopService) desktopService.setProfile(value) }
+  function setAutohide(value) { if (desktopService) desktopService.setAutohide(value) }
+  function setKeybindMode(value) { if (desktopService) desktopService.setKeybindMode(value) }
+  function setOverlayMode(value) { if (desktopService) desktopService.setOverlayMode(value) }
+  function setVisibilityMode(value) { if (desktopService) desktopService.setVisibilityMode(value) }
+  function setVisibleWorkspace(value) { if (desktopService) desktopService.setVisibleWorkspace(value) }
 
   function buildWorkspaceOptions() {
     var opts = [
@@ -301,29 +114,9 @@ BarWidget {
     return root.buildWorkspaceOptions()
   }
 
-  function setShowFolderTitles(val) {
-    root.showFolderTitles = val
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setShowFolderTitles " + (val ? "true" : "false"))
-    }
-  }
-
-  function setShowBadges(val) {
-    root.showBadges = val
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setShowBadges " + (val ? "true" : "false"))
-    }
-  }
-
-  function setWidgetsEnabled(val) {
-    root.widgetsEnabled = val
-    saveSettings()
-    if (root.bar && typeof root.bar.run === "function") {
-      root.bar.run("omarchy-shell io.github.tcballard.familiar-desktop setWidgetsEnabled " + (val ? "true" : "false"))
-    }
-  }
+  function setShowFolderTitles(value) { setPreference("showFolderTitles", value) }
+  function setShowBadges(value) { setPreference("showBadges", value) }
+  function setWidgetsEnabled(value) { setPreference("widgetsEnabled", value) }
 
   readonly property bool opened: settingsWindow.open
   function open() {
@@ -511,7 +304,7 @@ BarWidget {
                   Layout.fillWidth: true
                   text: modelData.label
                   selected: root[sizeRow.modelData.key] === modelData.key
-                  onClicked: { root[sizeRow.modelData.key] = modelData.key; root.saveSettings() }
+                  onClicked: { root.setPreference(sizeRow.modelData.key, modelData.key) }
                 }
               }
             }
@@ -533,8 +326,7 @@ BarWidget {
             { value: "100", label: "100% — Opaque" }
           ]
           onChanged: function(value) {
-            root.dockBackgroundOpacity = DockSettings.normalizeBackgroundOpacity(value)
-            root.saveSettings()
+            root.setPreference("dockBackgroundOpacity", DockSettings.normalizeBackgroundOpacity(value))
           }
         }
 
@@ -570,7 +362,7 @@ BarWidget {
               Layout.fillWidth: true
               text: modelData.label
               selected: root.shortcutLabels === modelData.key
-              onClicked: { root.shortcutLabels = modelData.key; root.saveSettings() }
+              onClicked: { root.setPreference("shortcutLabels", modelData.key) }
             }
           }
           Text {
@@ -642,13 +434,7 @@ BarWidget {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
-                    root.titlebarsEnabled = modelData.key !== "off"
-                    root.titlebarMode = modelData.key
-                    if (root.titlebarsEnabled) {
-                      if (modelData.key !== "theme") root.titlebarStyle = modelData.key
-                      root.dockEnabled = true
-                    }
-                    root.saveSettings()
+                    if (root.desktopService) root.desktopService.setTitlebarMode(modelData.key)
                   }
                 }
               }
@@ -719,8 +505,7 @@ BarWidget {
               color: Color.popups.text
               selectByMouse: true
               onEditingFinished: {
-                root.titlebarExclusions = text
-                root.saveSettings()
+                root.setPreference("titlebarExclusions", text)
               }
             }
           }
@@ -852,8 +637,7 @@ BarWidget {
             { value: "right", label: "Right" }
           ]
           onChanged: function(value) {
-            root.dockPosition = DockSettings.normalizeDockPosition(value)
-            root.saveSettings()
+            root.setPreference("dockPosition", DockSettings.normalizeDockPosition(value))
           }
         }
 
@@ -888,7 +672,7 @@ BarWidget {
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: { root.fileShortcutsEnabled = !root.fileShortcutsEnabled; root.saveSettings() }
+            onClicked: { root.setPreference("fileShortcutsEnabled", !root.fileShortcutsEnabled) }
           }
         }
 
@@ -1278,7 +1062,7 @@ BarWidget {
           visible: settingsWindow.section === "extras"
           text: "Window previews on hover: " + (root.windowPreviews ? "On" : "Off")
           selected: root.windowPreviews
-          onClicked: { root.windowPreviews = !root.windowPreviews; root.saveSettings() }
+          onClicked: { root.setPreference("windowPreviews", !root.windowPreviews) }
         }
 
         // Toggle Notification Badges Row

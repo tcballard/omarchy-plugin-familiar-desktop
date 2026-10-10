@@ -38,30 +38,11 @@ for (const isBarTransparent of [true, false]) {
     }
   }
 }
-// Use the full production methods, so a missing field in either writer fails.
-for (const source of sources) {
-  const read = source.slice(source.indexOf('  function readSettings()'), source.indexOf('  function saveSettings()'));
-  const saveStart = source.indexOf('  function saveSettings()');
-  const nextFunction = source.indexOf('  function ', saveStart + 10);
-  const save = source.slice(saveStart, nextFunction);
-  let stored = JSON.stringify({dockBackgroundOpacity:'0',dockWidgets:['omarchy.apps']});
-  const root = {isSavingSettings:false};
-  const context = vm.createContext({root,DockSettings,ShortcutLabels:library('ShortcutLabels.js'),
-    DockWidgets:library('DockWidgets.js'),DockModel:library('DockModel.js'),
-    settingsFile:{text:()=>stored,setText:text=>{stored=text;}},saveSettingsTimer:{restart(){}}});
-  vm.runInContext(read + '\n' + save, context);
-  for (const choice of ['0', '25', '50', '75', '100', 'theme']) {
-    stored = JSON.stringify({dockBackgroundOpacity:choice,dockWidgets:['omarchy.apps']});
-    root.isSavingSettings = false;
-    context.readSettings();
-    assert.equal(root.dockBackgroundOpacity,choice);
-    root.showBadges = false; // an unrelated setting must not reset the override
-    context.saveSettings();
-    assert.equal(JSON.parse(stored).dockBackgroundOpacity,choice);
-    root.dockBackgroundOpacity = 'lost-on-restart';
-    root.isSavingSettings = false;
-    context.readSettings();
-    assert.equal(root.dockBackgroundOpacity,choice);
-  }
+const schema = require('./helpers/load-js.cjs')('components/SettingsSchema.js');
+for (const choice of ['0','25','50','75','100','theme']) {
+  const loaded = schema.normalize({dockBackgroundOpacity:choice,dockWidgets:['omarchy.apps']});
+  const saved = JSON.parse(schema.encode({future:1},{...loaded,showBadges:false}));
+  assert.equal(saved.dockBackgroundOpacity,choice);
+  assert.equal(schema.normalize(saved).dockBackgroundOpacity,choice);
 }
-console.log('Dock opacity: theme/override matrix, malformed settings and both persistence paths passed');
+console.log('Dock opacity: theme/override matrix, malformed settings and shared persistence passed');

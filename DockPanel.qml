@@ -350,7 +350,7 @@ Item {
     readonly property var desktopTools: desktopToolsAdapter
     DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
 
-    property bool fileShortcutsEnabled: false
+    property alias fileShortcutsEnabled: settings.fileShortcutsEnabled
     readonly property real fileShortcutsSize: fileShortcutsEnabled ? 3 * slotSize : 0
     property string desktopActionError: ""
     readonly property bool desktopActionBusy: desktopActionProcess.running
@@ -508,14 +508,14 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
-    property string dockBackgroundOpacity: "theme"
-    property string dockSize: "default"
-    property string dockPosition: "auto"
-    property string titlebarSize: "default"
-    property bool titlebarsEnabled: false
-    property string titlebarMode: "theme"
-    property string titlebarStyle: "windows"
-    property string titlebarExclusions: ""
+    property alias dockBackgroundOpacity: settings.dockBackgroundOpacity
+    property alias dockSize: settings.dockSize
+    property alias dockPosition: settings.dockPosition
+    property alias titlebarSize: settings.titlebarSize
+    property alias titlebarsEnabled: settings.titlebarsEnabled
+    property alias titlebarMode: settings.titlebarMode
+    property alias titlebarStyle: settings.titlebarStyle
+    property alias titlebarExclusions: settings.titlebarExclusions
     readonly property string titlebarState: titlebars.state
     readonly property string titlebarMessage: titlebars.message
     readonly property bool titlebarBusy: titlebars.busy
@@ -533,13 +533,13 @@ Item {
         fontFamily: Style.font.family
         fontSize: Math.max(8, Math.min(32, Style.font.subtitle))
     }
-    property string profile: "general"
-    property string shortcutLabels: "standard"
-    property bool dockEnabled: true
-    property string visibilityMode: "always"
-    property string preferredVisibilityMode: "hover"
+    property alias profile: settings.profile
+    property alias shortcutLabels: settings.shortcutLabels
+    property alias dockEnabled: settings.dockEnabled
+    property alias visibilityMode: settings.visibilityMode
+    property alias preferredVisibilityMode: settings.preferredVisibilityMode
     readonly property bool autohide: root.visibilityMode !== "always"
-    property bool overlayMode: false
+    property alias overlayMode: settings.overlayMode
     property int visibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
     property string keyboardTargetWorkspace: ""
     property string keyboardTargetMonitorName: ""
@@ -551,20 +551,20 @@ Item {
     property string baseDockMonitorName: ""
     property bool widgetPickerRevealOwned: false
     property int widgetPickerPreviousVisibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-    property string visibleWorkspace: "all"
-    property int autohideEdgeDepth: 1  // pixels from screen edge that trigger dock reveal
+    property alias visibleWorkspace: settings.visibleWorkspace
+    property alias autohideEdgeDepth: settings.autohideEdgeDepth
     readonly property int effectiveAutohideEdgeDepth: Math.max(4, Math.min(64, root.autohideEdgeDepth))
-    property bool showFolderTitles: true
-    property bool showBadges: true
-    property bool windowPreviews: true
-    property bool glassmorphism: false
-    property real blurOpacity: 0.68
+    property alias showFolderTitles: settings.showFolderTitles
+    property alias showBadges: settings.showBadges
+    property alias windowPreviews: settings.windowPreviews
+    property alias glassmorphism: settings.glassmorphism
+    property alias blurOpacity: settings.blurOpacity
     readonly property bool showAppMenu: root.widgetsEnabled && root.dockWidgets && (root.dockWidgets.indexOf("omarchy.apps") !== -1)
-    property string appMenuPosition: "left"
-    property bool widgetsEnabled: true
-    property string widgetPosition: "right"
-    property var dockWidgets: ["omarchy.apps"]
-    property var widgetSavedPositions: ({})
+    property alias appMenuPosition: settings.appMenuPosition
+    property alias widgetsEnabled: settings.widgetsEnabled
+    property alias widgetPosition: settings.widgetPosition
+    property alias dockWidgets: settings.dockWidgets
+    property alias widgetSavedPositions: settings.widgetSavedPositions
     property bool isDockHovered: false
     property bool isStackHovered: false
     property bool isMenuHovered: false
@@ -1079,134 +1079,19 @@ Item {
         }
     }
 
-    property bool isSavingSettings: false
+    SettingsStore { id: settings; path: root.settingsPath }
 
-    FileView {
-        id: settingsFile
-        path: root.settingsPath
-        watchChanges: true
-        atomicWrites: true
-        printErrors: false
-        onLoaded: root.readSettings()
-        onFileChanged: {
-            if (!root.isSavingSettings) {
-                reload()
-                root.readSettings()
-            }
-        }
+    function saveSettings() { return settings.save() }
+    function setPreference(key, value) {
+        var changes = {}; changes[key] = value
+        return settings.patch(changes)
     }
-
-    Timer {
-        id: saveSettingsTimer
-        interval: 300
-        repeat: false
-        onTriggered: root.isSavingSettings = false
-    }
-
-    function readSettings() {
-        if (root.isSavingSettings) return
-        try {
-            var txt = settingsFile.text()
-            if (txt && txt.trim().length > 0) {
-                var s = JSON.parse(txt)
-                if (!s || typeof s !== "object") return
-                root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
-                var normalized = DockSettings.normalize(s)
-                root.profile = normalized.profile
-                root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
-                root.dockPosition = normalized.dockPosition
-                root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
-                root.dockSize = normalized.dockSize
-                root.titlebarSize = normalized.titlebarSize
-                root.titlebarsEnabled = normalized.titlebarsEnabled
-                root.titlebarMode = normalized.titlebarMode
-                root.titlebarStyle = normalized.titlebarStyle
-                root.titlebarExclusions = normalized.titlebarExclusions
-                root.visibilityMode = normalized.visibilityMode
-                if (s.preferredVisibilityMode !== undefined) {
-                    var pvm = String(s.preferredVisibilityMode).trim().toLowerCase()
-                    if (pvm === "hover" || pvm === "keybind") root.preferredVisibilityMode = pvm
-                } else if (normalized.visibilityMode === "hover" || normalized.visibilityMode === "keybind") {
-                    root.preferredVisibilityMode = normalized.visibilityMode
-                }
-                root.overlayMode = normalized.overlayMode
-                root.visibleWorkspace = normalized.visibleWorkspace
-                if (s.dockEnabled !== undefined) {
-                    root.dockEnabled = (s.dockEnabled === true || s.dockEnabled === "true" || s.dockEnabled === 1 || s.dockEnabled === "1")
-                } else {
-                    root.dockEnabled = true
-                }
-                if (s.autohideEdgeDepth !== undefined) {
-                    var depth = parseInt(s.autohideEdgeDepth, 10)
-                    if (!isNaN(depth) && depth >= 1 && depth <= 64) root.autohideEdgeDepth = depth
-                }
-                root.showFolderTitles = true
-                root.windowPreviews = s.windowPreviews !== false
-                if (s.showBadges !== undefined) {
-                    root.showBadges = (s.showBadges === true)
-                }
-                if (s.glassmorphism !== undefined) {
-                    root.glassmorphism = (s.glassmorphism === true)
-                }
-                if (s.blurOpacity !== undefined) {
-                    var bo = Number(s.blurOpacity)
-                    if (isFinite(bo) && bo >= 0.1 && bo <= 1.0) root.blurOpacity = bo
-                }
-                if (s.appMenuPosition !== undefined) {
-                    root.appMenuPosition = s.appMenuPosition
-                }
-                if (s.widgetPosition !== undefined) {
-                    root.widgetPosition = s.widgetPosition
-                }
-                if (s.widgetsEnabled !== undefined) {
-                    root.widgetsEnabled = (s.widgetsEnabled === true)
-                }
-                if (Array.isArray(s.dockWidgets)) {
-                    root.dockWidgets = DockModel.normalizeDockWidgets(s.dockWidgets)
-                } else {
-                    root.dockWidgets = ["omarchy.apps"]
-                }
-                // Keep old placement metadata available for manual recovery.
-                if (s.widgetSavedPositions && typeof s.widgetSavedPositions === "object")
-                    root.widgetSavedPositions = s.widgetSavedPositions
-            }
-        } catch(e) {}
-    }
-
-    function saveSettings() {
-        root.isSavingSettings = true
-        saveSettingsTimer.restart()
-        var jsonStr = JSON.stringify({
-            profile: root.profile,
-            shortcutLabels: root.shortcutLabels,
-            dockPosition: root.dockPosition,
-            dockBackgroundOpacity: root.dockBackgroundOpacity,
-            dockSize: root.dockSize,
-            titlebarSize: root.titlebarSize,
-            titlebarsEnabled: root.titlebarsEnabled,
-            titlebarMode: root.titlebarMode,
-            titlebarStyle: root.titlebarStyle,
-            titlebarExclusions: root.titlebarExclusions,
-            dockEnabled: root.dockEnabled,
-            fileShortcutsEnabled: root.fileShortcutsEnabled,
-            visibilityMode: root.visibilityMode,
-            preferredVisibilityMode: root.preferredVisibilityMode,
-            autohide: DockSettings.legacyAutohide(root.visibilityMode),
-            overlayMode: root.overlayMode,
-            visibleWorkspace: root.visibleWorkspace,
-            autohideEdgeDepth: root.autohideEdgeDepth,
-            showFolderTitles: root.showFolderTitles,
-            showBadges: root.showBadges,
-            windowPreviews: root.windowPreviews,
-            glassmorphism: root.glassmorphism,
-            blurOpacity: root.blurOpacity,
-            widgetsEnabled: root.widgetsEnabled,
-            appMenuPosition: root.appMenuPosition || "left",
-            widgetPosition: root.widgetPosition || "right",
-            dockWidgets: DockModel.normalizeDockWidgets(root.dockWidgets),
-            widgetSavedPositions: root.widgetSavedPositions || {}
-        }, null, 2)
-        settingsFile.setText(jsonStr + "\n")
+    function setTitlebarMode(mode) {
+        if (["off", "theme", "mac", "windows"].indexOf(mode) < 0) return false
+        var changes = {titlebarMode: mode, titlebarsEnabled: mode !== "off"}
+        if (mode !== "off") changes.dockEnabled = true
+        if (mode === "mac" || mode === "windows") changes.titlebarStyle = mode
+        return settings.patch(changes)
     }
 
     function setDockEnabled(val) {
@@ -1236,18 +1121,12 @@ Item {
     }
 
     function setAutohide(val) {
-        if (val) {
-            if (!root.dockEnabled) {
-                root.dockEnabled = true
-            }
-            root.visibilityMode = root.preferredVisibilityMode || "hover"
-        } else {
-            if (root.visibilityMode === "hover" || root.visibilityMode === "keybind") {
-                root.preferredVisibilityMode = root.visibilityMode
-            }
-            root.visibilityMode = "always"
-        }
-        saveSettings()
+        var keybind = root.visibilityMode === "keybind" || root.visibilityMode === "hybrid"
+        settings.patch({dockEnabled: true, visibilityMode: val ? (keybind ? "hybrid" : "hover") : (keybind ? "keybind" : "always")})
+    }
+    function setKeybindMode(val) {
+        var hover = root.visibilityMode === "hover" || root.visibilityMode === "hybrid"
+        settings.patch({dockEnabled: true, visibilityMode: val ? (hover ? "hybrid" : "keybind") : (hover ? "hover" : "always")})
     }
 
     function setVisibilityMode(mode) {

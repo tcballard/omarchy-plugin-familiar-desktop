@@ -2,6 +2,7 @@
 
 .pragma library
 .import "AppIdentity.js" as Identity
+.import "PluginPanels.js" as Panels
 .import "AppCatalog.js" as Catalog
 .import "DesktopCatalog.js" as Entries
 
@@ -481,6 +482,11 @@ function matchToplevel(toplevel, appId, entry, desktopEntries, cachedCliApp) {
 function matchWindow(window, appId, metadata, desktopEntries, cachedCliApp) {
     if (!window) return false;
     var entry = metadata ? metadata.source : null;
+    // A generic Quickshell pin must not collect every registered panel. Each
+    // panel retains its original source window for focus/minimise/preview.
+    if (window.panelId || (entry && entry.pluginId)) {
+        return !!window.panelId && window.panelId === String(appId);
+    }
     var appClass = window.appClass;
     var title = window.title;
     var cleanId = stripDesktop(appId).toLowerCase().trim();
@@ -774,11 +780,15 @@ function collectWindows(appId, metadata, entries, windows, assignedTops, topleve
     };
 }
 
-function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntries, appLibrary, badgeCounts, urgentCounts, maxItems, minimizedToplevels, focusedWindowHistory) {
+function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntries, appLibrary, badgeCounts, urgentCounts, maxItems, minimizedToplevels, focusedWindowHistory, panelEntries) {
     var pinned = Array.isArray(pinnedList) ? pinnedList : [];
     var toplevels = toArray(toplevelsList);
     var windows = toplevels.map(normalizeWindow);
-    var entryIndex = createDesktopEntryIndex(desktopEntries);
+    var entryIndex = createDesktopEntryIndex(toArray(desktopEntries).concat(panelEntries || []));
+    for (var pw = 0; pw < windows.length; pw++) {
+        var panel = Panels.resolve(toplevels[pw], panelEntries);
+        if (panel && windows[pw]) windows[pw].panelId = panel.id;
+    }
     var entries = entryIndex.list;
     var minList = Array.isArray(minimizedToplevels) ? minimizedToplevels : [];
 
@@ -907,6 +917,8 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
             exec: getEntryExec(entry),
             appClass: result.matching.length ? (result.matching[0].appId || "") : (fallbackClass || ""),
             name: name, icon: resolveIcon(entry, appId, appLibrary),
+            pluginId: entry && entry.pluginId ? entry.pluginId : "",
+            iconGlyph: entry && entry.iconGlyph ? entry.iconGlyph : "",
             rawIcon: entry && entry.icon ? entry.icon : (appId || "application-x-executable"),
             iconSource: entry && entry.iconSource ? entry.iconSource : "",
             isStack: false, isPinned: isPinned, isDuplicate: false,
@@ -982,6 +994,7 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
             rAppId = topItem.appId || "";
             rTitle = topItem.title || "";
         } catch (e) {}
+        if (windows[j] && windows[j].panelId) rAppId = windows[j].panelId;
 
         // If window is running inside a terminal emulator and executes a recognized CLI app with a valid installed desktop entry:
         if (isTerminalApp(rAppId)) {

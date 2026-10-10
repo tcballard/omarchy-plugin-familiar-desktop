@@ -56,3 +56,47 @@ for (const pins of [['example-app'], [], [{isStack: true, id: 'work', apps: ['ex
   assert.equal(app.badgeCount, 2);
 }
 console.log('Desktop catalog: unified lookup, wrappers, precedence, compatibility and normalized metadata passed.');
+
+// Real RSS panel identity: registered name + shared Quickshell app ID. Keep
+// the original windows and separate other shell panels and standalone Qt apps.
+const panels = loadJS('PluginPanels.js');
+const panelEntries = panels.entriesFor({
+  'io.github.tcballard.rss-feed': {metadata: {displayName: 'RSS Feed', pluginId: 'io.github.tcballard.rss-feed'}},
+  'omarchy.agents': {metadata: {displayName: 'Agents'}},
+  'example.panel': {metadata: {displayName: 'Example Panel', icon: 'file:///tmp/example.svg'}},
+}, id => id === 'io.github.tcballard.rss-feed' ? '\uf09e' : '\udb81\udeb8');
+assert.equal(panelEntries[0].iconGlyph, '\uf09e');
+assert.equal(panelEntries[2].iconGlyph, '', 'image assets are not font glyphs');
+const rss = {appId: 'org.quickshell', title: 'RSS Feed', address: '0xrss'};
+const rssOther = {appId: 'org.quickshell', title: 'RSS Feed', address: '0xrss2', minimized: true};
+const agents = {appId: 'org.quickshell', title: 'Agents', address: '0xagents'};
+const unknown = {appId: 'org.quickshell', title: 'Unregistered panel', address: '0xunknown'};
+const nativeQt = {appId: 'org.kde.example', title: 'RSS Feed', address: '0xnative'};
+const panelWindows = [rss, rssOther, agents, unknown, nativeQt];
+assert.equal(panels.resolve(nativeQt, panelEntries), null, 'standalone Qt apps keep their own identity');
+assert.equal(panels.resolve(unknown, panelEntries), null);
+assert.equal(panels.resolve(rss, panelEntries.concat([{id: 'duplicate', name: 'RSS Feed'}])), null, 'ambiguous titles are not guessed');
+const nativeEntry = {id: 'org.kde.example', name: 'Native Qt app', icon: 'native-example'};
+for (const pins of [[], ['io.github.tcballard.rss-feed'], ['org.quickshell'], [{isStack: true, id: 'panels', apps: ['io.github.tcballard.rss-feed']}]] ) {
+  const items = matcher.buildDockItems(pins, panelWindows, rss, [nativeEntry], null, {}, {}, 0, [], [], panelEntries);
+  const apps = items.flatMap(item => item.isStack ? Array.from(item.subApps) : [item]);
+  const rssApp = apps.find(item => item.appId === 'io.github.tcballard.rss-feed');
+  assert.equal(rssApp.iconGlyph, '\uf09e');
+  assert.equal(rssApp.pluginId, 'io.github.tcballard.rss-feed');
+  assert.equal(rssApp.windowCount, 2);
+  assert.equal(rssApp.toplevels[0], rss);
+  assert.equal(rssApp.toplevels[1], rssOther);
+  assert.equal(rssApp.isActive, true);
+  assert.equal(apps.find(item => item.appId === 'omarchy.agents').windowCount, 1);
+  assert.equal(apps.find(item => item.appId === 'org.quickshell').windowCount, 1, 'generic shell pin collects only unmatched windows');
+  assert.equal(apps.find(item => item.appId === 'org.kde.example').iconGlyph, '');
+}
+const pinnedClosed = matcher.buildDockItems(['io.github.tcballard.rss-feed'], [], null, [], null, {}, {}, 0, [], [], panelEntries)[0];
+assert.equal(pinnedClosed.iconGlyph, '\uf09e');
+assert.equal(pinnedClosed.isRunning, false);
+const launch = loadJS('DockLauncher.js');
+let command = [], ordinaryLaunches = 0;
+launch.launchApp({summon: () => false, appLibrary: {launch: () => ordinaryLaunches++}}, pinnedClosed, {execArgv: argv => {command = Array.from(argv);}});
+assert.deepEqual(command, ['omarchy-shell', 'shell', 'summon', 'io.github.tcballard.rss-feed', '{}'], 'closed plugin pins use the existing widget-slot command route');
+assert.equal(ordinaryLaunches, 0);
+console.log('Registered panel glyphs, distinct shared-shell windows, native Qt identity, pins/folders and panel relaunch: passed.');

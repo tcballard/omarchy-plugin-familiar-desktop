@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.tcballard.rss-feed",
+  "name": "RSS Feed",
+  "version": "0.0.0",
+  "description": "Disposable RSS window/icon fixture; no network or feed data.",
+  "author": "Familiar smoke tests",
+  "license": "MIT",
+  "kinds": ["panel", "bar-widget"],
+  "entryPoints": {"panel": "Panel.qml", "barWidget": "BarWidget.qml"},
+  "barWidget": {"displayName": "RSS Feed", "defaultSection": "right"}
+}

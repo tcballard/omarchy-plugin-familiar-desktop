@@ -109,6 +109,31 @@ if [[ $EXPECTED_QT == 6.12.0 ]]; then
   wait_for omarchy plugin enable "$plugin_id"
 fi
 wait_for familiar_ready
+# Exercise the injected widget catalogue and a real shared-shell FloatingWindow.
+# This is a disposable icon/identity fixture, not RSS networking acceptance.
+phase=plugin-panel-icon
+rss_id=io.github.tcballard.rss-feed
+rss_fixture="$HOME/.config/omarchy/plugins/$rss_id"
+cp -R "$SMOKE_ROOT/tests/desktop/panel-fixture" "$rss_fixture"
+omarchy-shell shell rescanPlugins
+wait_for omarchy plugin enable "$rss_id"
+omarchy-shell shell summon "$rss_id" '{}'
+rss_icon_ready() {
+  timeout 3 omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" \
+    'any(.[]; .id == $id and .pluginId == $id and .glyph == "\uf09e" and .windows == 1)' >/dev/null
+}
+wait_for rss_icon_ready
+omarchy-shell "$plugin_id" panelStatus > "$EVIDENCE/plugin-panel-icons.json"
+rss_window=$(hyprctl -j clients | jq -er '.[] | select(.title == "RSS Feed") | .address')
+hyprctl dispatch focuswindow "address:$rss_window"
+rss_active() { omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" 'any(.[]; .id == $id and .active == true)' >/dev/null; }
+wait_for rss_active
+omarchy-shell shell hide "$rss_id"
+rss_closed() { omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" 'all(.[]; .id != $id)' >/dev/null; }
+wait_for rss_closed
+omarchy plugin disable "$rss_id"
+rm -rf "$rss_fixture"
+omarchy-shell shell rescanPlugins
 phase=palette
 palette="$XDG_RUNTIME_DIR/palette-probe"
 mkdir -p "$palette"

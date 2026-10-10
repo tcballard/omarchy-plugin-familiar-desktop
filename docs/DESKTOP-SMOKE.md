@@ -16,6 +16,10 @@ It is an additional CI check; the existing portable tests remain independent.
 - Bootstrap a pinned v0.1.2 fixture using its real binary-download/setup helpers.
 - Install the exact candidate with the production development installer.
 - Require real shell and Familiar IPC responses.
+- Register a disposable RSS Feed fixture, open its real shared-shell window,
+  require the RSS glyph and plugin identity in Familiar, focus it, close it and
+  verify cleanup. This covers catalogue integration, not RSS fetching or the
+  physical Nerd Font glyph appearance on the XPS.
 - Launch two real foot windows; verify their compositor identities.
 - Activate, minimise and restore an exact window, checking actual compositor state
   and that minimising does not reveal the hidden workspace or hide the other window.

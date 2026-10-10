@@ -11,6 +11,7 @@ import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 import "HostedWidgets.js" as HostedWidgets
+import "PluginPanels.js" as PluginPanels
 import "IconResolver.js" as Icons
 import "DockSettings.js" as DockSettings
 import "DockGeometry.js" as Geometry
@@ -34,6 +35,7 @@ Item {
     // snapshot still carries every registered widget's Component.
     property var barWidgetRegistry: null
     readonly property int widgetRegistryRevision: barWidgetRegistry ? barWidgetRegistry.revision : 0
+    onWidgetRegistryRevisionChanged: updateDockItems()
 
     // Dock state & Multi-source Live Bar Position Tracking
     property bool opened: true
@@ -135,6 +137,11 @@ Item {
         function restoreDesktop(): string { return desktopToolsAdapter.run(["restore"]) ? "started" : "busy" }
         function taskbarStatus(): string { return JSON.stringify({mode:taskbarController.mode, active:root.taskbarActive, busy:taskbarController.busy, profile:root.profile, message:taskbarController.message}) }
         function ping(): string { return "ok" }
+        function panelStatus(): string {
+            return JSON.stringify(root.dockItems.filter(function(item) { return !!item.pluginId }).map(function(item) {
+                return {id: item.appId, pluginId: item.pluginId, icon: item.rawIcon, glyph: item.iconGlyph, windows: item.windowCount, active: item.isActive}
+            }))
+        }
     }
 
     function openWidgetPicker() {
@@ -812,6 +819,7 @@ Item {
 
     function configureHostedWidget(item, widgetId, anchorItem) {
         HostedWidgets.attach(widgetHost, item, widgetId, anchorItem)
+        root.widgetIconRevision++
     }
     QtObject {
         id: widgetHost
@@ -862,6 +870,7 @@ Item {
 
     // Reactive tracking for hardware and system states
     property int widgetIconRevision: 0
+    onWidgetIconRevisionChanged: updateDockItems()
 
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
@@ -921,6 +930,7 @@ Item {
         }
         if (widgetId === "omarchy.tray") return "󰇙"
         if (widgetId === "omarchy.agents") return "󰚩"
+        if (widgetId === "io.github.tcballard.rss-feed") return ""
         if (widgetId === "omarchy.indicators") return "󰂚"
         if (widgetId === "silvaio.gamemode") return "󰊴"
         if (widgetId === "lgse.sandman") return "󰒲"
@@ -1459,7 +1469,15 @@ Item {
             ? DesktopEntries.applications.values
             : (lib && typeof lib.sortedEntries === "function" ? lib.sortedEntries("") : root.appRows)
         windowTracker.recordFocus(toplevels, active)
-        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
+        var panelEntries = PluginPanels.entriesFor(root.barWidgetRegistry ? root.barWidgetRegistry.widgets : {}, function(id) {
+            var hosted = null
+            for (var i = 0; i < root.loadedWidgetItems.length; i++) {
+                var item = root.loadedWidgetItems[i]
+                if (item && item.moduleName === id) { hosted = item; break }
+            }
+            return root.getWidgetIcon(id, hosted)
+        })
+        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory, panelEntries)
 
         if (!root.isStackOpen) {
             root.drag.cancelFolder()

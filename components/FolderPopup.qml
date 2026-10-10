@@ -431,19 +431,13 @@ PanelWindow {
                                     NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
                                 }
 
-                                Image {
+                                AppIcon {
                                     id: subIcon
                                     anchors.centerIn: parent
                                     width: 28
                                     height: 28
-                                    fillMode: Image.PreserveAspectFit
-                                    cache: true
+                                    glyph: modelData ? (modelData.iconGlyph || "") : ""
                                     source: (stackWindow.root.iconRevision, stackWindow.root.resolveIcon(modelData))
-                                    sourceSize: Qt.size(Math.max(128, 28 * 4 * Screen.devicePixelRatio), Math.max(128, 28 * 4 * Screen.devicePixelRatio))
-                                    asynchronous: false
-                                    mipmap: true
-                                    smooth: true
-                                    antialiasing: true
                                 }
 
                                 // iOS-Style Theme Notification Badge on Sub-App (Modular)

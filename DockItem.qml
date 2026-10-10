@@ -165,30 +165,15 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         // Normal Single App Icon (Instantly react to rawIcon theme swaps, crisp HiDPI rasterization)
-        Image {
+        AppIcon {
             id: appIcon
-            visible: root.itemData && !root.itemData.isStack && (status !== Image.Error)
+            visible: root.itemData && !root.itemData.isStack
             anchors.centerIn: parent
             width: root.iconBaseSize
             height: root.iconBaseSize
-            fillMode: Image.PreserveAspectFit
-            cache: true
+            glyph: root.itemData ? (root.itemData.iconGlyph || "") : ""
             source: (root.iconRevision, root.resolveIcon(root.itemData))
-            sourceSize: Qt.size(Math.max(128, width * 4 * Screen.devicePixelRatio), Math.max(128, height * 4 * Screen.devicePixelRatio))
-            asynchronous: false
-            mipmap: true
-            smooth: true
-            antialiasing: true
-        }
-
-        Image {
-            id: fallbackAppIcon
-            visible: root.itemData && !root.itemData.isStack && (appIcon.status === Image.Error || !appIcon.visible)
-            anchors.centerIn: parent
-            width: root.iconBaseSize
-            height: root.iconBaseSize
-            fillMode: Image.PreserveAspectFit
-            source: {
+            fallbackSource: {
                 if (root.itemData) {
                     var raw = root.itemData.rawIcon || root.itemData.icon || root.itemData.appId || root.itemData.id || ""
                     var dIcon = DockModel.getDiskIcon(raw)
@@ -198,9 +183,6 @@ Item {
                 }
                 return "file:///usr/share/pixmaps/omarchy.png"
             }
-            sourceSize: Qt.size(Math.max(128, width * 4 * Screen.devicePixelRatio), Math.max(128, height * 4 * Screen.devicePixelRatio))
-            smooth: true
-            antialiasing: true
         }
 
         // Folder Custom Symbol Icon (Optically centered vector glyph with smooth anti-aliased rotation)
@@ -232,16 +214,11 @@ Item {
 
             Repeater {
                 model: (root.itemData && root.itemData.subApps) ? root.itemData.subApps.slice(0, stackGrid.is3x3 ? 9 : 4) : []
-                Image {
+                AppIcon {
                     width: stackGrid.cellWidth
                     height: stackGrid.cellWidth
-                    fillMode: Image.PreserveAspectFit
-                    cache: true
+                    glyph: modelData ? (modelData.iconGlyph || "") : ""
                     source: (root.iconRevision, root.resolveIcon(modelData))
-                    sourceSize: Qt.size(Math.max(64, width * 4 * Screen.devicePixelRatio), Math.max(64, height * 4 * Screen.devicePixelRatio))
-                    mipmap: true
-                    smooth: true
-                    antialiasing: true
                 }
             }
         }

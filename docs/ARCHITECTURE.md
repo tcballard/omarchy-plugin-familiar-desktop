@@ -17,7 +17,7 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | Drag ordering and cancellation | `DockDrag.js` supplies shared slot/drop calculations; `components/DockDragState.qml` owns dock/folder drag state | `test_dock_drag.cjs`, `tst_DockDragState.qml` |
 | App tile activation and window selection | `components/AppTileInteraction.qml` is used by `DockItem.qml` and `components/FolderPopup.qml` | `tst_AppTileInteraction.qml`, `test_dock_scroll.cjs`, desktop smoke |
 | Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `tst_NotificationTracker.qml` |
-| Runtime icon sources | `IconResolver.js`, using candidates and disk cache supplied by `DockModel.js` | `test_app_identity.cjs` |
+| Runtime icon sources and shell-panel identity | `IconResolver.js`, `PluginPanels.js`, `components/AppIcon.qml`; registered widget names and existing widget glyphs feed `DockModel.js` | `test_app_identity.cjs`, `test_desktop_catalog.cjs`, `tst_DockWidgetSlot.qml`, desktop smoke |
 | Pins, folders and launching | `DockPinned.js`, `DockAutoName.js`, `DockLauncher.js`; menu/popup QML | Node model checks, desktop smoke |
 | Left/right hosted widgets | `components/DockWidgetSlot.qml`, `HostedWidgets.js`, `DockWidgets.js`; service action adapter | `test_widget_anchor.cjs`, `tst_DockWidgetSlot.qml` |
 | Ordinary preference requests | `components/BackendRequest.qml`; small Caps Lock, Gestures, InputPreference, WindowMode and Taskbar controllers | Corresponding QtTest controller tests |
@@ -82,6 +82,15 @@ outrank shared icon aliases, and web-app URLs outrank browser launch commands.
 DockMatcher prepares each window once and builds the same app item shape for
 pinned, running and folder apps. Original entries, launch commands and window
 objects remain the source of actions; normalized metadata only assists matching.
+Registered panel names distinguish shared `org.quickshell` windows by exact title;
+ambiguous titles retain the generic shell identity. Panels keep their real window
+objects, but pins use plugin IDs and reopen through the same public shell command
+as Familiar's widget slots (its own scoped service facade cannot control other plugins).
+AppIcon renders widget glyphs with the shell font in dock/taskbar, folder grids and
+folder popups; image icons continue through the normal theme lookup. RSS Feed uses
+the same U+F09E glyph as its bar widget. Plugin names alone never reclassify ordinary
+Qt apps. The catalogue covers enabled bar-widget plugins; unregistered panels and
+panels with a different window title keep the existing fallback.
 DockGeometry supplies edge anchors, exclusion-aware popup margins, surface sizes
 and app-menu clamping for the dock and popup windows.
 

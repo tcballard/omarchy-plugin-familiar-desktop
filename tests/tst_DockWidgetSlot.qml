@@ -4,6 +4,8 @@ import "../components"
 
 TestCase {
     name: "DockWidgetSlot"
+    visible: true
+    when: windowShown
     QtObject {
         id: hostActions
         property int attachments: 0
@@ -50,6 +52,27 @@ TestCase {
     Component {
         id: repeatedFactory
         Item { Repeater { objectName: "slots"; model: ["omarchy.agents", "omarchy.clock"]; delegate: factory } }
+    }
+
+    Component { id: iconFactory; AppIcon { width: 32; height: 32 } }
+    function test_panelGlyphUsesTheWidgetFontAndSkipsImageLookup() {
+        var icon = createTemporaryObject(iconFactory, this, {glyph: "\uf09e", source: "file:///unneeded-qt-icon.png"})
+        var glyph = findChild(icon, "app-icon-glyph")
+        var image = findChild(icon, "app-icon-image")
+        compare(glyph.text, "\uf09e")
+        compare(glyph.visible, true)
+        compare(glyph.fontSize, 32)
+        compare(image.visible, false)
+        compare(String(image.source), "")
+        icon.color = "#ff8844"
+        compare(glyph.color, icon.color)
+        icon.source = ""
+        icon.glyph = ""
+        compare(glyph.visible, false)
+        compare(image.visible, true)
+        icon.source = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        tryCompare(image, "status", Image.Ready)
+        verify(image.sourceSize.width >= 128)
     }
     function test_repeaterSuppliesInheritedRequiredProperties() {
         var group = createTemporaryObject(repeatedFactory, this)

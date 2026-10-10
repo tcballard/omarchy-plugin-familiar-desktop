@@ -79,3 +79,102 @@ pub fn strip_exact(text: &str, begin: &str, end: &str, block: &str) -> Result<St
             .into(),
     )
 }
+
+/// Files and expected bytes prepared by a feature after its ownership checks.
+/// `generated_after = None` means reset: remove the owned file after reload.
+pub struct GeneratedUpdate<'a> {
+    pub config: &'a Path,
+    pub generated: &'a Path,
+    pub backups: &'a Path,
+    pub before: &'a str,
+    pub after: &'a str,
+    pub generated_before: Option<&'a str>,
+    pub generated_after: Option<&'a str>,
+}
+
+fn replace_generated(path: &Path, expected: Option<&str>, replacement: Option<&str>) -> Result<()> {
+    let current = match fs::symlink_metadata(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e.to_string()),
+        Ok(_) => Some(read(path)?),
+    };
+    if current.as_deref() != expected {
+        return Err(
+            "Separate Familiar config changed externally; preserve it and review the backup".into(),
+        );
+    }
+    match replacement {
+        Some(value) => common::atomic(path, value.as_bytes()),
+        None if current.is_some() => fs::remove_file(path).map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
+}
+
+pub fn reload(hypr: &mut impl common::Hypr) -> Result<()> {
+    common::checked(hypr, &["reload"])?;
+    let errors: Vec<String> = serde_json::from_str(&hypr.command(&["-j", "configerrors"])?)
+        .map_err(|_| "Could not verify Hyprland configuration errors")?;
+    // Hyprland can report [""] for no errors. Ignore only blank entries.
+    let errors: Vec<&str> = errors
+        .iter()
+        .map(|e| e.trim())
+        .filter(|e| !e.is_empty())
+        .collect();
+    if errors.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "Hyprland configuration error: {}",
+        common::clipped(&errors.join("; "))
+    ))
+}
+
+/// Write, reload and verify as one reversible operation. Never roll back over
+/// external edits. Feature modules retain parsing, migration and Lua generation.
+pub fn apply_generated<H: common::Hypr>(
+    hypr: &mut H,
+    update: GeneratedUpdate<'_>,
+    verify: impl FnOnce(&mut H) -> Result<()>,
+) -> Result<Option<PathBuf>> {
+    let GeneratedUpdate {
+        config,
+        generated,
+        backups,
+        before,
+        after,
+        generated_before,
+        generated_after,
+    } = update;
+    if let Some(content) = generated_after {
+        replace_generated(generated, generated_before, Some(content))?;
+    }
+    let backup = match replace(config, before, after, backups) {
+        Ok(backup) => backup,
+        Err(error) => {
+            if generated_after.is_some() {
+                replace_generated(generated, generated_after, generated_before)?;
+            }
+            return Err(error);
+        }
+    };
+    if let Err(error) = reload(hypr).and_then(|()| verify(hypr)) {
+        if read(config)? != after {
+            return Err(format!(
+                "{error}. Config changed externally; preserve your edits and recover from {backup:?}"
+            ));
+        }
+        if generated_after.is_some() {
+            replace_generated(generated, generated_after, generated_before)?;
+        }
+        replace(config, after, before, backups)?;
+        let recovery = reload(hypr);
+        return Err(format!(
+            "{error}. Previous configuration restored on disk. Recovery reload: {}",
+            recovery.err().unwrap_or_else(|| "ok".into())
+        ));
+    }
+    if generated_after.is_none() {
+        replace_generated(generated, generated_before, None)?;
+    }
+    Ok(backup)
+}

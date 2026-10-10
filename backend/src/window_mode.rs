@@ -1,4 +1,5 @@
 //! Explicit, reversible window preference. Never rewrite input.lua or core files.
+use crate::config_file::{self, GeneratedUpdate, read as text};
 use crate::{
     Result,
     common::{self, Hypr, checked},
@@ -106,29 +107,6 @@ pub fn split_current(value: &str, paths: &Paths) -> Result<(String, String)> {
     split(value, &paths.manifest)
 }
 
-fn restore_generated(paths: &Paths, expected: &str, before: &Option<String>) -> Result<()> {
-    if text(&paths.generated)? != expected {
-        return Err(
-            "Separate window config changed externally; preserve it and review the backup".into(),
-        );
-    }
-    match before {
-        Some(value) => common::atomic(&paths.generated, value.as_bytes()),
-        None => fs::remove_file(&paths.generated).map_err(|e| e.to_string()),
-    }
-}
-
-fn text(path: &Path) -> Result<String> {
-    // Refuse symlink replacement (including broken links) and non-regular files.
-    let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
-    if !metadata.file_type().is_file() {
-        return Err(
-            "Hyprland config must be a regular file, not a symlink; no file changed".into(),
-        );
-    }
-    String::from_utf8(common::bounded_file(path, common::FILE_LIMIT)?).map_err(|e| e.to_string())
-}
-
 pub fn split(text: &str, manifest: &Path) -> Result<(String, String)> {
     let starts = text.matches("-- BEGIN FAMILIAR WINDOW MODE").count();
     let ends = text.matches("-- END FAMILIAR WINDOW MODE").count();
@@ -148,26 +126,6 @@ pub fn split(text: &str, manifest: &Path) -> Result<(String, String)> {
     }
 
     Err("Familiar Window mode block was edited, damaged or belongs to another installation; no file changed".into())
-}
-
-fn reload(hypr: &mut impl Hypr) -> Result<()> {
-    checked(hypr, &["reload"])?;
-    let errors: Vec<String> = serde_json::from_str(&hypr.command(&["-j", "configerrors"])?)
-        .map_err(|_| "Could not verify Hyprland configuration errors")?;
-    // Hyprland 0.56.2 / Hyprutils 0.14 serialises an empty error string as [""].
-    // Ignore blank entries only; malformed responses and real diagnostics still fail.
-    let errors: Vec<&str> = errors
-        .iter()
-        .map(|error| error.trim())
-        .filter(|error| !error.is_empty())
-        .collect();
-    if !errors.is_empty() {
-        return Err(format!(
-            "Hyprland configuration error: {}",
-            common::clipped(&errors.join("; "))
-        ));
-    }
-    Ok(())
 }
 
 pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> {
@@ -208,40 +166,19 @@ pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
     } else {
         Some(hook(mode, &paths.manifest)?)
     };
-    if let Some(content) = &generated_after {
-        common::atomic(&paths.generated, content.as_bytes())?;
-    }
-    let backup = match crate::config_file::replace(&paths.config, &before, &after, &paths.state) {
-        Ok(backup) => backup,
-        Err(error) => {
-            if let Some(content) = &generated_after {
-                restore_generated(paths, content, &generated_before)?;
-            }
-            return Err(error);
-        }
-    };
-    let applied = reload(hypr);
-    if let Err(error) = applied {
-        if text(&paths.config)? != after {
-            return Err(format!(
-                "{error}. Config changed externally; preserve your edits and recover from {backup:?}"
-            ));
-        }
-        if let Some(content) = &generated_after {
-            restore_generated(paths, content, &generated_before)?;
-        }
-        crate::config_file::replace(&paths.config, &after, &before, &paths.state)?;
-        let recovery = reload(hypr);
-        return Err(format!(
-            "{error}. Previous configuration restored on disk. Recovery reload: {}",
-            recovery.err().unwrap_or_else(|| "ok".into())
-        ));
-    }
-    if mode == "reset"
-        && let Some(content) = &generated_before
-    {
-        restore_generated(paths, content, &None)?;
-    }
+    let backup = config_file::apply_generated(
+        hypr,
+        GeneratedUpdate {
+            config: &paths.config,
+            generated: &paths.generated,
+            backups: &paths.state,
+            before: &before,
+            after: &after,
+            generated_before: generated_before.as_deref(),
+            generated_after: generated_after.as_deref(),
+        },
+        |_| Ok(()),
+    )?;
     Ok(
         json!({"state":"ok","mode":mode,"backup":backup,"message":if mode == "reset" { "New windows follow your Hyprland rules again. Existing windows are unchanged." } else if mode == "tiling" { "New windows use Hyprland tiling. Existing windows are unchanged." } else { "New windows will float without splitting the tiled layout. Existing windows are unchanged." }}),
     )

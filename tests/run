@@ -22,6 +22,7 @@ node tests/test_repair.cjs
 
 node tests/test_shortcut_labels.cjs
 node tests/test_dock_scroll.cjs
+node tests/test_dock_drag.cjs
 
 node tests/test_in_app_setup.cjs
 node tests/test_bar_placement.cjs

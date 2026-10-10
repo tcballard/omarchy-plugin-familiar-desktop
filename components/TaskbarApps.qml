@@ -129,10 +129,10 @@ Item {
                         onEditModeExitRequested: root.service.interaction.setEditing(false)
                         onTogglePinRequested: function(id) { root.service.setPinned(DockModel.togglePinned(root.service.pinnedIds, id, root.service.maxDockItems)) }
                         onDissolveRequested: function(id) { root.service.setPinned(DockModel.dissolveStack(root.service.pinnedIds, id)); root.service.interaction.setEditing(false) }
-                        onDragStarted: function(index) { root.service.dockDragActiveIndex = index }
-                        onDragEnded: root.service.dockDragActiveIndex = -1
-                        onMoveRequested: function(from, to) { root.service.dockDragActiveIndex = -1; root.service.setPinned(DockModel.reorderPinned(root.service.pinnedIds, root.items, from, to)) }
-                        onMergeRequested: function(from, to) { root.service.dockDragActiveIndex = -1; root.service.setPinned(DockModel.mergeIntoStack(root.service.pinnedIds, root.items, from, to, root.service.appRows)) }
+                        onDragStarted: function(index) { root.service.drag.startDock(index) }
+                        onDragEnded: root.service.drag.cancelDock()
+                        onMoveRequested: function(from, to) { root.service.drag.cancelDock(); root.service.setPinned(DockModel.reorderPinned(root.service.pinnedIds, root.items, from, to)) }
+                        onMergeRequested: function(from, to) { root.service.drag.cancelDock(); root.service.setPinned(DockModel.mergeIntoStack(root.service.pinnedIds, root.items, from, to, root.service.appRows)) }
                     }
                 }
             }

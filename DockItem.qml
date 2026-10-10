@@ -8,6 +8,7 @@ import qs.Ui
 import "DockModel.js" as DockModel
 import "IconResolver.js" as Icons
 import "DockScroll.js" as DockScroll
+import "DockDrag.js" as Drag
 import "components"
 
 Item {
@@ -629,32 +630,10 @@ Item {
                     dragOffset.y = 0
                 }
 
-                var rawOffset = root.isVertical ? dragOffset.y : dragOffset.x
-                var currentOffset = Math.max(-root.itemIndex * root.slotSize, Math.min((root.totalCount - 1 - root.itemIndex) * root.slotSize, rawOffset))
-                var absolutePos = root.itemIndex * root.slotSize + currentOffset
-
-                var targetIdx = Math.max(0, Math.min(root.totalCount - 1, Math.round(absolutePos / root.slotSize)))
-                var slotCenter = targetIdx * root.slotSize
-                var distFromSlotCenter = absolutePos - slotCenter
-
-                var canMerge = root.itemData && !root.itemData.isStack
-                var isMerge = false
-
-                if (canMerge && targetIdx !== root.itemIndex) {
-                    if (targetIdx > root.itemIndex) {
-                        isMerge = (distFromSlotCenter >= -22 && distFromSlotCenter <= 0)
-                    } else {
-                        isMerge = (distFromSlotCenter <= 22 && distFromSlotCenter >= 0)
-                    }
-                }
-
-                // Outer edge insert: dragging all the way to the far outer edges opens the rail slot
-                if ((targetIdx === 0 && absolutePos <= 8) || (targetIdx === root.totalCount - 1 && absolutePos >= (root.totalCount - 1) * root.slotSize - 8)) {
-                    isMerge = false
-                }
-
-                root.isMergeActive = isMerge
-                root.dragHoverChanged(root.itemIndex, targetIdx, isMerge)
+                var target = Drag.railTarget(root.itemIndex, root.totalCount, root.slotSize,
+                    root.isVertical ? dragOffset.y : dragOffset.x, root.itemData && !root.itemData.isStack)
+                root.isMergeActive = target.merge
+                root.dragHoverChanged(root.itemIndex, target.index, target.merge)
             }
         }
 
@@ -662,37 +641,18 @@ Item {
             longPressTimer.stop()
             if (root.isDragging) {
                 root.isDragging = false
-                var rawOffset = root.isVertical ? dragOffset.y : dragOffset.x
-                var currentOffset = Math.max(-root.itemIndex * root.slotSize, Math.min((root.totalCount - 1 - root.itemIndex) * root.slotSize, rawOffset))
-                var absolutePos = root.itemIndex * root.slotSize + currentOffset
-                var targetIdx = Math.max(0, Math.min(root.totalCount - 1, Math.round(absolutePos / root.slotSize)))
-                var slotCenter = targetIdx * root.slotSize
-                var distFromSlotCenter = absolutePos - slotCenter
-
-                var canMerge = root.itemData && !root.itemData.isStack
-                var isMerge = false
-
-                if (canMerge && targetIdx !== root.itemIndex) {
-                    if (targetIdx > root.itemIndex) {
-                        isMerge = (distFromSlotCenter >= -22 && distFromSlotCenter <= 0)
-                    } else {
-                        isMerge = (distFromSlotCenter <= 22 && distFromSlotCenter >= 0)
-                    }
-                }
-
-                if ((targetIdx === 0 && absolutePos <= 8) || (targetIdx === root.totalCount - 1 && absolutePos >= (root.totalCount - 1) * root.slotSize - 8)) {
-                    isMerge = false
-                }
+                var target = Drag.railTarget(root.itemIndex, root.totalCount, root.slotSize,
+                    root.isVertical ? dragOffset.y : dragOffset.x, root.itemData && !root.itemData.isStack)
 
                 root.isMergeActive = false
                 dragOffset.x = 0
                 dragOffset.y = 0
 
-                if (targetIdx !== root.itemIndex) {
-                    if (isMerge) {
-                        root.mergeRequested(root.itemIndex, targetIdx)
+                if (target.index !== root.itemIndex) {
+                    if (target.merge) {
+                        root.mergeRequested(root.itemIndex, target.index)
                     } else {
-                        root.moveRequested(root.itemIndex, targetIdx)
+                        root.moveRequested(root.itemIndex, target.index)
                     }
                 } else {
                     root.dragEnded()

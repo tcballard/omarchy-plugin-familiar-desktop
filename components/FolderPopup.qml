@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
+import "../DockDrag.js" as Drag
 import ".."
 
 PanelWindow {
@@ -339,7 +340,7 @@ PanelWindow {
                         Item {
                             id: subItemRoot
                             readonly property int totalSub: (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.subApps) ? stackWindow.root.activeStackItem.subApps.length : 0
-                            readonly property int visualSubSlot: (stackWindow.root.folderDragActiveIndex === index) ? index : stackWindow.root.getFolderVisualSlot(index, stackWindow.root.folderDragActiveIndex, stackWindow.root.folderDragTargetIndex)
+                            readonly property int visualSubSlot: (stackWindow.root.folderDragActiveIndex === index) ? index : Drag.visualSlot(index, stackWindow.root.folderDragActiveIndex, stackWindow.root.folderDragTargetIndex)
                             readonly property int slotCol: visualSubSlot % stackCard.gridCols
                             readonly property int slotRow: Math.floor(visualSubSlot / stackCard.gridCols)
 
@@ -709,7 +710,7 @@ PanelWindow {
                                         subLongPressTimer.stop()
                                         if (!isDraggingActive) {
                                             isDraggingActive = true
-                                            stackWindow.root.folderDragActiveIndex = index
+                                            stackWindow.root.drag.startFolder(index)
                                         }
 
                                         var rawOffsetX = subDragOffset.x
@@ -723,7 +724,7 @@ PanelWindow {
                                         var col = Math.max(0, Math.min(stackCard.gridCols - 1, Math.round(currentPosX / 50)))
                                         var row = Math.max(0, Math.min(stackCard.gridRows - 1, Math.round(currentPosY / 50)))
                                         var targetIdx = Math.max(0, Math.min(totalSub - 1, row * stackCard.gridCols + col))
-                                        stackWindow.root.folderDragTargetIndex = targetIdx
+                                        stackWindow.root.drag.hoverFolder(targetIdx)
                                     }
                                 }
 
@@ -732,8 +733,7 @@ PanelWindow {
                                     if (isDraggingActive && stackWindow.root.activeStackItem) {
                                         isDraggingActive = false
                                         var finalTarget = stackWindow.root.folderDragTargetIndex
-                                        stackWindow.root.folderDragActiveIndex = -1
-                                        stackWindow.root.folderDragTargetIndex = -1
+                                        stackWindow.root.drag.cancelFolder()
                                         subDragOffset.x = 0
                                         subDragOffset.y = 0
 
@@ -752,8 +752,7 @@ PanelWindow {
                                     subLongPressTimer.stop()
                                     if (isDraggingActive) {
                                         isDraggingActive = false
-                                        stackWindow.root.folderDragActiveIndex = -1
-                                        stackWindow.root.folderDragTargetIndex = -1
+                                        stackWindow.root.drag.cancelFolder()
                                         subDragOffset.x = 0
                                         subDragOffset.y = 0
                                     }

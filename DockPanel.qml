@@ -13,6 +13,7 @@ import "HostedWidgets.js" as HostedWidgets
 import "IconResolver.js" as Icons
 import "DockSettings.js" as DockSettings
 import "DockGeometry.js" as Geometry
+import "DockDrag.js" as Drag
 import "ShortcutLabels.js" as ShortcutLabels
 import "DockCommands.js" as DockCommands
 import "WindowPreviews.js" as WindowPreviews
@@ -95,36 +96,13 @@ Item {
     readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
     readonly property real iconBaseSize: DockSettings.dockGeometry(dockSize).icon
 
-    // Live 1D Rail Displacement for Main Dock Bar
-    property int dockDragActiveIndex: -1
-    property int dockDragTargetIndex: -1
-    property int currentMergeTargetIndex: -1
-
-    function getDockVisualSlot(itemIdx, dragIdx, targetIdx) {
-        if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return itemIdx;
-        if (itemIdx === dragIdx) return dragIdx;
-        if (dragIdx < targetIdx) {
-            if (itemIdx > dragIdx && itemIdx <= targetIdx) return itemIdx - 1;
-        } else {
-            if (itemIdx >= targetIdx && itemIdx < dragIdx) return itemIdx + 1;
-        }
-        return itemIdx;
-    }
-
-    // Live 2D Rail Displacement inside Folder Grid
-    property int folderDragActiveIndex: -1
-    property int folderDragTargetIndex: -1
-
-    function getFolderVisualSlot(itemIdx, dragIdx, targetIdx) {
-        if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return itemIdx;
-        if (itemIdx === dragIdx) return dragIdx;
-        if (dragIdx < targetIdx) {
-            if (itemIdx > dragIdx && itemIdx <= targetIdx) return itemIdx - 1;
-        } else {
-            if (itemIdx >= targetIdx && itemIdx < dragIdx) return itemIdx + 1;
-        }
-        return itemIdx;
-    }
+    readonly property var drag: dragState
+    DockDragState { id: dragState }
+    readonly property int dockDragActiveIndex: drag.dockIndex
+    readonly property int dockDragTargetIndex: drag.dockTarget
+    readonly property int currentMergeTargetIndex: drag.mergeTarget
+    readonly property int folderDragActiveIndex: drag.folderIndex
+    readonly property int folderDragTargetIndex: drag.folderTarget
 
     // Direct IPC handler for io.github.tcballard.familiar-desktop target
     IpcHandler {
@@ -195,21 +173,13 @@ Item {
     function close() {
         root.opened = false
         root.interaction.dismiss()
-        root.dockDragActiveIndex = -1
-        root.dockDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
+        root.drag.cancel()
     }
 
     function toggle() {
         root.opened = !root.opened
         root.interaction.dismiss()
-        root.dockDragActiveIndex = -1
-        root.dockDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
+        root.drag.cancel()
     }
 
     function toggleStack(item, index) { interaction.toggleFolder(item) }
@@ -1530,8 +1500,7 @@ Item {
             if (root.lastRemapBarPosition !== "") {
                 root.closePopups()
                 root.interaction.dismissApp()
-                root.dockDragActiveIndex = -1
-                root.dockDragTargetIndex = -1
+                root.drag.cancelDock()
             }
             root.lastRemapBarPosition = root.barPosition
             // Drop the sticky hover flag before the surfaces are rebuilt: the
@@ -1913,9 +1882,8 @@ Item {
     function closePopups() {
         windowPreview.close()
         root.interaction.dismiss()
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
+        root.drag.cancelFolder()
+        root.drag.clearMerge()
         if (widgetPicker) widgetPicker.opened = false
         root.closeAllWidgetPanels()
         root.evaluateHoverState()
@@ -2078,8 +2046,7 @@ Item {
         root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
 
         if (!root.isStackOpen) {
-            root.folderDragActiveIndex = -1
-            root.folderDragTargetIndex = -1
+            root.drag.cancelFolder()
         }
     }
 
@@ -2852,7 +2819,7 @@ Item {
 
                         // 1D Live Rail Displacement (with Left Widget offset)
                         readonly property real appBaseOffset: root.appRailOffset
-                        readonly property int visualSlot: (root.dockDragActiveIndex === index) ? index : root.getDockVisualSlot(index, root.dockDragActiveIndex, root.dockDragTargetIndex)
+                        readonly property int visualSlot: (root.dockDragActiveIndex === index) ? index : Drag.visualSlot(index, root.dockDragActiveIndex, root.dockDragTargetIndex)
                         x: root.isVertical ? 0 : (appBaseOffset + visualSlot * root.slotSize)
                         y: root.isVertical ? (appBaseOffset + visualSlot * root.slotSize) : 0
 
@@ -2922,38 +2889,24 @@ Item {
                         }
 
                         onDragStarted: function(fromIdx) {
-                            root.dockDragActiveIndex = fromIdx
+                            root.drag.startDock(fromIdx)
                         }
 
                         onDragHoverChanged: function(fromIdx, targetIdx, isMergeIntent) {
-                            if (fromIdx < 0) {
-                                root.dockDragActiveIndex = -1
-                                root.dockDragTargetIndex = -1
-                                root.currentMergeTargetIndex = -1
-                                return
-                            }
-                            root.dockDragActiveIndex = fromIdx
-                            root.dockDragTargetIndex = (targetIdx >= 0 && !isMergeIntent) ? targetIdx : -1
-                            root.currentMergeTargetIndex = (targetIdx >= 0 && isMergeIntent) ? targetIdx : -1
+                            root.drag.hoverDock(fromIdx, targetIdx, isMergeIntent)
                         }
 
                         onDragEnded: function() {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                         }
 
                         onMoveRequested: function(fromIdx, toIdx) {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                             root.setPinned(DockModel.reorderPinned(root.pinnedIds, root.dockItems, fromIdx, toIdx))
                         }
 
                         onMergeRequested: function(fromIdx, targetIdx) {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                             root.setPinned(DockModel.mergeIntoStack(root.pinnedIds, root.dockItems, fromIdx, targetIdx, root.appRows))
                         }
                     }

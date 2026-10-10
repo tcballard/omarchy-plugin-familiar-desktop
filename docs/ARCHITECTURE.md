@@ -12,6 +12,7 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`; shared placement in `DockGeometry.js` | `test_dock_position.cjs`, `tst_DockSettings.qml`, desktop smoke |
 | App matching and window history | `DockModel.js` facade → `DockMatcher.js`; normalized lookup in `DesktopCatalog.js`, curated data in `AppCatalog.js` | `test_desktop_catalog.cjs`, `tst_DockMatcher.qml`, `test_window_history.cjs`, `test_app_identity.cjs` |
 | Popup selection and editing | `components/DockInteraction.qml`; `FolderIconPicker.qml` takes data and emits actions | `tst_DockInteraction.qml`, `tst_FolderIconPicker.qml` |
+| Drag ordering and cancellation | `DockDrag.js` supplies shared slot/drop calculations; `components/DockDragState.qml` owns dock/folder drag state | `test_dock_drag.cjs`, `tst_DockDragState.qml` |
 | Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `tst_NotificationTracker.qml` |
 | Runtime icon sources | `IconResolver.js`, using candidates and disk cache supplied by `DockModel.js` | `test_app_identity.cjs` |
 | Pins, folders and launching | `DockPinned.js`, `DockAutoName.js`, `DockLauncher.js`; menu/popup QML | Node model checks, desktop smoke |
@@ -44,6 +45,10 @@ properties. Selection uses an ID resolved against current dock items, so model
 refreshes and reordering update open popups and removed items dismiss them.
 FolderIconPicker emits icon/dissolve requests; its window receives placement,
 appearance and interaction inputs rather than the entire service.
+DockDragState owns the drag indices. Dock and folder delegates request start,
+hover and cancellation through `service.drag`; exposed service indices are
+read-only. DockDrag computes neighbour slots and the same rail target for hover
+feedback and drop, including merge intent and outer-edge insertion.
 
 The matcher library's disk icons and CLI hints are updated by the service and
 shared through `DockModel`; settings views do not mutate them. Notification event

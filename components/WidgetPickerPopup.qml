@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import ".."
 import "../DockModel.js" as DockModel
@@ -43,7 +44,7 @@ PanelWindow {
     Rectangle {
         id: scrim
         anchors.fill: parent
-        color: Color.menu.scrim
+        color: Commons.Color.menu.scrim
         opacity: pickerWindow.opened ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     }
@@ -63,8 +64,8 @@ PanelWindow {
         height: 540
         anchors.centerIn: parent
 
-        color: Color.menu.background
-        borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
+        color: Commons.Color.menu.background
+        borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, Math.max(1, Style.space(2)))
         radius: Style.cornerRadius >= 0 ? Style.cornerRadius : 14
         antialiasing: true
         smooth: true
@@ -97,7 +98,7 @@ PanelWindow {
                     font.family: Style.font.family
                     font.pixelSize: 14
                     font.bold: true
-                    color: Color.menu.text
+                    color: Commons.Color.menu.text
                     Layout.fillWidth: true
                 }
             }
@@ -106,7 +107,7 @@ PanelWindow {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Color.composed("menu.border", "menu.border-alpha", Color.border, 0.25)
+                color: Commons.Color.composed("menu.border", "menu.border-alpha", Commons.Color.border, 0.25)
             }
 
             // 2. App Menu Section
@@ -119,7 +120,7 @@ PanelWindow {
                     Layout.fillWidth: true
                     height: 34
                     radius: 7
-                    color: Color.composed("menu.text", "menu.text-alpha", Color.text, 0.05)
+                    color: Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.05)
 
                     RowLayout {
                         anchors.fill: parent
@@ -133,7 +134,7 @@ PanelWindow {
                             font.family: Style.font.family
                             font.pixelSize: 11
                             font.bold: true
-                            color: Color.menu.text
+                            color: Commons.Color.menu.text
                             Layout.fillWidth: true
                         }
 
@@ -146,7 +147,7 @@ PanelWindow {
                                 height: 26
                                 radius: 5
                                 readonly property bool isLeft: (!pickerWindow.root || pickerWindow.root.appMenuPosition !== "right")
-                                color: isLeft ? Color.accent : (posAppLeftMouse.containsMouse ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.12) : "transparent")
+                                color: isLeft ? Commons.Color.accent : (posAppLeftMouse.containsMouse ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.12) : "transparent")
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
                                 Text {
@@ -156,7 +157,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 11
                                     font.bold: true
-                                    color: parent.isLeft ? Color.background : Color.menu.text
+                                    color: parent.isLeft ? Commons.Color.background : Commons.Color.menu.text
                                 }
 
                                 MouseArea {
@@ -180,7 +181,7 @@ PanelWindow {
                                 height: 26
                                 radius: 5
                                 readonly property bool isRight: (pickerWindow.root && pickerWindow.root.appMenuPosition === "right")
-                                color: isRight ? Color.accent : (posAppRightMouse.containsMouse ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.12) : "transparent")
+                                color: isRight ? Commons.Color.accent : (posAppRightMouse.containsMouse ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.12) : "transparent")
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
                                 Text {
@@ -190,7 +191,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 11
                                     font.bold: true
-                                    color: parent.isRight ? Color.background : Color.menu.text
+                                    color: parent.isRight ? Commons.Color.background : Commons.Color.menu.text
                                 }
 
                                 MouseArea {
@@ -222,9 +223,9 @@ PanelWindow {
                     readonly property bool isInDock: !!(pickerWindow.root && pickerWindow.root.dockWidgets && pickerWindow.root.dockWidgets.indexOf("omarchy.apps") !== -1)
                     readonly property bool isHovered: appItemMouse.containsMouse
 
-                    color: isInDock ? Color.composed("menu.selectedBackground", "menu.selectedBackground-alpha", Color.accent, isHovered ? 0.18 : 0.10) : (isHovered ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.06) : "transparent")
+                    color: isInDock ? Commons.Color.composed("menu.selectedBackground", "menu.selectedBackground-alpha", Commons.Color.accent, isHovered ? 0.18 : 0.10) : (isHovered ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.06) : "transparent")
                     border.width: 1
-                    border.color: isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.4) : (isHovered ? Color.composed("menu.border", "menu.border-alpha", Color.border, 0.2) : "transparent")
+                    border.color: isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.4) : (isHovered ? Commons.Color.composed("menu.border", "menu.border-alpha", Commons.Color.border, 0.2) : "transparent")
                     Behavior on color { ColorAnimation { duration: 120 } }
                     Behavior on border.color { ColorAnimation { duration: 120 } }
 
@@ -240,7 +241,7 @@ PanelWindow {
                             Layout.preferredHeight: 26
                             Layout.alignment: Qt.AlignVCenter
                             radius: 5
-                            color: appMenuItemRow.isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.2) : Color.composed("menu.text", "menu.text-alpha", Color.text, 0.08)
+                            color: appMenuItemRow.isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.2) : Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.08)
 
                             DockGlyph {
                                 anchors.centerIn: parent
@@ -249,7 +250,7 @@ PanelWindow {
                                 text: "󰀻"
                                 fontFamily: Style.font.family
                                 fontSize: 14
-                                color: appMenuItemRow.isInDock ? Color.accent : Color.menu.text
+                                color: appMenuItemRow.isInDock ? Commons.Color.accent : Commons.Color.menu.text
                             }
                         }
 
@@ -265,7 +266,7 @@ PanelWindow {
                                 font.family: Style.font.family
                                 font.pixelSize: 12
                                 font.bold: true
-                                color: Color.menu.text
+                                color: Commons.Color.menu.text
                                 anchors.verticalCenter: parent.verticalCenter
                             }
 
@@ -273,7 +274,7 @@ PanelWindow {
                                 height: 16
                                 width: appBadgeText.implicitWidth + 8
                                 radius: 4
-                                color: appMenuItemRow.isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.25) : Color.composed("menu.text", "menu.text-alpha", Color.text, 0.08)
+                                color: appMenuItemRow.isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.25) : Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.08)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Text {
@@ -284,7 +285,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 9
                                     font.bold: true
-                                    color: appMenuItemRow.isInDock ? Color.accent : Color.muted
+                                    color: appMenuItemRow.isInDock ? Commons.Color.accent : Commons.Color.muted
                                 }
                             }
                         }
@@ -296,7 +297,7 @@ PanelWindow {
                             Layout.preferredHeight: 18
                             Layout.alignment: Qt.AlignVCenter
                             radius: 9
-                            color: appMenuItemRow.isInDock ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                            color: appMenuItemRow.isInDock ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                             Behavior on color { ColorAnimation { duration: 180 } }
 
                             Rectangle {
@@ -306,7 +307,7 @@ PanelWindow {
                                 radius: 6
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: appMenuItemRow.isInDock ? (appSwitchTrack.width - width - 3) : 3
-                                color: appMenuItemRow.isInDock ? Color.background : Color.popups.text
+                                color: appMenuItemRow.isInDock ? Commons.Color.background : Commons.Color.popups.text
                                 Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                             }
                         }
@@ -332,7 +333,7 @@ PanelWindow {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Color.composed("menu.border", "menu.border-alpha", Color.border, 0.25)
+                color: Commons.Color.composed("menu.border", "menu.border-alpha", Commons.Color.border, 0.25)
             }
 
             // 3. Widgets Section
@@ -346,7 +347,7 @@ PanelWindow {
                     Layout.fillWidth: true
                     height: 34
                     radius: 7
-                    color: Color.composed("menu.text", "menu.text-alpha", Color.text, 0.05)
+                    color: Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.05)
 
                     RowLayout {
                         anchors.fill: parent
@@ -360,7 +361,7 @@ PanelWindow {
                             font.family: Style.font.family
                             font.pixelSize: 11
                             font.bold: true
-                            color: Color.menu.text
+                            color: Commons.Color.menu.text
                             Layout.fillWidth: true
                         }
 
@@ -373,7 +374,7 @@ PanelWindow {
                                 height: 26
                                 radius: 5
                                 readonly property bool isLeft: (pickerWindow.root && pickerWindow.root.widgetPosition === "left")
-                                color: isLeft ? Color.accent : (posLeftMouse.containsMouse ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.12) : "transparent")
+                                color: isLeft ? Commons.Color.accent : (posLeftMouse.containsMouse ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.12) : "transparent")
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
                                 Text {
@@ -383,7 +384,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 11
                                     font.bold: true
-                                    color: parent.isLeft ? Color.background : Color.menu.text
+                                    color: parent.isLeft ? Commons.Color.background : Commons.Color.menu.text
                                 }
 
                                 MouseArea {
@@ -407,7 +408,7 @@ PanelWindow {
                                 height: 26
                                 radius: 5
                                 readonly property bool isRight: (!pickerWindow.root || pickerWindow.root.widgetPosition !== "left")
-                                color: isRight ? Color.accent : (posRightMouse.containsMouse ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.12) : "transparent")
+                                color: isRight ? Commons.Color.accent : (posRightMouse.containsMouse ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.12) : "transparent")
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
                                 Text {
@@ -417,7 +418,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 11
                                     font.bold: true
-                                    color: parent.isRight ? Color.background : Color.menu.text
+                                    color: parent.isRight ? Commons.Color.background : Commons.Color.menu.text
                                 }
 
                                 MouseArea {
@@ -494,9 +495,9 @@ PanelWindow {
                         readonly property bool isInBar: !!(pickerWindow.shell && pickerWindow.shell.pluginRegistry && typeof pickerWindow.shell.pluginRegistry.inBar === "function" && pickerWindow.shell.pluginRegistry.inBar(modelData.id))
                         readonly property bool isHovered: itemMouse.containsMouse
 
-                        color: isInDock ? Color.composed("menu.selectedBackground", "menu.selectedBackground-alpha", Color.accent, isHovered ? 0.18 : 0.10) : (isHovered ? Color.composed("menu.text", "menu.text-alpha", Color.text, 0.06) : "transparent")
+                        color: isInDock ? Commons.Color.composed("menu.selectedBackground", "menu.selectedBackground-alpha", Commons.Color.accent, isHovered ? 0.18 : 0.10) : (isHovered ? Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.06) : "transparent")
                         border.width: 1
-                        border.color: isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.4) : (isHovered ? Color.composed("menu.border", "menu.border-alpha", Color.border, 0.2) : "transparent")
+                        border.color: isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.4) : (isHovered ? Commons.Color.composed("menu.border", "menu.border-alpha", Commons.Color.border, 0.2) : "transparent")
                         Behavior on color { ColorAnimation { duration: 120 } }
                         Behavior on border.color { ColorAnimation { duration: 120 } }
 
@@ -512,7 +513,7 @@ PanelWindow {
                                 Layout.preferredHeight: 26
                                 Layout.alignment: Qt.AlignVCenter
                                 radius: 5
-                                color: rowItem.isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.2) : Color.composed("menu.text", "menu.text-alpha", Color.text, 0.08)
+                                color: rowItem.isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.2) : Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.08)
 
                                 DockGlyph {
                                     anchors.centerIn: parent
@@ -521,7 +522,7 @@ PanelWindow {
                                     text: modelData.icon
                                     fontFamily: modelData.fontFamily ? modelData.fontFamily : Style.font.family
                                     fontSize: 14
-                                    color: rowItem.isInDock ? Color.accent : Color.menu.text
+                                    color: rowItem.isInDock ? Commons.Color.accent : Commons.Color.menu.text
                                 }
                             }
 
@@ -537,7 +538,7 @@ PanelWindow {
                                     font.family: Style.font.family
                                     font.pixelSize: 12
                                     font.bold: true
-                                    color: Color.menu.text
+                                    color: Commons.Color.menu.text
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
@@ -545,7 +546,7 @@ PanelWindow {
                                     height: 16
                                     width: badgeText.implicitWidth + 8
                                     radius: 4
-                                    color: rowItem.isInDock ? Color.composed("accent", "accent-alpha", Color.accent, 0.25) : Color.composed("menu.text", "menu.text-alpha", Color.text, 0.08)
+                                    color: rowItem.isInDock ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.25) : Commons.Color.composed("menu.text", "menu.text-alpha", Commons.Color.text, 0.08)
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Text {
@@ -556,7 +557,7 @@ PanelWindow {
                                         font.family: Style.font.family
                                         font.pixelSize: 9
                                         font.bold: true
-                                        color: rowItem.isInDock ? Color.accent : Color.muted
+                                        color: rowItem.isInDock ? Commons.Color.accent : Commons.Color.muted
                                     }
                                 }
                             }
@@ -568,7 +569,7 @@ PanelWindow {
                                 Layout.preferredHeight: 18
                                 Layout.alignment: Qt.AlignVCenter
                                 radius: 9
-                                color: rowItem.isInDock ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                                color: rowItem.isInDock ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                                 Behavior on color { ColorAnimation { duration: 180 } }
 
                                 Rectangle {
@@ -578,7 +579,7 @@ PanelWindow {
                                     radius: 6
                                     anchors.verticalCenter: parent.verticalCenter
                                     x: rowItem.isInDock ? (switchTrack.width - width - 3) : 3
-                                    color: rowItem.isInDock ? Color.background : Color.popups.text
+                                    color: rowItem.isInDock ? Commons.Color.background : Commons.Color.popups.text
                                     Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                                 }
                             }

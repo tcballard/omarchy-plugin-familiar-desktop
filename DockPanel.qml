@@ -7,6 +7,7 @@ import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 import "HostedWidgets.js" as HostedWidgets
@@ -392,8 +393,8 @@ Item {
         style: root.titlebarStyle
         exclusions: root.titlebarExclusions
         size: root.titlebarSize
-        background: Color.popups.background
-        foreground: Color.popups.text
+        background: Commons.Color.popups.background
+        foreground: Commons.Color.popups.text
         fontFamily: Style.font.family
         fontSize: Math.max(8, Math.min(32, Style.font.subtitle))
     }
@@ -840,11 +841,11 @@ Item {
         property string position: root.dockScreenPosition
         property var screen: (root.dockWindow && root.dockWindow.screen) ? root.dockWindow.screen : null
         property var shell: root.shell
-        property color foreground: Color.composed("bar.text", "bar.text-alpha", Color.text, 0.9)
-        property color barForeground: Color.composed("bar.text", "bar.text-alpha", Color.text, 0.9)
-        property color urgent: Color.urgent
-        property color muted: Color.muted
-        property color accent: Color.accent
+        property color foreground: Commons.Color.composed("bar.text", "bar.text-alpha", Commons.Color.text, 0.9)
+        property color barForeground: Commons.Color.composed("bar.text", "bar.text-alpha", Commons.Color.text, 0.9)
+        property color urgent: Commons.Color.urgent
+        property color muted: Commons.Color.muted
+        property color accent: Commons.Color.accent
         property bool foregroundAnimationEnabled: true
         property string fontFamily: Style.font.family
         property var activePopout: null
@@ -2050,7 +2051,7 @@ Item {
                         width: root.isVertical ? (root.slotSize - 18) : 1.5
                         height: root.isVertical ? 1.5 : (root.slotSize - 18)
                         radius: 0.75
-                        color: Util.alpha(Color.bar.text, 0.25)
+                        color: Util.alpha(Commons.Color.bar.text, 0.25)
                     }
                 }
 
@@ -2191,7 +2192,7 @@ Item {
                         width: root.isVertical ? (root.slotSize - 18) : 1.5
                         height: root.isVertical ? 1.5 : (root.slotSize - 18)
                         radius: 0.75
-                        color: Util.alpha(Color.bar.text, 0.25)
+                        color: Util.alpha(Commons.Color.bar.text, 0.25)
                     }
                 }
 

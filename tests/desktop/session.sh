@@ -89,9 +89,13 @@ library=$(bash "$plugin/install-titlebars.sh")
 helper="$plugin/bin/familiar-desktop"
 "$helper" titlebars setup --library "$library" --enable --style mac
 omarchy-shell shell rescanPlugins
-wait_for omarchy plugin enable "$plugin_id"
 familiar_ready() { [[ $(timeout 3 omarchy-shell "$plugin_id" ping 2>/dev/null) == ok ]]; }
-wait_for familiar_ready
+# Qt 6.12 cannot render the old release's bare Color references. Its binary/
+# ownership fixture is used for installation, without claiming old UI acceptance.
+if [[ $EXPECTED_QT == 6.11.2 ]]; then
+  wait_for omarchy plugin enable "$plugin_id"
+  wait_for familiar_ready
+fi
 phase=install-candidate
 bundle="$SMOKE_ROOT/desktop-bundle"
 (cd "$bundle" && sha256sum --check --strict SHA256SUMS)
@@ -100,6 +104,13 @@ cp "$bundle/DEV-BUILD.json" "$EVIDENCE/tested-build.json"
 bash "$bundle/install-dev.sh"
 [[ $(git -C "$plugin" rev-parse HEAD) == "$SOURCE_SHA" ]]
 wait_for familiar_ready
+phase=palette
+palette="$XDG_RUNTIME_DIR/palette-probe"
+mkdir -p "$palette"
+ln -s "$OMARCHY_PATH/shell" "$palette/qs"
+cp "$SMOKE_ROOT/tests/desktop/palette-probe.qml" "$palette/shell.qml"
+timeout 15 qs -p "$palette/shell.qml" > "$EVIDENCE/palette-probe.log" 2>&1
+grep -q 'PASS: qualified Commons palette' "$EVIDENCE/palette-probe.log"
 phase=windows
 foot --app-id familiar-smoke-a --title 'Familiar fixture A' sleep 600 > "$EVIDENCE/foot-a.log" 2>&1 &
 foot --app-id familiar-smoke-b --title 'Familiar fixture B' sleep 600 > "$EVIDENCE/foot-b.log" 2>&1 &
@@ -231,6 +242,7 @@ wait "$probe_pid" || true
 omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready
 phase=rollback
+if [[ $EXPECTED_QT == 6.11.2 ]]; then
 bash "$bundle/install-dev.sh" --rollback
 [[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
 [[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
@@ -238,6 +250,9 @@ bash "$bundle/install-dev.sh" --rollback
 jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
 cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
 cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+else
+  echo 'Qt 6.12: old-release UI/rollback compatibility is outside this candidate check.'
+fi
 wait_for familiar_ready
 wait_for two_windows
 phase=passed

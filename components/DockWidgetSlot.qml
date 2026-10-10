@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import ".."
 
 Item {
@@ -56,7 +57,7 @@ Item {
             font.family: Style.font.family
             font.pixelSize: 12
             font.weight: Font.Medium
-            color: widgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
+            color: widgetSlotMouse.containsMouse ? Commons.Color.accent : Commons.Color.bar.text
             renderType: Text.CurveRendering
             font.hintingPreference: Font.PreferNoHinting
             Behavior on color  {
@@ -83,7 +84,7 @@ Item {
                     font.family: Style.font.family
                     font.pixelSize: modelData.length > 3 ? 9 : 10
                     font.weight: Font.Medium
-                    color: widgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
+                    color: widgetSlotMouse.containsMouse ? Commons.Color.accent : Commons.Color.bar.text
                     renderType: Text.CurveRendering
                     font.hintingPreference: Font.PreferNoHinting
                 }
@@ -109,7 +110,7 @@ Item {
             }
             fontFamily: (widgetLoader.item && widgetLoader.item.fontFamily) ? widgetLoader.item.fontFamily : ((widgetLoader.item && widgetLoader.item.font && widgetLoader.item.font.family) ? widgetLoader.item.font.family : Style.font.family)
             fontSize: 22
-            color: widgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
+            color: widgetSlotMouse.containsMouse ? Commons.Color.accent : Commons.Color.bar.text
             Behavior on color  {
                 ColorAnimation {
                     duration: 120

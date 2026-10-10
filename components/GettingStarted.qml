@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import "../ShortcutLabels.js" as ShortcutLabels
 
 ColumnLayout {
@@ -15,7 +16,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     Repeater {
         model: [{key: "settings", label: "System settings"}, {key: "help", label: "Troubleshooting ↗"}]
@@ -35,13 +36,13 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 11
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     TextInput {
         id: filter
         Layout.fillWidth: true
         Layout.minimumHeight: 36
-        color: Color.popups.text
+        color: Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: 12
         selectByMouse: true
@@ -50,7 +51,7 @@ ColumnLayout {
         Text {
             visible: !filter.text && !filter.activeFocus
             text: "Search active shortcuts…"
-            color: Color.muted
+            color: Commons.Color.muted
             font: filter.font
         }
     }
@@ -65,13 +66,13 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: 12
-            color: Color.popups.text
+            color: Commons.Color.popups.text
         }
     }
     Text {
         visible: !!root.tools && !root.tools.busy && root.tools.shortcuts.length === 0
         text: "No described shortcuts were returned."
         textFormat: Text.PlainText
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
 }

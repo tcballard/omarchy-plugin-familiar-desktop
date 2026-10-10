@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import ".."
 
 Rectangle {
@@ -43,7 +44,7 @@ Rectangle {
     width: vertical ? 36 : Math.max(36, (icons.length + 1) * 30 + 10)
     height: vertical ? Math.max(36, (icons.length + 1) * 30 + 10) : 36
     focus: true
-    color: transparent ? Util.alpha(Color.popups.background, 0.45) : Color.popups.background
+    color: transparent ? Util.alpha(Commons.Color.popups.background, 0.45) : Commons.Color.popups.background
     border.width: Border.canUseNative(borderSpec) && !transparent ? Border.uniformWidth(borderSpec) : 0
     border.color: Border.canUseNative(borderSpec) && !transparent ? Border.color(borderSpec) : "transparent"
     radius: Math.min(10, rounding)
@@ -93,7 +94,7 @@ Rectangle {
             text: choice.glyph
             fontFamily: Style.font.family
             fontSize: choice.dissolve ? 16 : 14
-            color: choice.current || choice.selected ? Color.accent : Color.popups.text
+            color: choice.current || choice.selected ? Commons.Color.accent : Commons.Color.popups.text
             scale: choice.selected ? 1.25 : 1
             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
             Behavior on color { ColorAnimation { duration: 150 } }
@@ -101,9 +102,9 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: 4
-            color: choice.current ? Color.composed("accent", "accent-alpha", Color.accent, 0.22) : "transparent"
+            color: choice.current ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.22) : "transparent"
             border.width: choice.current ? 1 : 0
-            border.color: choice.current ? Color.accent : "transparent"
+            border.color: choice.current ? Commons.Color.accent : "transparent"
         }
         MouseArea {
             anchors.fill: parent
@@ -140,7 +141,7 @@ Rectangle {
         Rectangle {
             width: picker.vertical ? 14 : 1
             height: picker.vertical ? 1 : 14
-            color: Color.composed("popups.border", "popups.border-alpha", Color.border, 0.35)
+            color: Commons.Color.composed("popups.border", "popups.border-alpha", Commons.Color.border, 0.35)
         }
         Choice { optionIndex: picker.icons.length; glyph: "-"; dissolve: true }
     }

@@ -19,9 +19,18 @@ jobs:
       matrix:
         # The XPS fork changes news, but these public base shell APIs match it.
         omarchy: [0f8af9be307d5d4f12cc0f6394892cac651ed5e6, f99d33a8ddee7b36509a71a6d20d5d23355ce8b1]
+        include:
+          # Core's merged palette fix, with matching Qt/Quickshell packages.
+          - omarchy: b83d3df0840504299d3099ebf391eb8110527edd
+            archive: 2026/10/09
+            qt: 6.12.0
+            quickshell: 0.3.2
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       OMARCHY_SHA: ${{ matrix.omarchy }}
+      ARCH_SNAPSHOT: ${{ matrix.archive || '2026/09/30' }}
+      EXPECTED_QT: ${{ matrix.qt || '6.11.2' }}
+      EXPECTED_QUICKSHELL: ${{ matrix.quickshell || '0.3.1' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:

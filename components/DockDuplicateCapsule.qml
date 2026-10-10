@@ -1,6 +1,6 @@
 import QtQuick
 import qs.Commons
-
+import qs.Commons as Commons
 Rectangle {
     id: root
 
@@ -33,7 +33,7 @@ Rectangle {
     width: Math.max(18, 12 + winCount * 5)
     radius: height / 2
 
-    color: Color.composed("popups.background", "popups.background-alpha", Color.background, 0.92)
+    color: Commons.Color.composed("popups.background", "popups.background-alpha", Commons.Color.background, 0.92)
     antialiasing: true
     smooth: true
 
@@ -51,7 +51,7 @@ Rectangle {
                 width: isOriginalApp ? 9.0 : (isSlotHighlighted ? 3.5 : 2.5)
                 height: 2.5
                 radius: 1.25
-                color: isSlotHighlighted ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, isOriginalApp ? 0.45 : 0.28)
+                color: isSlotHighlighted ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, isOriginalApp ? 0.45 : 0.28)
                 antialiasing: true
                 smooth: true
 

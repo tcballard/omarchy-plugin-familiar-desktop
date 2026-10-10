@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 import "IconResolver.js" as Icons
@@ -79,9 +80,9 @@ Item {
         width: root.slotSize - 6
         height: root.slotSize - 6
         radius: root.systemRounding
-        color: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.22)
+        color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.22)
         border.width: root.systemBorderSize
-        border.color: Color.accent
+        border.color: Commons.Color.accent
         visible: opacity > 0
         opacity: root.isMergeTarget ? 1.0 : 0.0
         scale: root.isMergeTarget ? 1.04 : 0.92
@@ -212,7 +213,7 @@ Item {
             text: (root.itemData && root.itemData.icon) ? root.itemData.icon : ""
             fontFamily: Style.font.family
             fontSize: 20
-            color: Color.accent
+            color: Commons.Color.accent
         }
 
         // Folder Mini-Grid (Shown when icon is "grid", "folder", "󰕰" or not set)
@@ -337,8 +338,8 @@ Item {
             fontFamily: Style.font.family
             fontSize: 11
             color: (root.itemData && root.itemData.isPinned)
-                ? Color.accent
-                : (pinBadgeMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.45))
+                ? Commons.Color.accent
+                : (pinBadgeMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.45))
 
             scale: pinBadgeMouse.containsMouse ? 1.35 : 1.0
             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -381,7 +382,7 @@ Item {
             text: "-"
             fontFamily: Style.font.family
             fontSize: 16
-            color: dissolveBadgeMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.85)
+            color: dissolveBadgeMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.85)
 
             scale: dissolveBadgeMouse.containsMouse ? 1.25 : 1.0
             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -437,7 +438,7 @@ Item {
         height: 2
         width: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? 10 : 4
         radius: 1
-        color: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.6)
+        color: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.6)
         antialiasing: true
         smooth: true
 

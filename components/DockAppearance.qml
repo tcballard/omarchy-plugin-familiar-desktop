@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
-
+import qs.Commons as Commons
 // Owns compositor/theme appearance observations, independently of dock windows.
 Item {
     id: appearance
@@ -10,8 +10,8 @@ Item {
     property string backgroundOpacity: "theme"
     property bool barTransparent: false
     readonly property color backgroundColor: backgroundOpacity === "theme"
-        ? (barTransparent ? Util.alpha(Color.bar.background, 0.25) : Color.bar.background)
-        : Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, Number(backgroundOpacity) / 100)
+        ? (barTransparent ? Util.alpha(Commons.Color.bar.background, 0.25) : Commons.Color.bar.background)
+        : Qt.rgba(Commons.Color.bar.background.r, Commons.Color.bar.background.g, Commons.Color.bar.background.b, Number(backgroundOpacity) / 100)
     readonly property bool backgroundTransparent: backgroundOpacity === "theme"
         ? barTransparent : Number(backgroundOpacity) < 100
 
@@ -69,14 +69,14 @@ Item {
         }
         var raw = appearance.hyprlandActiveBorderRaw
         if (raw && raw.length > 0) {
-            var grad = appearance.parseHyprlandGradient(raw, Color.accent)
+            var grad = appearance.parseHyprlandGradient(raw, Commons.Color.accent)
             return {
                 color: grad.colors[0],
                 widths: { top: appearance.systemBorderSize, right: appearance.systemBorderSize, bottom: appearance.systemBorderSize, left: appearance.systemBorderSize },
                 gradient: grad
             }
         }
-        return Border.hyprlandActiveSpec(Color.accent, appearance.systemBorderSize)
+        return Border.hyprlandActiveSpec(Commons.Color.accent, appearance.systemBorderSize)
     }
 
     Process {

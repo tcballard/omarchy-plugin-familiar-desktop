@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
 import "../DockDrag.js" as Drag
@@ -110,8 +111,8 @@ PanelWindow {
             height: (stackWindow.root.showFolderTitles ? 36 : 0) + (gridRows * 50 - 6) + 24
 
             color: stackWindow.root.isBarTransparent
-                ? Util.alpha(Color.popups.background, 0.45)
-                : Color.popups.background
+                ? Util.alpha(Commons.Color.popups.background, 0.45)
+                : Commons.Color.popups.background
             border.width: (Border.canUseNative(stackWindow.root.dockBorderSpec) && !stackWindow.root.isBarTransparent) ? Border.uniformWidth(stackWindow.root.dockBorderSpec) : 0
             border.color: (Border.canUseNative(stackWindow.root.dockBorderSpec) && !stackWindow.root.isBarTransparent) ? Border.color(stackWindow.root.dockBorderSpec) : "transparent"
             radius: stackWindow.root.systemRounding
@@ -206,10 +207,10 @@ PanelWindow {
                         anchors.fill: parent
                         radius: 6
                         color: (stackWindow.root.isEditingFolderTitle || titleInput.activeFocus)
-                            ? Style.hoverFillFor(Color.popups.text, Color.accent)
-                            : (titleHoverArea.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent")
+                            ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
+                            : (titleHoverArea.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent")
                         border.width: (stackWindow.root.isEditingFolderTitle || titleInput.activeFocus) ? 1 : 0
-                        border.color: Color.accent
+                        border.color: Commons.Color.accent
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
@@ -255,7 +256,7 @@ PanelWindow {
                             font.family: Style.font.family
                             font.pixelSize: 12
                             font.bold: true
-                            color: Color.popups.text
+                            color: Commons.Color.popups.text
                             elide: Text.ElideNone
                             wrapMode: Text.NoWrap
                             verticalAlignment: Text.AlignVCenter
@@ -274,7 +275,7 @@ PanelWindow {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         selectByMouse: true
                         cursorVisible: true
                         clip: true
@@ -384,7 +385,7 @@ PanelWindow {
                                 radius: width / 2
                                 color: "transparent"
                                 border.width: 2
-                                border.color: Color.accent
+                                border.color: Commons.Color.accent
                                 opacity: 0.0
                                 scale: 0.5
                                 z: 0
@@ -521,7 +522,7 @@ PanelWindow {
                                     width: (modelData && modelData.isActive && !modelData.isMinimized) ? 10 : 4
                                     height: 2
                                     radius: 1
-                                    color: (modelData && modelData.isActive && !modelData.isMinimized) ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.6)
+                                    color: (modelData && modelData.isActive && !modelData.isMinimized) ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.6)
                                     antialiasing: true
                                     smooth: true
 
@@ -561,7 +562,7 @@ PanelWindow {
                                     text: "-"
                                     fontFamily: Style.font.family
                                     fontSize: 16
-                                    color: subExtractMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.85)
+                                    color: subExtractMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.85)
 
                                     scale: subExtractMouse.containsMouse ? 1.25 : 1.0
                                     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }

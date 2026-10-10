@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
 import "../AppMenuSelection.js" as MenuSelection
@@ -106,9 +107,9 @@ PanelWindow {
         x: position.x
         y: position.y
         radius: Math.min(12, menu.root.systemRounding)
-        color: Color.popups.background
+        color: Commons.Color.popups.background
         border.width: Math.max(1, menu.root.systemBorderSize)
-        border.color: Color.popups.border
+        border.color: Commons.Color.popups.border
         focus: true
         Keys.onEscapePressed: function(event) { menu.dismiss(); event.accepted = true }
 
@@ -135,7 +136,7 @@ PanelWindow {
                 font.family: Style.font.family
                 font.pixelSize: 14
                 font.bold: true
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
 
             Flickable {
@@ -159,7 +160,7 @@ PanelWindow {
                             activeFocusOnTab: true
                             Keys.onReturnPressed: menu.selectedWindowAddress = menu.root.targetWindowArg(menu.app, index)
                             Keys.onSpacePressed: menu.selectedWindowAddress = menu.root.targetWindowArg(menu.app, index)
-                            color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Color.accent : "transparent"
+                            color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Commons.Color.accent : "transparent"
                             Text {
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
@@ -171,7 +172,7 @@ PanelWindow {
                                 textFormat: Text.PlainText
                                 font.family: Style.font.family
                                 font.pixelSize: 12
-                                color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Color.popups.background : Color.popups.text
+                                color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Commons.Color.popups.background : Commons.Color.popups.text
                             }
                             MouseArea {
                                 id: windowMouse
@@ -191,11 +192,11 @@ PanelWindow {
                 visible: text !== ""
                 height: visible ? implicitHeight : 0
                 wrapMode: Text.WordWrap
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 font.family: Style.font.family
                 font.pixelSize: 11
             }
-            Rectangle { width: parent.width; height: 1; color: Color.popups.border }
+            Rectangle { width: parent.width; height: 1; color: Commons.Color.popups.border }
             Repeater {
                 model: menu.actions
                 delegate: Rectangle {
@@ -206,7 +207,7 @@ PanelWindow {
                     activeFocusOnTab: modelData.enabled
                     Keys.onReturnPressed: if (modelData.enabled) menu.action(modelData.kind)
                     Keys.onSpacePressed: if (modelData.enabled) menu.action(modelData.kind)
-                    color: actionMouse.containsMouse && modelData.enabled ? Color.accent : "transparent"
+                    color: actionMouse.containsMouse && modelData.enabled ? Commons.Color.accent : "transparent"
                     Text {
                         anchors.fill: parent
                         anchors.leftMargin: 10
@@ -218,8 +219,8 @@ PanelWindow {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 12
-                        color: !modelData.enabled ? Color.popups.text :
-                               actionMouse.containsMouse ? Color.popups.background : Color.popups.text
+                        color: !modelData.enabled ? Commons.Color.popups.text :
+                               actionMouse.containsMouse ? Commons.Color.popups.background : Commons.Color.popups.text
                         opacity: modelData.enabled ? 1 : 0.45
                     }
                     MouseArea {

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
-
+import qs.Commons as Commons
 ColumnLayout {
     id: root
     property var controller: null
@@ -15,7 +15,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         font.family: Style.font.family
         font.pixelSize: 13
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     Text {
         Layout.fillWidth: true
@@ -24,7 +24,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     ActionButton {
         Layout.fillWidth: true
@@ -48,6 +48,6 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
 }

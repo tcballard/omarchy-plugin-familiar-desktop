@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import qs.Commons
-
+import qs.Commons as Commons
 Item {
     id: root
     property bool vertical: false
@@ -21,7 +21,7 @@ Item {
             width: root.slotSize
             height: root.slotSize
             radius: Style.cornerRadius
-            color: mouse.containsMouse || activeFocus ? Color.composed("accent", "accent-alpha", Color.accent, 0.15) : "transparent"
+            color: mouse.containsMouse || activeFocus ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.15) : "transparent"
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
             Accessible.name: modelData.label
@@ -31,7 +31,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: modelData.icon
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 font.family: Style.font.family
                 font.pixelSize: Math.round(root.slotSize * 0.45)
             }

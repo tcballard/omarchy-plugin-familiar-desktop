@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import qs.Commons
+import qs.Commons as Commons
 import "../components"
 
 TestCase {
@@ -51,12 +52,12 @@ TestCase {
         compare(appearance.borderAngleAnimationDuration, 4000)
     }
     function test_backgroundMatrixPreservesTheTheme() {
-        var original = Color.bar.background
+        var original = Commons.Color.bar.background
         try {
             for (var transparent of [true, false]) {
                 appearance.barTransparent = transparent
                 for (var background of [Qt.rgba(.1, .2, .3, 1), Qt.rgba(.7, .6, .5, 0)]) {
-                    Color.bar.background = background
+                    Commons.Color.bar.background = background
                     for (var choice of ["theme", "0", "25", "50", "75", "100"]) {
                         appearance.backgroundOpacity = choice
                         fuzzyCompare(appearance.backgroundColor.a, choice === "theme" ? (transparent ? .25 : background.a) : Number(choice) / 100, .001)
@@ -64,11 +65,11 @@ TestCase {
                         fuzzyCompare(appearance.backgroundColor.g, background.g, .001)
                         fuzzyCompare(appearance.backgroundColor.b, background.b, .001)
                         compare(appearance.backgroundTransparent, choice === "theme" ? transparent : Number(choice) < 100)
-                        compare(Color.bar.background, background, "the theme stays untouched")
+                        compare(Commons.Color.bar.background, background, "the theme stays untouched")
                     }
                 }
             }
-        } finally { Color.bar.background = original }
+        } finally { Commons.Color.bar.background = original }
     }
     function test_refreshCoalescesWhileQueriesAreRunning() {
         var rounding = findChild(appearance, "appearance-rounding")

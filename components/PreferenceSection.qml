@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
-
+import qs.Commons as Commons
 // A controller owns the selected value and result. This view only requests actions.
 ColumnLayout {
     id: section
@@ -17,7 +17,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         font.family: Style.font.family
         font.pixelSize: 13
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     Repeater {
         model: section.choices
@@ -38,7 +38,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     Text {
         objectName: "preference-status"
@@ -49,7 +49,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     ActionButton {
         objectName: "preference-refresh"

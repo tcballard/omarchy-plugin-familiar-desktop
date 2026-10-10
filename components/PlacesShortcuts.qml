@@ -12,7 +12,7 @@ Item {
     width: vertical ? slotSize : 3 * slotSize
     height: vertical ? 3 * slotSize : slotSize
     Repeater {
-        model: [ {id: "home", label: "Home", icon: "⌂"}, {id: "downloads", label: "Downloads", icon: "↓"}, {id: "trash", label: "Bin", icon: "󰩺"} ]
+        model: [ {id: "home", label: "Home", icon: "󰚡"}, {id: "downloads", label: "Downloads", icon: "↓"}, {id: "trash", label: "Bin", icon: "󰩺"} ]
         delegate: Rectangle {
             required property var modelData
             required property int index

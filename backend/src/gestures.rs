@@ -40,6 +40,10 @@ impl Paths {
 }
 
 pub fn hook(mode: &str, manifest: &Path) -> Result<String> {
+    hook_version(mode, manifest, false)
+}
+
+fn hook_version(mode: &str, manifest: &Path, legacy: bool) -> Result<String> {
     if !["all", "workspace", "desktop"].contains(&mode) {
         return Err("Choose all, workspace, desktop or reset".into());
     }
@@ -55,11 +59,20 @@ pub fn hook(mode: &str, manifest: &Path) -> Result<String> {
         );
     }
     if mode == "all" || mode == "desktop" {
-        body.push_str(&format!(
-            "    hl.gesture({{ fingers = 4, direction = 'down', action = hl.dsp.exec_cmd({}) }})\n    hl.gesture({{ fingers = 4, direction = 'up', action = hl.dsp.exec_cmd({}) }})\n",
-            common::lua(&format!("{command} desktop show")),
-            common::lua(&format!("{command} desktop restore"))
-        ));
+        for (direction, action) in [("down", "show"), ("up", "restore")] {
+            let dispatcher = format!(
+                "hl.dsp.exec_cmd({})",
+                common::lua(&format!("{command} desktop {action}"))
+            );
+            let callback = if legacy {
+                dispatcher
+            } else {
+                format!("function() hl.dispatch({dispatcher}) end")
+            };
+            body.push_str(&format!(
+                "    hl.gesture({{ fingers = 4, direction = '{direction}', action = {callback} }})\n"
+            ));
+        }
     }
     Ok(format!(
         "{BEGIN}-- mode: {mode}\ndo\n  local plugin = io.open({}, 'r')\n  if plugin then\n    plugin:close()\n{body}  end\nend\n{END}",
@@ -83,10 +96,12 @@ fn generated_content(paths: &Paths) -> Result<Option<String>> {
         Err(e) => Err(e.to_string()),
         Ok(_) => {
             let value = text(&paths.generated)?;
-            if !["all", "workspace", "desktop"]
-                .iter()
-                .any(|mode| hook(mode, &paths.manifest).is_ok_and(|expected| value == expected))
-            {
+            if !["all", "workspace", "desktop"].iter().any(|mode| {
+                [false, true].into_iter().any(|legacy| {
+                    hook_version(mode, &paths.manifest, legacy)
+                        .is_ok_and(|expected| value == expected)
+                })
+            }) {
                 return Err(
                     "Familiar's separate trackpad config was edited; no file changed".into(),
                 );
@@ -127,12 +142,14 @@ pub fn split(text: &str, manifest: &Path) -> Result<(String, String)> {
     }
     if starts == 1 && ends == 1 {
         for mode in ["all", "workspace", "desktop"] {
-            let block = hook(mode, manifest)?;
-            if let Some(start) = text.find(&block) {
-                return Ok((
-                    format!("{}{}", &text[..start], &text[start + block.len()..]),
-                    mode.into(),
-                ));
+            for legacy in [false, true] {
+                let block = hook_version(mode, manifest, legacy)?;
+                if let Some(start) = text.find(&block) {
+                    return Ok((
+                        format!("{}{}", &text[..start], &text[start + block.len()..]),
+                        mode.into(),
+                    ));
+                }
             }
         }
     }
@@ -167,7 +184,7 @@ pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
             hypr,
             &[
                 "eval",
-                "assert(hl and hl.gesture and hl.dsp and hl.dsp.exec_cmd, 'Familiar Trackpad requires Hyprland Lua gesture support')",
+                "assert(hl and hl.gesture and hl.dispatch and hl.dsp and hl.dsp.exec_cmd, 'Familiar Trackpad requires Hyprland Lua gesture support')",
             ],
         )?;
         format!("{}{}", clean, include_hook(paths))

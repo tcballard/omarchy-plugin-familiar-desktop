@@ -25,9 +25,16 @@ pub fn paths(kind: &str) -> Result<Paths> {
 }
 
 pub fn hook(kind: &str, manifest: &Path) -> Result<String> {
+    hook_version(kind, manifest, false)
+}
+
+fn hook_version(kind: &str, manifest: &Path, legacy: bool) -> Result<String> {
     valid_kind(kind)?;
     let body = if kind == "resize" {
         "hl.config({ general = { resize_on_border = true, extend_border_grab_area = 15, hover_icon_on_border = true } })\n"
+    } else if legacy {
+        // Exact old output is recognised for upgrades; edited files still fail closed.
+        include_str!("legacy/command_shortcuts.lua")
     } else {
         include_str!("command_shortcuts.lua")
     };
@@ -60,7 +67,7 @@ fn generated(kind: &str, p: &Paths) -> Result<Option<String>> {
         Err(e) => Err(e.to_string()),
         Ok(_) => {
             let s = text(&p.generated)?;
-            if s != hook(kind, &p.manifest)? {
+            if s != hook(kind, &p.manifest)? && s != hook_version(kind, &p.manifest, true)? {
                 return Err("Familiar input config was edited; no files changed".into());
             }
             Ok(Some(s))
@@ -100,7 +107,7 @@ pub fn change(kind: &str, mode: &str, p: &Paths, h: &mut impl Hypr) -> Result<Va
         let probe = if kind == "resize" {
             "assert(hl and hl.config, 'Native border resizing requires Hyprland Lua')"
         } else {
-            "assert(hl and hl.bind and hl.unbind and hl.get_active_window and hl.dsp and hl.dsp.send_shortcut, 'Command shortcuts require Hyprland Lua')"
+            "assert(hl and hl.bind and hl.unbind and hl.get_active_window and hl.dispatch and hl.timer and hl.dsp and hl.dsp.send_key_state, 'Command shortcuts require Hyprland Lua')"
         };
         checked(h, &["eval", probe])?;
     }

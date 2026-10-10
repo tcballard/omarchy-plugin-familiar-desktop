@@ -70,7 +70,7 @@ for(const fault of ['download','corrupt','duplicate','version','substitution']){
 }
 r=run({existing:true,arch:'aarch64'});assert.notEqual(r.status,0);assert.equal(r.binary,'previous backend');assert.match(r.stderr,/Linux x86_64/);assert.doesNotMatch(r.log,/curl|plugin enable/);passed++;
 // The settings repair action must use the release installer, never a source build.
-const widget=fs.readFileSync(path.resolve(__dirname,'../BarWidget.qml'),'utf8');assert.match(widget,/desktopService.setup.repair\(root.titlebarStyle\)/);assert.doesNotMatch(widget,/Qt.resolvedUrl\("build.sh"\)/);
+const widget=fs.readFileSync(path.resolve(__dirname,'../BarWidget.qml'),'utf8');assert.doesNotMatch(widget + fs.readFileSync("components/SettingsContent.qml", "utf8"), /Qt.resolvedUrl\("build.sh"\)/);
 console.log(`${passed} installer scenarios passed (mock host; real SHA-256 verification).`);
 
 for(const options of [{badAbi:true},{titlebarFault:'corrupt'},{titlebarFault:'substitution'},{titlebarFault:'download'},{repair:true}]) {

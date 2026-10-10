@@ -178,13 +178,22 @@ BarWidget {
       if (page === "help" && root.desktopTools && !root.desktopTools.busy) root.desktopTools.run(["shortcuts"])
     }
 
-    SettingsContent {
+    Loader {
       id: cardColumn
+      active: !!root.desktopService
+      width: parent.width
+      implicitHeight: item ? item.implicitHeight : 0
+      sourceComponent: SettingsContent {
       service: root.desktopService
       navigation: settingsWindow
       workspaceOptions: root.workspaceOptions
       taskbarActive: root.taskbarActive
       onCloseRequested: root.close()
+      onCopyRequested: function(text) {
+        try { Quickshell.clipboardText = text } catch (e) {}
+        if (root.bar && typeof root.bar.run === "function") root.bar.run(["wl-copy", text])
+      }
+      }
     }
     }
   }

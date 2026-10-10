@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Canonical portable checks used locally and by CI. Desktop acceptance is separate.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+: "${QMLTESTRUNNER:=/usr/lib/qt6/bin/qmltestrunner}"
+: "${QMLFORMAT:=/usr/lib/qt6/bin/qmlformat}"
+
+cargo fmt --manifest-path backend/Cargo.toml -- --check
+cargo clippy --manifest-path backend/Cargo.toml --all-targets --locked -- -D warnings
+tests/run
+
+check_dir="$(mktemp -d)"
+trap 'rm -rf "$check_dir"' EXIT
+read -r -a cairo_flags <<< "$(pkg-config --cflags --libs cairo)"
+"${CXX:-c++}" -std=c++20 tests/test_control_icons.cpp "${cairo_flags[@]}" -o "$check_dir/control-icons"
+"$check_dir/control-icons"
+
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
+export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
+export QMLTESTRUNNER
+"$QMLTESTRUNNER" -input tests -import tests/imports
+node tests/test_settings_layout.cjs
+for file in *.qml components/*.qml; do
+    "$QMLFORMAT" "$file" > /dev/null
+done

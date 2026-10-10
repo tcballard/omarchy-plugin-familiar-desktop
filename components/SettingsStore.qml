@@ -6,7 +6,6 @@ import "SettingsSchema.js" as Schema
 Item {
     id: store
     required property string path
-    property var previous: ({})
     property string error: ""
     property string profile: "general"
     property string shortcutLabels: "standard"
@@ -38,47 +37,82 @@ Item {
 
     function restore(text) {
         try {
-            var raw = text && text.trim() ? JSON.parse(text) : {}
-            if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Expected a settings object")
-            var values = Schema.normalize(raw)
-            previous = raw
-            for (var key in values) store[key] = values[key]
-            error = ""
-            return true
+            var raw = text && text.trim() ? JSON.parse(text) : {};
+            if (!raw || typeof raw !== "object" || Array.isArray(raw))
+                throw new Error("Expected a settings object");
+            var values = Schema.normalize(raw);
+            for (var key in values)
+                store[key] = values[key];
+            error = "";
+            return true;
         } catch (e) {
-            error = "Could not read Familiar settings; your file was preserved."
-            return false
+            error = "Could not read Familiar settings; your file was preserved.";
+            return false;
         }
     }
     function snapshot() {
-        return {profile: store.profile, shortcutLabels: store.shortcutLabels, dockEnabled: store.dockEnabled, fileShortcutsEnabled: store.fileShortcutsEnabled, dockBackgroundOpacity: store.dockBackgroundOpacity, dockSize: store.dockSize, dockPosition: store.dockPosition, titlebarSize: store.titlebarSize, titlebarsEnabled: store.titlebarsEnabled, titlebarMode: store.titlebarMode, titlebarStyle: store.titlebarStyle, titlebarExclusions: store.titlebarExclusions, visibilityMode: store.visibilityMode, preferredVisibilityMode: store.preferredVisibilityMode, overlayMode: store.overlayMode, visibleWorkspace: store.visibleWorkspace, autohideEdgeDepth: store.autohideEdgeDepth, showFolderTitles: store.showFolderTitles, showBadges: store.showBadges, windowPreviews: store.windowPreviews, glassmorphism: store.glassmorphism, blurOpacity: store.blurOpacity, widgetsEnabled: store.widgetsEnabled, appMenuPosition: store.appMenuPosition, widgetPosition: store.widgetPosition, dockWidgets: store.dockWidgets, widgetSavedPositions: store.widgetSavedPositions}
+        return {
+            "profile": store.profile,
+            "shortcutLabels": store.shortcutLabels,
+            "dockEnabled": store.dockEnabled,
+            "fileShortcutsEnabled": store.fileShortcutsEnabled,
+            "dockBackgroundOpacity": store.dockBackgroundOpacity,
+            "dockSize": store.dockSize,
+            "dockPosition": store.dockPosition,
+            "titlebarSize": store.titlebarSize,
+            "titlebarsEnabled": store.titlebarsEnabled,
+            "titlebarMode": store.titlebarMode,
+            "titlebarStyle": store.titlebarStyle,
+            "titlebarExclusions": store.titlebarExclusions,
+            "visibilityMode": store.visibilityMode,
+            "preferredVisibilityMode": store.preferredVisibilityMode,
+            "overlayMode": store.overlayMode,
+            "visibleWorkspace": store.visibleWorkspace,
+            "autohideEdgeDepth": store.autohideEdgeDepth,
+            "showFolderTitles": store.showFolderTitles,
+            "showBadges": store.showBadges,
+            "windowPreviews": store.windowPreviews,
+            "glassmorphism": store.glassmorphism,
+            "blurOpacity": store.blurOpacity,
+            "widgetsEnabled": store.widgetsEnabled,
+            "appMenuPosition": store.appMenuPosition,
+            "widgetPosition": store.widgetPosition,
+            "dockWidgets": store.dockWidgets,
+            "widgetSavedPositions": store.widgetSavedPositions
+        };
     }
     function patch(changes) {
-        var values = snapshot()
+        var values = snapshot();
         for (var key in changes) {
-            if (!Object.prototype.hasOwnProperty.call(values, key)) return false
-            values[key] = changes[key]
+            if (!Object.prototype.hasOwnProperty.call(values, key))
+                return false;
+            values[key] = changes[key];
         }
-        values = Schema.normalize(values)
-        for (var field in values) store[field] = values[field]
-        return save()
+        values = Schema.normalize(values);
+        if (!save(values))
+            return false;
+        for (var field in values)
+            store[field] = values[field];
+        return true;
     }
-    function save() {
+    function save(values) {
         // A malformed external file is never replaced by defaults.
         try {
-            var text = file.text()
-            var raw = text && text.trim() ? JSON.parse(text) : {}
-            if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false
-            file.setText(Schema.encode(raw, snapshot()))
-            error = ""
-            return true
+            var text = file.text();
+            var raw = text && text.trim() ? JSON.parse(text) : {};
+            if (!raw || typeof raw !== "object" || Array.isArray(raw))
+                throw new Error("Expected a settings object");
+            file.setText(Schema.encode(raw, values || snapshot()));
+            error = "";
+            return true;
         } catch (e) {
-            error = "Could not save Familiar settings; your file was preserved."
-            return false
+            error = "Could not save Familiar settings; your file was preserved.";
+            return false;
         }
     }
     FileView {
         id: file
+        objectName: "settings-file"
         path: store.path
         watchChanges: true
         atomicWrites: true

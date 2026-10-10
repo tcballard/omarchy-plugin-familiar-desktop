@@ -11,7 +11,7 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml` |
 | Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`, `DockPosition.js`, `components/DockVisibility.qml` | `test_dock_position.cjs`, `tst_DockVisibility.qml`, desktop smoke |
 | App matching and window history | `DockModel.js` facade → `DockMatcher.js`; curated data in `AppCatalog.js` | `test_window_history.cjs`, `test_app_identity.cjs` |
-| Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `test_notification_counts.cjs`, `test_notification_privacy.cjs` |
+| Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `tst_NotificationTracker.qml` |
 | Runtime icon sources | `IconResolver.js`, using candidates and disk cache supplied by `DockModel.js` | `test_app_identity.cjs` |
 | Pins, folders and launching | `DockPinned.js`, `DockAutoName.js`, `DockLauncher.js`; menu/popup QML | Node model checks, desktop smoke |
 | Left/right hosted widgets | `components/DockWidgetSlot.qml`, `HostedWidgets.js`, `DockWidgets.js`; service action adapter | `test_widget_anchor.cjs`, `tst_DockWidgetSlot.qml` |

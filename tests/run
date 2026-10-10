@@ -25,8 +25,7 @@ node tests/test_dock_scroll.cjs
 
 node tests/test_in_app_setup.cjs
 node tests/test_bar_placement.cjs
-node tests/test_notification_privacy.cjs
-node tests/test_notification_counts.cjs
+node tests/test_app_identity.cjs
 node tests/test_window_history.cjs
 node tests/test_app_menu_selection.cjs
 

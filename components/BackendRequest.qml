@@ -19,37 +19,46 @@ Item {
     readonly property bool busy: adapter.running
     signal completed(string operation)
 
-    function argumentsFor(choice) { return route.concat([choice]) }
+    function argumentsFor(choice) {
+        return route.concat([choice]);
+    }
     function run(choice) {
-        if (busy || choices.indexOf(choice) < 0) return false
-        operation = choice
-        message = ""
-        adapter.command = [helper].concat(argumentsFor(choice))
-        adapter.running = true
-        return true
+        if (busy || choices.indexOf(choice) < 0)
+            return false;
+        operation = choice;
+        message = "";
+        adapter.command = [helper].concat(argumentsFor(choice));
+        adapter.running = true;
+        return true;
     }
     function fail(text) {
-        if (!preserveModeOnFailure) mode = ""
-        message = String(text).slice(0, 300)
+        if (!preserveModeOnFailure)
+            mode = "";
+        message = String(text).slice(0, 300);
     }
     function finish(code, text) {
         try {
-            var result = JSON.parse(text)
+            var result = JSON.parse(text);
             if (code !== 0 || result.state !== "ok" || resultModes.indexOf(result.mode) < 0) {
-                fail(result.message || failureMessage)
-                return
+                fail(result.message || failureMessage);
+                return;
             }
-            mode = result.mode
-            message = String(result.message || "").slice(0, 300)
-            completed(operation)
+            mode = result.mode;
+            message = String(result.message || "").slice(0, 300);
+            completed(operation);
         } catch (e) {
-            fail(unreadableMessage)
+            fail(unreadableMessage);
         }
     }
     Process {
         id: adapter
         objectName: request.adapterName
-        stdout: StdioCollector { id: output; waitForEnd: true }
-        onExited: function(code, status) { request.finish(code, output.text) }
+        stdout: StdioCollector {
+            id: output
+            waitForEnd: true
+        }
+        onExited: function (code, status) {
+            request.finish(code, output.text);
+        }
     }
 }

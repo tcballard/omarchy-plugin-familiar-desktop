@@ -22,6 +22,7 @@ Item {
 
     PersistentProperties {
         id: persisted
+        objectName: "badge-persistence"
         reloadableId: "familiar-desktop-notification-tracker"
         property var counts: ({})
         property var urgent: ({})
@@ -30,12 +31,14 @@ Item {
 
     FileView {
         id: badgeStateFile
+        objectName: "badge-state-file"
         path: tracker.statePath
         onLoaded: tracker.loadDiskState()
     }
 
     Process {
         id: saveProc
+        objectName: "badge-save"
         running: false
         property string payload: ""
         onStarted: {
@@ -47,6 +50,7 @@ Item {
 
     Timer {
         id: saveDebounceTimer
+        objectName: "badge-save-timer"
         interval: 400
         repeat: false
         onTriggered: {

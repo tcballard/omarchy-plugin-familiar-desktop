@@ -3,10 +3,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const {spawnSync} = require('node:child_process');
-const source = fs.readFileSync('BarWidget.qml', 'utf8');
-const start = source.indexOf('    ColumnLayout {\n      id: cardColumn');
-const end = source.lastIndexOf('\n    }\n  }');
-if (start < 0 || end < start) throw new Error('Cannot locate production settings content');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'familiar-settings-'));
 const quoted = value => JSON.stringify(require('node:url').pathToFileURL(path.resolve(value)).href);
 const fixture = `
@@ -23,37 +19,71 @@ TestCase {
     width: 800; height: 560
     visible: true
     when: windowShown
-    property bool taskbarActive: false
-    property var desktopService: null
-    property var desktopTools: null
-    property var bar: null
-    property var shell: null
-    property string profile: "general"
-    property string shortcutLabels: "standard"
-    property string dockBackgroundOpacity: "theme"
-    property string dockSize: "default"
-    property string titlebarSize: "default"
-    property string titlebarMode: "mac"
-    property string titlebarStyle: "mac"
-    property string titlebarExclusions: ""
-    property string dockPosition: "auto"
-    property string visibilityMode: "hybrid"
-    property string visibleWorkspace: "all"
-    property bool titlebarsEnabled: true
-    property bool dockEnabled: true
-    property bool fileShortcutsEnabled: true
-    property bool overlayMode: true
-    property bool showBadges: true
-    property bool windowPreviews: true
-    property bool widgetsEnabled: true
-    property var workspaceOptions: [{value: "all", label: "All workspaces"}]
     property int writes: 0
-    function saveSettings() { writes++ }
+    SettingsStore {
+        id: owner
+        path: "/fictional/settings.json"
+        fileShortcutsEnabled: true
+        overlayMode: true
+        titlebarsEnabled: true
+        titlebarMode: "mac"
+        titlebarStyle: "mac"
+        readonly property string settingsError: error
+        property string dockScreenPosition: "bottom"
+        property var desktopTools: null
+        property var capsLock: null
+        property var borderResize: null
+        property var commandShortcuts: null
+        property var gestures: null
+        property var windowMode: null
+        property var taskbar: null
+        property var setup: null
+        property bool titlebarBusy: false
+        property string titlebarMessage: ""
+        function setPreference(key, value) { root.writes++ }
+        function setDockEnabled(value) { root.writes++ }
+        function setProfile(value) { root.writes++ }
+        function setTitlebarMode(value) { root.writes++ }
+        function setAutohide(value) { root.writes++ }
+        function setKeybindMode(value) { root.writes++ }
+        function setOverlayMode(value) { root.writes++ }
+        function setVisibleWorkspace(value) { root.writes++ }
+        function setWidgetsEnabled(value) { root.writes++ }
+        function refreshTitlebars() { root.writes++ }
+        function openWidgetPicker() { root.writes++ }
+    }
+    QtObject {
+        id: setupFixture
+        property var repairs: []
+        function repair(style) { repairs = repairs.concat([style]) }
+    }
+    SignalSpy { id: closes; target: cardColumn; signalName: "closeRequested" }
     SettingsFrame {
         id: settingsWindow
         width: root.width; height: root.height
         contentHeight: cardColumn.implicitHeight
-        ${source.slice(start,end)}
+        SettingsContent {
+            id: cardColumn
+            service: owner
+            navigation: settingsWindow
+            workspaceOptions: [{value: "all", label: "All workspaces"}]
+            taskbarActive: false
+        }
+    }
+    function test_repairUsesTheSavedStyleOnlyWhenClicked() {
+        compare(setupFixture.repairs.length, 0)
+        owner.setup = setupFixture
+        settingsWindow.page = "windows"
+        settingsWindow.section = "titlebars"
+        wait(30)
+        mouseClick(findChild(cardColumn, "titlebar-repair"))
+        compare(setupFixture.repairs, ["mac"])
+        owner.titlebarStyle = "windows"
+        mouseClick(findChild(cardColumn, "titlebar-repair"))
+        compare(setupFixture.repairs, ["mac", "windows"])
+        compare(closes.count, 2)
+        compare(root.writes, 0)
+        owner.setup = null
     }
     function test_pages() {
         for (var width of [800, 560]) {
@@ -76,9 +106,9 @@ TestCase {
             }
         }
         compare(writes, 0)
-        compare(profile, "general")
-        compare(dockEnabled, true)
-        compare(titlebarMode, "mac")
+        compare(owner.profile, "general")
+        compare(owner.dockEnabled, true)
+        compare(owner.titlebarMode, "mac")
     }
 }
 `;

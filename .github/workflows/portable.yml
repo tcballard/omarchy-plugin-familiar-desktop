@@ -18,23 +18,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check Rust formatting
-        run: |
-          cargo fmt --manifest-path backend/Cargo.toml
-          git diff -- backend > /tmp/familiar-format.patch
-          git diff --exit-code -- backend
-      - name: Upload formatting diagnostic
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: familiar-format-diagnostic
-          path: /tmp/familiar-format.patch
-      - name: Install Lua for keyboard configuration tests
-        run: sudo apt-get update && sudo apt-get install -y lua5.4 libcairo2-dev
-      - name: Test vector window-control rasterization
-        run: |
-          c++ -std=c++20 tests/test_control_icons.cpp $(pkg-config --cflags --libs cairo) -o /tmp/familiar-control-icons
-          /tmp/familiar-control-icons
+      - name: Install portable test dependencies
+        run: sudo apt-get update && sudo apt-get install -y lua5.4 libcairo2-dev qt6-declarative-dev-tools qml6-module-qttest qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-templates
+      - name: Run canonical portable checks
+        run: tests/check
       - name: Test keyboard configuration on Lua 5.5
         run: |
           curl -fsSL https://www.lua.org/ftp/lua-5.5.0.tar.gz -o /tmp/lua-5.5.0.tar.gz
@@ -42,31 +29,14 @@ jobs:
           tar --no-same-owner -xzf /tmp/lua-5.5.0.tar.gz -C /tmp
           make -C /tmp/lua-5.5.0 linux -j2
           PATH="/tmp/lua-5.5.0/src:$PATH" cargo test --manifest-path backend/Cargo.toml --locked --test caps_lock
-      - run: tests/run
-      - run: cargo fmt --manifest-path backend/Cargo.toml -- --check
-      - run: cargo clippy --manifest-path backend/Cargo.toml --all-targets --locked -- -D warnings
       - run: ./build.sh
       - uses: actions/upload-artifact@v4
         with:
           name: familiar-desktop-linux-x86_64
           path: bin/familiar-desktop
-      - name: Install Qt test runner
-        run: sudo apt-get update && sudo apt-get install -y qt6-declarative-dev-tools qml6-module-qttest qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-templates
-      - name: Run QML unit tests
-        env:
-          QT_QPA_PLATFORM: offscreen
-          QT_QUICK_BACKEND: software
-        run: |
-          /usr/lib/qt6/bin/qmltestrunner -input tests -import tests/imports
-          node tests/test_settings_layout.cjs
       - name: Upload setup preview
         uses: actions/upload-artifact@v4
         with:
           name: familiar-setup-preview
           path: /tmp/familiar-setup-preview.png
           if-no-files-found: error
-      - name: Parse plugin QML
-        run: |
-          for file in *.qml components/*.qml; do
-            /usr/lib/qt6/bin/qmlformat "$file" > /dev/null
-          done

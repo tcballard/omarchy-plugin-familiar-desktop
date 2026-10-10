@@ -1,8 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const Identity = require('./helpers/load-js.cjs')('AppIdentity.js');
 const source = fs.readFileSync('components/NotificationTracker.qml', 'utf8');
-const context = { notificationCounts: {}, titleExtractedBadges: {}, canonicalCounts: {}, canonicalUrgent: {}, lastNotifTimestamps: {},
+const context = { Identity, notificationCounts: {}, titleExtractedBadges: {}, canonicalCounts: {}, canonicalUrgent: {}, lastNotifTimestamps: {},
   badgeChanged() {}, scheduleSave() {}, rebuildSnapshot() {}, isAppCurrentlyActive() { return false; } };
 context.tracker = context;
 vm.createContext(context);

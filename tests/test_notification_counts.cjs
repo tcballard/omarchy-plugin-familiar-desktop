@@ -1,10 +1,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const Identity = require('./helpers/load-js.cjs')('AppIdentity.js');
 const source = fs.readFileSync('components/NotificationTracker.qml', 'utf8');
 function tracker(disk = {counts: {}, urgent: {}}, persisted = {}) {
   const state = {
-    notificationCounts: {}, canonicalCounts: {}, canonicalUrgent: {}, titleExtractedBadges: {},
+    Identity, notificationCounts: {}, canonicalCounts: {}, canonicalUrgent: {}, titleExtractedBadges: {},
     lastNotifTimestamps: {}, knownWindows: [], previouslyOpenAppKeys: [], persisted,
     ToplevelManager: {activeToplevel: null}, badgeChanged() {},
     badgeStateFile: {text() { return JSON.stringify(disk); }},

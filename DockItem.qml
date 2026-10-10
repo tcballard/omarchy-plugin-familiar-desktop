@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import qs.Commons
 import qs.Ui
 import "DockModel.js" as DockModel
+import "IconResolver.js" as Icons
 import "DockScroll.js" as DockScroll
 import "components"
 
@@ -63,56 +64,13 @@ Item {
 
     // Dynamic Real-time Theme-aware Icon Resolution
     function resolveIcon(itemObj) {
-        if (!itemObj) return Quickshell.iconPath("application-x-executable", true) || "file:///usr/share/pixmaps/omarchy.png"
-        var raw = (typeof itemObj === "string") ? itemObj : (itemObj.rawIcon || itemObj.icon || itemObj.appId || itemObj.id || "")
-        if (!raw) return Quickshell.iconPath("application-x-executable", true) || "file:///usr/share/pixmaps/omarchy.png"
-        if (raw.indexOf("://") >= 0) return raw
-        if (raw.indexOf("/") === 0) return "file://" + raw
-
-        var cands = (typeof itemObj === "string")
-            ? DockModel.getCandidates(itemObj, itemObj, itemObj)
-            : DockModel.getCandidates(itemObj.rawIcon, itemObj.icon, itemObj.appId || itemObj.id)
-
-        for (var i = 0; i < cands.length; i++) {
-            var c = cands[i]
-            if (c.indexOf("://") >= 0) return c
-            if (c.indexOf("/") === 0) return "file://" + c
-            var diskHit = DockModel.getDiskIcon(c)
-            if (diskHit) return diskHit
-            var diskHitLow = DockModel.getDiskIcon(c.toLowerCase())
-            if (diskHitLow) return diskHitLow
-            if (shell && shell.appLibrary && typeof shell.appLibrary.iconSource === "function") {
-                var src = shell.appLibrary.iconSource(c)
-                if (src && src.length > 0 && src.indexOf("application-x-executable") === -1) {
-                    return src
-                }
-                var cLow = c.toLowerCase()
-                if (cLow !== c) {
-                    var srcLow = shell.appLibrary.iconSource(cLow)
-                    if (srcLow && srcLow.length > 0 && srcLow.indexOf("application-x-executable") === -1) {
-                        return srcLow
-                    }
-                }
-            }
-            var qs = Quickshell.iconPath(c, true)
-            if (qs && qs.length > 0 && qs.indexOf("application-x-executable") === -1) {
-                return qs
-            }
-            var qsLow = Quickshell.iconPath(c.toLowerCase(), true)
-            if (qsLow && qsLow.length > 0 && qsLow.indexOf("application-x-executable") === -1) {
-                return qsLow
-            }
-        }
-
-        if (shell && shell.appLibrary && typeof shell.appLibrary.iconSource === "function") {
-            var fbApp = shell.appLibrary.iconSource("omarchy") || shell.appLibrary.iconSource("ghostty") || shell.appLibrary.iconSource("utilities-terminal")
-            if (fbApp && fbApp.length > 0) return fbApp
-        }
-
-        var fbQs = Quickshell.iconPath("omarchy", true) || Quickshell.iconPath("com.mitchellh.ghostty", true) || Quickshell.iconPath("utilities-terminal", true) || Quickshell.iconPath("application-x-executable", true)
-        if (fbQs && fbQs.length > 0) return fbQs
-
-        return "file:///usr/share/pixmaps/omarchy.png"
+        return Icons.resolve(itemObj, {
+            candidates: DockModel.getCandidates,
+            diskIcon: DockModel.getDiskIcon,
+            library: shell ? shell.appLibrary : null,
+            iconPath: function(name) { return Quickshell.iconPath(name, true) },
+            friendlyFallback: true
+        })
     }
 
     // Clear, steady Merge Target Halo (stays perfectly still while hovered)

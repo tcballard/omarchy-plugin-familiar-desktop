@@ -1,8 +1,5 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync('DockMatcher.js', 'utf8').replace(/^\.pragma library\s*/m, ''), model);
+const model = require('./helpers/load-js.cjs')('DockMatcher.js');
 
 const appId = 'org.example.browser';
 const a = {appId, title: 'A', address: '0xa'};

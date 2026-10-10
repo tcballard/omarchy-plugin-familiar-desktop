@@ -9,7 +9,7 @@ for (const folder of ['.', 'components']) {
     for (const name of fs.readdirSync(folder).filter(name => /\.(qml|js)$/.test(name))) {
         const file = path.join(folder, name);
         const code = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
-        assert.doesNotMatch(code, /(?<![\w.])Color\./, `${file}: qualify the Omarchy palette as Commons.Color`);
+        assert.doesNotMatch(code, /(?<![\w.])Color\b/, `${file}: qualify the Omarchy palette as Commons.Color`);
         if (code.includes('Commons.Color.')) assert.match(code, /import qs\.Commons as Commons/, file);
     }
 }

@@ -1504,7 +1504,7 @@ Item {
     }
 
     Connections {
-        target: Color
+        target: Commons.Color
         function onAccentChanged() {
             if (shell && shell.appLibrary && typeof shell.appLibrary.refreshIcons === "function") {
                 shell.appLibrary.refreshIcons()

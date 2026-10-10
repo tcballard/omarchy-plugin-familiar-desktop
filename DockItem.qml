@@ -4,21 +4,22 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
-import "DockScroll.js" as DockScroll
+import "IconResolver.js" as Icons
+import "DockDrag.js" as Drag
 import "components"
 
 Item {
     id: root
 
-    property real pendingScroll: 0
-    Timer { id: scrollReset; interval: 180; onTriggered: root.pendingScroll = 0 }
     property var itemData: null
     property int itemIndex: 0
     property int totalCount: 1
     property string barPosition: "bottom"
     property var shell: null
+    property var knownWindows: []
     property real slotSize: 42
     property real iconBaseSize: 24
     property int systemBorderSize: Style.normalBorderWidth > 0 ? Style.normalBorderWidth : 2
@@ -63,56 +64,13 @@ Item {
 
     // Dynamic Real-time Theme-aware Icon Resolution
     function resolveIcon(itemObj) {
-        if (!itemObj) return Quickshell.iconPath("application-x-executable", true) || "file:///usr/share/pixmaps/omarchy.png"
-        var raw = (typeof itemObj === "string") ? itemObj : (itemObj.rawIcon || itemObj.icon || itemObj.appId || itemObj.id || "")
-        if (!raw) return Quickshell.iconPath("application-x-executable", true) || "file:///usr/share/pixmaps/omarchy.png"
-        if (raw.indexOf("://") >= 0) return raw
-        if (raw.indexOf("/") === 0) return "file://" + raw
-
-        var cands = (typeof itemObj === "string")
-            ? DockModel.getCandidates(itemObj, itemObj, itemObj)
-            : DockModel.getCandidates(itemObj.rawIcon, itemObj.icon, itemObj.appId || itemObj.id)
-
-        for (var i = 0; i < cands.length; i++) {
-            var c = cands[i]
-            if (c.indexOf("://") >= 0) return c
-            if (c.indexOf("/") === 0) return "file://" + c
-            var diskHit = DockModel.getDiskIcon(c)
-            if (diskHit) return diskHit
-            var diskHitLow = DockModel.getDiskIcon(c.toLowerCase())
-            if (diskHitLow) return diskHitLow
-            if (shell && shell.appLibrary && typeof shell.appLibrary.iconSource === "function") {
-                var src = shell.appLibrary.iconSource(c)
-                if (src && src.length > 0 && src.indexOf("application-x-executable") === -1) {
-                    return src
-                }
-                var cLow = c.toLowerCase()
-                if (cLow !== c) {
-                    var srcLow = shell.appLibrary.iconSource(cLow)
-                    if (srcLow && srcLow.length > 0 && srcLow.indexOf("application-x-executable") === -1) {
-                        return srcLow
-                    }
-                }
-            }
-            var qs = Quickshell.iconPath(c, true)
-            if (qs && qs.length > 0 && qs.indexOf("application-x-executable") === -1) {
-                return qs
-            }
-            var qsLow = Quickshell.iconPath(c.toLowerCase(), true)
-            if (qsLow && qsLow.length > 0 && qsLow.indexOf("application-x-executable") === -1) {
-                return qsLow
-            }
-        }
-
-        if (shell && shell.appLibrary && typeof shell.appLibrary.iconSource === "function") {
-            var fbApp = shell.appLibrary.iconSource("omarchy") || shell.appLibrary.iconSource("ghostty") || shell.appLibrary.iconSource("utilities-terminal")
-            if (fbApp && fbApp.length > 0) return fbApp
-        }
-
-        var fbQs = Quickshell.iconPath("omarchy", true) || Quickshell.iconPath("com.mitchellh.ghostty", true) || Quickshell.iconPath("utilities-terminal", true) || Quickshell.iconPath("application-x-executable", true)
-        if (fbQs && fbQs.length > 0) return fbQs
-
-        return "file:///usr/share/pixmaps/omarchy.png"
+        return Icons.resolve(itemObj, {
+            candidates: DockModel.getCandidates,
+            diskIcon: DockModel.getDiskIcon,
+            library: shell ? shell.appLibrary : null,
+            iconPath: function(name) { return Quickshell.iconPath(name, true) },
+            friendlyFallback: true
+        })
     }
 
     // Clear, steady Merge Target Halo (stays perfectly still while hovered)
@@ -122,9 +80,9 @@ Item {
         width: root.slotSize - 6
         height: root.slotSize - 6
         radius: root.systemRounding
-        color: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.22)
+        color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.22)
         border.width: root.systemBorderSize
-        border.color: Color.accent
+        border.color: Commons.Color.accent
         visible: opacity > 0
         opacity: root.isMergeTarget ? 1.0 : 0.0
         scale: root.isMergeTarget ? 1.04 : 0.92
@@ -207,30 +165,15 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         // Normal Single App Icon (Instantly react to rawIcon theme swaps, crisp HiDPI rasterization)
-        Image {
+        AppIcon {
             id: appIcon
-            visible: root.itemData && !root.itemData.isStack && (status !== Image.Error)
+            visible: root.itemData && !root.itemData.isStack
             anchors.centerIn: parent
             width: root.iconBaseSize
             height: root.iconBaseSize
-            fillMode: Image.PreserveAspectFit
-            cache: true
+            glyph: root.itemData ? (root.itemData.iconGlyph || "") : ""
             source: (root.iconRevision, root.resolveIcon(root.itemData))
-            sourceSize: Qt.size(Math.max(128, width * 4 * Screen.devicePixelRatio), Math.max(128, height * 4 * Screen.devicePixelRatio))
-            asynchronous: false
-            mipmap: true
-            smooth: true
-            antialiasing: true
-        }
-
-        Image {
-            id: fallbackAppIcon
-            visible: root.itemData && !root.itemData.isStack && (appIcon.status === Image.Error || !appIcon.visible)
-            anchors.centerIn: parent
-            width: root.iconBaseSize
-            height: root.iconBaseSize
-            fillMode: Image.PreserveAspectFit
-            source: {
+            fallbackSource: {
                 if (root.itemData) {
                     var raw = root.itemData.rawIcon || root.itemData.icon || root.itemData.appId || root.itemData.id || ""
                     var dIcon = DockModel.getDiskIcon(raw)
@@ -240,9 +183,6 @@ Item {
                 }
                 return "file:///usr/share/pixmaps/omarchy.png"
             }
-            sourceSize: Qt.size(Math.max(128, width * 4 * Screen.devicePixelRatio), Math.max(128, height * 4 * Screen.devicePixelRatio))
-            smooth: true
-            antialiasing: true
         }
 
         // Folder Custom Symbol Icon (Optically centered vector glyph with smooth anti-aliased rotation)
@@ -255,7 +195,7 @@ Item {
             text: (root.itemData && root.itemData.icon) ? root.itemData.icon : ""
             fontFamily: Style.font.family
             fontSize: 20
-            color: Color.accent
+            color: Commons.Color.accent
         }
 
         // Folder Mini-Grid (Shown when icon is "grid", "folder", "󰕰" or not set)
@@ -274,16 +214,11 @@ Item {
 
             Repeater {
                 model: (root.itemData && root.itemData.subApps) ? root.itemData.subApps.slice(0, stackGrid.is3x3 ? 9 : 4) : []
-                Image {
+                AppIcon {
                     width: stackGrid.cellWidth
                     height: stackGrid.cellWidth
-                    fillMode: Image.PreserveAspectFit
-                    cache: true
+                    glyph: modelData ? (modelData.iconGlyph || "") : ""
                     source: (root.iconRevision, root.resolveIcon(modelData))
-                    sourceSize: Qt.size(Math.max(64, width * 4 * Screen.devicePixelRatio), Math.max(64, height * 4 * Screen.devicePixelRatio))
-                    mipmap: true
-                    smooth: true
-                    antialiasing: true
                 }
             }
         }
@@ -334,36 +269,20 @@ Item {
         }
     }
 
-    property int previewTopIndex: -1
-    property bool isWheelScrolling: false
-
-    Timer {
-        id: wheelCursorTimer
-        interval: 1200
-        repeat: false
-        onTriggered: {
-            root.isWheelScrolling = false
+    readonly property int previewTopIndex: appInteraction.previewIndex
+    readonly property bool isWheelScrolling: appInteraction.cycling
+    readonly property int realActiveTopIndex: appInteraction.activeIndex
+    readonly property int effectiveTopIndex: appInteraction.effectiveIndex
+    AppTileInteraction {
+        id: appInteraction
+        itemData: root.itemData
+        hovered: mouseArea.containsMouse
+        onFeedbackRequested: clickEffectAnim.restart()
+        onLaunchRequested: function(item) {
+            DockModel.setPendingCliHint(item.appId || item.desktopId || "", root.knownWindows)
+            DockModel.launchApp(root.shell, item, Util)
         }
-    }
-
-    readonly property int realActiveTopIndex: (root.itemData && typeof root.itemData.activeTopIndex === "number") ? root.itemData.activeTopIndex : 0
-
-    readonly property int effectiveTopIndex: {
-        var total = (root.itemData && root.itemData.toplevels) ? root.itemData.toplevels.length : 0
-        if (total === 0) return 0
-        if (root.previewTopIndex >= 0 && root.previewTopIndex < total) return root.previewTopIndex
-        return root.realActiveTopIndex
-    }
-
-    Timer {
-        id: previewResetTimer
-        interval: 1500
-        repeat: false
-        onTriggered: {
-            if (!mouseArea.containsMouse) {
-                root.previewTopIndex = -1
-            }
-        }
+        onRestoreRequested: function(item, index) { root.restoreOrLaunchRequested(item, index) }
     }
 
     // 0. iOS / macOS-Style Theme Notification Badge with Count (Anchored to top-right of iconWrapper)
@@ -396,8 +315,8 @@ Item {
             fontFamily: Style.font.family
             fontSize: 11
             color: (root.itemData && root.itemData.isPinned)
-                ? Color.accent
-                : (pinBadgeMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.45))
+                ? Commons.Color.accent
+                : (pinBadgeMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.45))
 
             scale: pinBadgeMouse.containsMouse ? 1.35 : 1.0
             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -440,7 +359,7 @@ Item {
             text: "-"
             fontFamily: Style.font.family
             fontSize: 16
-            color: dissolveBadgeMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.85)
+            color: dissolveBadgeMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.85)
 
             scale: dissolveBadgeMouse.containsMouse ? 1.25 : 1.0
             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -496,7 +415,7 @@ Item {
         height: 2
         width: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? 10 : 4
         radius: 1
-        color: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.6)
+        color: (root.itemData && root.itemData.isActive && !root.itemData.isMinimized) ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.6)
         antialiasing: true
         smooth: true
 
@@ -506,67 +425,23 @@ Item {
 
     // Native bar click routing and the floating dock share exactly one action path.
     function triggerPress(button) {
-            root.previewCancelled()
-            longPressTimer.stop()
-            if (mouseArea.didDrag || mouseArea.didLongPress) {
-                mouseArea.didLongPress = false
-                return
+        root.previewCancelled()
+        longPressTimer.stop()
+        if (mouseArea.didDrag || mouseArea.didLongPress) {
+            mouseArea.didLongPress = false
+            return
+        }
+        if (button === Qt.MiddleButton) {
+            appInteraction.launch()
+        } else if (button === Qt.LeftButton) {
+            clickEffectAnim.restart()
+            if (root.itemData && root.itemData.isStack) {
+                root.itemLeftClicked(root.itemData)
+            } else if (root.itemData && !root.isEditMode) {
+                root.itemLeftClicked(root.itemData)
+                appInteraction.restore()
             }
-
-            // Middle Click (Wheel Button click) -> Immediately launch a duplicate
-            if (button === Qt.MiddleButton) {
-                if (root.itemData && !root.itemData.isStack) {
-                    clickEffectAnim.restart()
-                    DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
-                    DockModel.launchApp(root.shell, root.itemData, Util)
-                }
-                return
-            }
-
-            if (button === Qt.LeftButton) {
-                clickEffectAnim.restart()
-                if (root.isEditMode) {
-                    if (root.itemData && root.itemData.isStack) {
-                        root.itemLeftClicked(root.itemData)
-                    }
-                    return
-                }
-                if (root.itemData && root.itemData.isStack) {
-                    root.itemLeftClicked(root.itemData)
-                    return
-                }
-                if (root.itemData) {
-                    root.itemLeftClicked(root.itemData)
-                    if (root.previewTopIndex >= 0) {
-                        root.restoreOrLaunchRequested(root.itemData, root.previewTopIndex)
-                    } else {
-                        var tops = root.itemData.toplevels || []
-                        if (tops.length >= 2 && root.itemData.isActive) {
-                            var nextIdx = (root.realActiveTopIndex + 1) % tops.length
-                            root.restoreOrLaunchRequested(root.itemData, nextIdx)
-                        } else {
-                            root.restoreOrLaunchRequested(root.itemData, root.realActiveTopIndex)
-                        }
-                    }
-                    root.previewTopIndex = -1
-                }
-            } else if (button === Qt.RightButton) {
-                return
-            }
-
-    }
-
-    function cycleDuplicate(forward) {
-        if (!root.itemData || root.itemData.isStack || !root.itemData.isRunning || !root.itemData.toplevels) return
-        var len = root.itemData.toplevels.length
-        if (len <= 1) return
-
-        root.isWheelScrolling = true
-        wheelCursorTimer.restart()
-        previewResetTimer.stop()
-        var curIdx = root.effectiveTopIndex
-        var nextIdx = forward ? ((curIdx + 1) % len) : ((curIdx - 1 + len) % len)
-        root.previewTopIndex = nextIdx
+        }
     }
 
     MouseArea {
@@ -596,39 +471,10 @@ Item {
             mouseArea.forceActiveFocus()
         }
 
-        Keys.onRightPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                root.cycleDuplicate(true)
-                event.accepted = true
-            }
-        }
-
-        Keys.onLeftPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                root.cycleDuplicate(false)
-                event.accepted = true
-            }
-        }
-
-        Keys.onTabPressed: function(event) {
-            if (root.itemData) {
-                clickEffectAnim.restart()
-                DockModel.setPendingCliHint(root.itemData.appId || root.itemData.desktopId || "", (root.parentDock && root.parentDock.knownWindows) ? root.parentDock.knownWindows : [])
-                DockModel.launchApp(root.shell, root.itemData, Util)
-                event.accepted = true
-            }
-        }
-
-        Keys.onReturnPressed: function(event) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2 && root.previewTopIndex >= 0) {
-                var top = root.itemData.toplevels[root.previewTopIndex]
-                if (top && typeof top.activate === "function") {
-                    top.activate()
-                    root.previewTopIndex = -1
-                    event.accepted = true
-                }
-            }
-        }
+        Keys.onRightPressed: function(event) { event.accepted = appInteraction.cycle(true) }
+        Keys.onLeftPressed: function(event) { event.accepted = appInteraction.cycle(false) }
+        Keys.onTabPressed: function(event) { event.accepted = appInteraction.launch() }
+        Keys.onReturnPressed: function(event) { event.accepted = appInteraction.confirmPreview() }
 
         onPressed: function(mouse) {
             root.previewCancelled()
@@ -643,21 +489,14 @@ Item {
                     return
                 }
                 if (root.itemData) {
-                    if (root.itemData.isStack) {
-                        clickEffectAnim.restart()
-                        root.itemRightClicked(root.itemData, root)
-                    } else {
-                        clickEffectAnim.restart()
-                        root.itemRightClicked(root.itemData, root)
-                    }
+                    clickEffectAnim.restart()
+                    root.itemRightClicked(root.itemData, root)
                 }
             }
         }
 
         onPositionChanged: function(mouse) {
-            if (root.isWheelScrolling) {
-                root.isWheelScrolling = false
-            }
+            appInteraction.pointerMoved()
             if (mouseArea.drag.active) {
                 longPressTimer.stop()
                 if (!root.isDragging) {
@@ -671,32 +510,10 @@ Item {
                     dragOffset.y = 0
                 }
 
-                var rawOffset = root.isVertical ? dragOffset.y : dragOffset.x
-                var currentOffset = Math.max(-root.itemIndex * root.slotSize, Math.min((root.totalCount - 1 - root.itemIndex) * root.slotSize, rawOffset))
-                var absolutePos = root.itemIndex * root.slotSize + currentOffset
-
-                var targetIdx = Math.max(0, Math.min(root.totalCount - 1, Math.round(absolutePos / root.slotSize)))
-                var slotCenter = targetIdx * root.slotSize
-                var distFromSlotCenter = absolutePos - slotCenter
-
-                var canMerge = root.itemData && !root.itemData.isStack
-                var isMerge = false
-
-                if (canMerge && targetIdx !== root.itemIndex) {
-                    if (targetIdx > root.itemIndex) {
-                        isMerge = (distFromSlotCenter >= -22 && distFromSlotCenter <= 0)
-                    } else {
-                        isMerge = (distFromSlotCenter <= 22 && distFromSlotCenter >= 0)
-                    }
-                }
-
-                // Outer edge insert: dragging all the way to the far outer edges opens the rail slot
-                if ((targetIdx === 0 && absolutePos <= 8) || (targetIdx === root.totalCount - 1 && absolutePos >= (root.totalCount - 1) * root.slotSize - 8)) {
-                    isMerge = false
-                }
-
-                root.isMergeActive = isMerge
-                root.dragHoverChanged(root.itemIndex, targetIdx, isMerge)
+                var target = Drag.railTarget(root.itemIndex, root.totalCount, root.slotSize,
+                    root.isVertical ? dragOffset.y : dragOffset.x, root.itemData && !root.itemData.isStack)
+                root.isMergeActive = target.merge
+                root.dragHoverChanged(root.itemIndex, target.index, target.merge)
             }
         }
 
@@ -704,37 +521,18 @@ Item {
             longPressTimer.stop()
             if (root.isDragging) {
                 root.isDragging = false
-                var rawOffset = root.isVertical ? dragOffset.y : dragOffset.x
-                var currentOffset = Math.max(-root.itemIndex * root.slotSize, Math.min((root.totalCount - 1 - root.itemIndex) * root.slotSize, rawOffset))
-                var absolutePos = root.itemIndex * root.slotSize + currentOffset
-                var targetIdx = Math.max(0, Math.min(root.totalCount - 1, Math.round(absolutePos / root.slotSize)))
-                var slotCenter = targetIdx * root.slotSize
-                var distFromSlotCenter = absolutePos - slotCenter
-
-                var canMerge = root.itemData && !root.itemData.isStack
-                var isMerge = false
-
-                if (canMerge && targetIdx !== root.itemIndex) {
-                    if (targetIdx > root.itemIndex) {
-                        isMerge = (distFromSlotCenter >= -22 && distFromSlotCenter <= 0)
-                    } else {
-                        isMerge = (distFromSlotCenter <= 22 && distFromSlotCenter >= 0)
-                    }
-                }
-
-                if ((targetIdx === 0 && absolutePos <= 8) || (targetIdx === root.totalCount - 1 && absolutePos >= (root.totalCount - 1) * root.slotSize - 8)) {
-                    isMerge = false
-                }
+                var target = Drag.railTarget(root.itemIndex, root.totalCount, root.slotSize,
+                    root.isVertical ? dragOffset.y : dragOffset.x, root.itemData && !root.itemData.isStack)
 
                 root.isMergeActive = false
                 dragOffset.x = 0
                 dragOffset.y = 0
 
-                if (targetIdx !== root.itemIndex) {
-                    if (isMerge) {
-                        root.mergeRequested(root.itemIndex, targetIdx)
+                if (target.index !== root.itemIndex) {
+                    if (target.merge) {
+                        root.mergeRequested(root.itemIndex, target.index)
                     } else {
-                        root.moveRequested(root.itemIndex, targetIdx)
+                        root.moveRequested(root.itemIndex, target.index)
                     }
                 } else {
                     root.dragEnded()
@@ -744,8 +542,7 @@ Item {
 
         onExited: {
             longPressTimer.stop()
-            root.isWheelScrolling = false
-            previewResetTimer.restart()
+            appInteraction.leave()
         }
 
         onCanceled: {
@@ -761,15 +558,7 @@ Item {
         }
 
         onWheel: function(wheel) {
-            if (root.itemData && !root.itemData.isStack && root.itemData.isRunning && root.itemData.toplevels && root.itemData.toplevels.length >= 2) {
-                var result = DockScroll.step(root.pendingScroll, wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
-                root.pendingScroll = result.pending
-                scrollReset.restart()
-                if (result.direction !== 0) root.cycleDuplicate(result.direction > 0)
-                wheel.accepted = true
-            } else {
-                wheel.accepted = false
-            }
+            wheel.accepted = appInteraction.wheel(wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
         }
 
         onClicked: function(mouse) { root.triggerPress(mouse.button) }

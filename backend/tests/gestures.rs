@@ -199,6 +199,13 @@ fn owned_generated_file_is_guarded_and_edited_content_is_preserved() {
     gestures::change("all", &p, &mut h).unwrap();
     let generated = fs::read_to_string(&p.generated).unwrap();
     assert!(generated.contains("hl.gesture"));
+    let legacy = generated
+        .replace("action = function() hl.dispatch(", "action = ")
+        .replace(")) end })", ") })");
+    assert_eq!(gestures::split(&legacy, &p.manifest).unwrap().1, "all");
+    fs::write(&p.generated, legacy).unwrap();
+    gestures::change("all", &p, &mut h).unwrap();
+    assert_eq!(fs::read_to_string(&p.generated).unwrap(), generated);
     let edited = format!("{generated}\n-- personal edit\n");
     fs::write(&p.generated, &edited).unwrap();
     assert!(gestures::change("reset", &p, &mut h).is_err());
@@ -215,16 +222,23 @@ fn generated_lua_registers_selected_groups_without_executing_actions() {
             r#"
 local calls, commands = {{}}, {{}}
 hl = {{ dsp = {{ exec_cmd = function(command)
-  table.insert(commands, command)
-  return function() error('must not execute on config load') end
-end }}, gesture = function(g) table.insert(calls, g) end }}
+  return {{command=command}}
+end }}, dispatch = function(object)
+  assert(type(object)=='table'); table.insert(commands, object.command)
+end, gesture = function(g)
+  assert(type(g.action)=='string' or type(g.action)=='function')
+  table.insert(calls, g)
+end }}
 dofile({})
+assert(#commands == 0)
 local mode = {}
 assert(#calls == (mode == 'all' and 3 or mode == 'workspace' and 1 or 2))
 if mode ~= 'desktop' then
   assert(calls[1].fingers == 3 and calls[1].direction == 'horizontal' and calls[1].action == 'workspace')
 end
 if mode ~= 'workspace' then
+  calls[#calls-1].action()
+  calls[#calls].action()
   assert(#commands == 2)
   assert(commands[1]:find('desktop show', 1, true))
   assert(commands[2]:find('desktop restore', 1, true))

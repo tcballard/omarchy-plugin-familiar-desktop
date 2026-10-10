@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 [[ ${GITHUB_ACTIONS:-} == true ]] || { echo 'Run this through the CI workflow.' >&2; exit 2; }
 : "${SOURCE_SHA:?}" "${OMARCHY_SHA:?}" "${RUNNER_TEMP:?}"
+: "${ARCH_SNAPSHOT:?}" "${EXPECTED_QT:?}" "${EXPECTED_QUICKSHELL:?}"
 root=$(pwd)
 evidence="$root/smoke-evidence"
 mkdir -p "$evidence"
@@ -78,7 +79,7 @@ done
 ssh_ready=1
 remote 'sudo mkdir -p /opt/familiar-smoke'
 tar --exclude=.git -cf - tests/desktop desktop-bundle upstream-omarchy | remote 'sudo tar -C /opt/familiar-smoke -xf -'
-remote "sudo env SOURCE_SHA=$SOURCE_SHA OMARCHY_SHA=$OMARCHY_SHA bash /opt/familiar-smoke/tests/desktop/provision.sh" \
+remote "sudo env SOURCE_SHA=$SOURCE_SHA OMARCHY_SHA=$OMARCHY_SHA ARCH_SNAPSHOT=$ARCH_SNAPSHOT EXPECTED_QT=$EXPECTED_QT EXPECTED_QUICKSHELL=$EXPECTED_QUICKSHELL bash /opt/familiar-smoke/tests/desktop/provision.sh" \
   2>&1 | tee "$evidence/provision.log"
 remote 'sudo systemctl start --no-block familiar-desktop-smoke'
 deadline=$((SECONDS + 600))

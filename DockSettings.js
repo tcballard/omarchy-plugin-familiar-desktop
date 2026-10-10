@@ -98,6 +98,7 @@ function normalize(raw) {
         titlebarMode: normalizeTitlebarMode(settings),
         titlebarStyle: settings.titlebarStyle === "mac" ? "mac" : "windows",
         titlebarExclusions: typeof settings.titlebarExclusions === "string" ? settings.titlebarExclusions.slice(0, 6400) : "",
+        skipBrowserTitlebars: settings.skipBrowserTitlebars !== false,
         visibilityMode: normalizeVisibilityMode(settings.visibilityMode, settings.autohide),
         overlayMode: normalizeOverlayMode(settings.overlayMode, settings.spaceMode),
         visibleWorkspace: normalizeVisibleWorkspace(settings.visibleWorkspace)

@@ -1,6 +1,8 @@
 # Familiar's default development workflow
 
-Read `docs/WORKFLOW.md` before making changes or merging. This is the standing
+Read `docs/WORKFLOW.md` before making changes or merging. Use
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for owners, entry points and tests;
+`tests/check` is the canonical portable check command. This is the standing
 workflow agreed with Tom on 7 October 2026. Carry it into handoffs and summaries;
 do not fall back to earlier instructions treating green CI alone as merge approval.
 

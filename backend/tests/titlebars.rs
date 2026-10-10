@@ -451,6 +451,20 @@ fn styles_change_order_and_alignment() {
         let min = buttons.find("action minimize").unwrap();
         let max = buttons.find("action maximize").unwrap();
         assert_eq!(min < max, style == "mac");
+        assert!(text.contains("familiar-titlebars-browsers"));
+        let included = titlebars::theme_policy(
+            &json!({}),
+            &Args {
+                include_browsers: true,
+                ..args.clone()
+            },
+        )
+        .unwrap();
+        assert!(
+            !titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &included)
+                .unwrap()
+                .contains("familiar-titlebars-browsers")
+        );
     }
 }
 struct ActiveFake {

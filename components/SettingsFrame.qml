@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 
 Rectangle {
     id: root
@@ -28,9 +29,9 @@ Rectangle {
     ]
     readonly property var current: pages.filter(p => p.key === page)[0] || pages[0]
     radius: Style.cornerRadius
-    color: Color.popups.background
+    color: Commons.Color.popups.background
     border.width: 1
-    border.color: Color.popups.border
+    border.color: Commons.Color.popups.border
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
@@ -49,7 +50,7 @@ Rectangle {
         anchors { top: parent.top; bottom: parent.bottom; left: parent.left; margins: 1 }
         width: root.compact ? Style.space(58) : Style.space(190)
         radius: root.radius
-        color: Style.hoverFillFor(Color.popups.text, Color.accent)
+        color: Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
         ColumnLayout {
             anchors { top: parent.top; left: parent.left; right: parent.right; margins: Style.space(10) }
             spacing: Style.space(6)
@@ -61,7 +62,7 @@ Rectangle {
                 font.family: Style.font.family
                 font.pixelSize: Style.space(15)
                 font.bold: true
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 elide: Text.ElideRight
             }
             Repeater {
@@ -85,9 +86,9 @@ Rectangle {
                     ToolTip.text: modelData.title
                     background: Rectangle {
                         radius: Style.space(6)
-                        color: nav.checked ? Color.accent : nav.hovered || nav.down ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+                        color: nav.checked ? Commons.Color.accent : nav.hovered || nav.down ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
                         border.width: nav.activeFocus ? 2 : 0
-                        border.color: Color.popups.text
+                        border.color: Commons.Color.popups.text
                     }
                     contentItem: Text {
                         text: root.compact ? nav.modelData.glyph : nav.modelData.title
@@ -97,7 +98,7 @@ Rectangle {
                         font.family: Style.font.family
                         font.pixelSize: Style.space(12)
                         font.bold: nav.checked
-                        color: nav.checked ? Color.background : Color.popups.text
+                        color: nav.checked ? Commons.Color.background : Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
                 }
@@ -119,7 +120,7 @@ Rectangle {
                     font.family: Style.font.family
                     font.pixelSize: Style.space(21)
                     font.bold: true
-                    color: Color.popups.text
+                    color: Commons.Color.popups.text
                     elide: Text.ElideRight
                 }
                 ActionButton {
@@ -137,7 +138,7 @@ Rectangle {
                 wrapMode: Text.WordWrap
                 font.family: Style.font.family
                 font.pixelSize: Style.space(12)
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 opacity: 0.7
             }
             RowLayout {
@@ -174,7 +175,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Style.space(10)
                 implicitHeight: 1
-                color: Color.popups.border
+                color: Commons.Color.popups.border
             }
         }
         Flickable {

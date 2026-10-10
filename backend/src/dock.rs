@@ -119,6 +119,7 @@ use std::{
     io::{Read, Write},
     os::unix::io::FromRawFd,
     os::unix::net::UnixStream,
+    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -984,6 +985,35 @@ pub fn arrange(
     focus(ipc, addr)
 }
 
+fn open_location(target: &str) -> Result<()> {
+    // A non-D-Bus file manager inherits gio's streams and process group.
+    // Wait only for the opener; the application must outlive this request.
+    let mut child = Command::new("gio")
+        .args(["open", "--", target])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(format!("Folder opener failed: {status}"))
+            };
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("Folder opener timed out".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 pub fn execute(mode: &str, queries: &[String]) -> Result<Value> {
     if mode == "open-location" {
         if queries.len() != 1 {
@@ -1009,11 +1039,7 @@ pub fn execute(mode: &str, queries: &[String]) -> Result<Value> {
             Some("trash") => "trash:///".into(),
             _ => return Err("Unknown file shortcut".into()),
         };
-        common::run(
-            "gio",
-            &["open".into(), "--".into(), target],
-            Duration::from_secs(8),
-        )?;
+        open_location(&target)?;
         return Ok(json!({"state":"ok"}));
     }
     if mode == "scan-icons" {

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../WindowPreviews.js" as Previews
 
@@ -51,9 +52,9 @@ PopupCard {
                     Layout.minimumWidth: 0
                     implicitHeight: Style.space(170)
                     radius: Style.space(6)
-                    color: Color.popups.background
+                    color: Commons.Color.popups.background
                     border.width: 1
-                    border.color: pointer.containsMouse || activeFocus ? Color.accent : Color.popups.border
+                    border.color: pointer.containsMouse || activeFocus ? Commons.Color.accent : Commons.Color.popups.border
                     Item {
                         id: picture
                         anchors { left: parent.left; right: parent.right; top: parent.top; margins: Style.space(6) }
@@ -79,7 +80,7 @@ PopupCard {
                             Text {
                                 text: "Preview unavailable"
                                 textFormat: Text.PlainText
-                                color: Color.muted
+                                color: Commons.Color.muted
                                 font.pixelSize: Style.space(11)
                             }
                         }
@@ -92,7 +93,7 @@ PopupCard {
                             text: tile.info.title
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
-                            color: Color.popups.text
+                            color: Commons.Color.popups.text
                             font.family: Style.font.family
                             font.pixelSize: Style.space(12)
                         }
@@ -101,7 +102,7 @@ PopupCard {
                             text: tile.info.workspace
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
-                            color: Color.muted
+                            color: Commons.Color.muted
                             font.pixelSize: Style.space(11)
                         }
                     }
@@ -123,7 +124,7 @@ PopupCard {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
                 text: (root.pageIndex + 1) + " / " + root.pageCount
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
             ActionButton { text: "Next"; enabled: root.pageIndex + 1 < root.pageCount; onClicked: root.pageIndex++ }
         }

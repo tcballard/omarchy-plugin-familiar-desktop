@@ -1,78 +1,49 @@
-// IconResolver.js — Advanced Icon Resolution for Omarchy Dock
-
+// Runtime icon lookup shared by dock items and folder previews.
+// Dependencies are explicit so theme lookup can also be tested without a shell.
 .pragma library
 
-var iconCache = {};
-
-var FALLBACK_MAP = {
-    "kitty": "kitty",
-    "alacritty": "Alacritty",
-    "foot": "foot",
-    "ghostty": "com.mitchellh.ghostty",
-    "google-chrome": "google-chrome",
-    "chrome": "google-chrome",
-    "chromium": "chromium",
-    "yandex-browser": "yandex-browser",
-    "firefox": "firefox",
-    "code": "com.visualstudio.code",
-    "vscode": "com.visualstudio.code",
-    "nautilus": "org.gnome.Nautilus",
-    "files": "org.gnome.Nautilus",
-    "dolphin": "org.kde.dolphin",
-    "thunar": "org.xfce.thunar",
-    "telegram": "telegram",
-    "telegramdesktop": "telegram",
-    "discord": "discord",
-    "obsidian": "obsidian",
-    "spotify": "spotify",
-    "x": "twitter-x",
-    "x.com": "twitter-x",
-    "twitter": "twitter-x",
-    "whatsapp": "whatsapp",
-    "web.whatsapp.com": "whatsapp",
-    "zoom": "zoom",
-    "basecamp": "basecamp",
-    "launchpad.37signals.com": "basecamp",
-    "hey": "hey",
-    "cursor": "cursor",
-    "google-contacts": "google-contacts",
-    "google-maps": "google-maps",
-    "google-messages": "google-messages",
-    "google-photos": "google-photos",
-    "transmission": "transmission-gtk",
-    "transmission-gtk": "transmission-gtk",
-    "com.transmissionbt.transmission": "transmission-gtk",
-    "youtube": "youtube"
-};
-
-function sanitizeName(name) {
-    if (!name) return "";
-    return String(name).toLowerCase().trim()
-        .replace(/^org\./, "")
-        .replace(/^com\./, "")
-        .replace(/^io\./, "")
-        .replace(/^dev\./, "")
-        .replace(/\.desktop$/, "");
-}
-
-function resolveIcon(appClass, appName) {
-    var raw = String(appClass || appName || "").trim();
-    if (!raw) return "application-x-executable";
-
-    var key = raw.toLowerCase();
-    if (iconCache[key]) return iconCache[key];
-
-    var clean = sanitizeName(raw);
-    if (FALLBACK_MAP[clean]) {
-        iconCache[key] = FALLBACK_MAP[clean];
-        return iconCache[key];
+function resolve(item, lookup) {
+    function generic() {
+        return lookup.iconPath("application-x-executable") || (lookup.friendlyFallback ? "file:///usr/share/pixmaps/omarchy.png" : "");
     }
-
-    if (FALLBACK_MAP[key]) {
-        iconCache[key] = FALLBACK_MAP[key];
-        return iconCache[key];
+    if (!item) return generic();
+    var raw = typeof item === "string" ? item : (item.rawIcon || item.icon || item.appId || item.id || "");
+    if (!raw) return generic();
+    if (raw.indexOf("://") >= 0) return raw;
+    if (raw.indexOf("/") === 0) return "file://" + raw;
+    var candidates = typeof item === "string"
+        ? lookup.candidates(item, item, item)
+        : lookup.candidates(item.rawIcon, item.icon, item.appId || item.id);
+    function useful(source) {
+        return source && source.length > 0 && source.indexOf("application-x-executable") === -1;
     }
-
-    iconCache[key] = raw;
-    return raw;
+    var library = lookup.library;
+    for (var i = 0; i < candidates.length; i++) {
+        var candidate = candidates[i];
+        if (candidate.indexOf("://") >= 0) return candidate;
+        if (candidate.indexOf("/") === 0) return "file://" + candidate;
+        var lower = candidate.toLowerCase();
+        var disk = lookup.diskIcon(candidate) || lookup.diskIcon(lower);
+        if (disk) return disk;
+        if (library && typeof library.iconSource === "function") {
+            var source = library.iconSource(candidate);
+            if (useful(source)) return source;
+            if (lower !== candidate) {
+                source = library.iconSource(lower);
+                if (useful(source)) return source;
+            }
+        }
+        var themed = lookup.iconPath(candidate);
+        if (useful(themed)) return themed;
+        themed = lookup.iconPath(lower);
+        if (useful(themed)) return themed;
+    }
+    // App tiles retain their existing friendly fallback; folder previews use generic.
+    if (!lookup.friendlyFallback) return generic();
+    if (library && typeof library.iconSource === "function") {
+        var fallback = library.iconSource("omarchy") || library.iconSource("ghostty") || library.iconSource("utilities-terminal");
+        if (fallback) return fallback;
+    }
+    return lookup.iconPath("omarchy") || lookup.iconPath("com.mitchellh.ghostty")
+        || lookup.iconPath("utilities-terminal") || generic();
 }

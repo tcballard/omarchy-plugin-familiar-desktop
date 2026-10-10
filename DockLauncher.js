@@ -75,6 +75,16 @@ function launchId(id) {
 
 function launchApp(shell, itemData, util) {
     if (!itemData) return;
+    if (itemData.pluginId) {
+        // Familiar is a service/bar-widget, so its scoped facade cannot summon
+        // other plugins. Use the same public shell command as its widget slots.
+        // A plugin ID is never an executable or a .desktop launch request.
+        if (/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(itemData.pluginId)
+                && util && typeof util.execArgv === "function") {
+            util.execArgv(["omarchy-shell", "shell", "summon", itemData.pluginId, "{}"]);
+        }
+        return;
+    }
     var rawLaunchId = itemData.desktopId || itemData.appId || "";
     var appName = itemData.name || "";
     var canonicalId = launchId(rawLaunchId);

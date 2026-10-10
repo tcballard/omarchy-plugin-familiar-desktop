@@ -1,6 +1,6 @@
 import QtQuick
 import qs.Commons
-
+import qs.Commons as Commons
 Item {
     id: root
 
@@ -10,11 +10,11 @@ Item {
     property real badgeHeight: 14
     property real badgeFontSize: 8.5
 
-    // Badge background color: identical to dock border color (Color.accent / urgent)
-    readonly property color badgeColor: (root.hasUrgent && Color.urgent) ? Color.urgent : (Color.accent || "#3584E4")
+    // Badge background color: identical to dock border color (Commons.Color.accent / urgent)
+    readonly property color badgeColor: (root.hasUrgent && Commons.Color.urgent) ? Commons.Color.urgent : (Commons.Color.accent || "#3584E4")
 
-    // Badge text color: identical to dock surface background color (Color.bar.background / Color.background)
-    readonly property color textColor: Color.bar.background || Color.background || "#11111b"
+    // Badge text color: identical to dock surface background color (Commons.Color.bar.background / Commons.Color.background)
+    readonly property color textColor: Commons.Color.bar.background || Commons.Color.background || "#11111b"
 
     implicitWidth: Math.max(badgeHeight, Math.round(badgeText.paintedWidth + 6))
     implicitHeight: badgeHeight

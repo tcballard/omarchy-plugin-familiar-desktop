@@ -7,9 +7,15 @@ import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
+import "HostedWidgets.js" as HostedWidgets
+import "PluginPanels.js" as PluginPanels
+import "IconResolver.js" as Icons
 import "DockSettings.js" as DockSettings
+import "DockGeometry.js" as Geometry
+import "DockDrag.js" as Drag
 import "ShortcutLabels.js" as ShortcutLabels
 import "DockCommands.js" as DockCommands
 import "WindowPreviews.js" as WindowPreviews
@@ -29,6 +35,7 @@ Item {
     // snapshot still carries every registered widget's Component.
     property var barWidgetRegistry: null
     readonly property int widgetRegistryRevision: barWidgetRegistry ? barWidgetRegistry.revision : 0
+    onWidgetRegistryRevisionChanged: updateDockItems()
 
     // Dock state & Multi-source Live Bar Position Tracking
     property bool opened: true
@@ -44,7 +51,7 @@ Item {
         active: root.pluginEnabled
         canStart: !titlebars.busy
         onInstalled: function(style) {
-            root.readSettings()
+            settings.reload()
             if (setupController.applyLayout) root.setProfile(style)
             root.refresh()
             titlebars.refresh()
@@ -81,47 +88,20 @@ Item {
         return detectedBarTransparent
     }
 
-    // Override only the background alpha, never the opacity of its children.
-    readonly property color dockBackgroundColor: root.dockBackgroundOpacity === "theme"
-        ? (root.isBarTransparent ? Util.alpha(Color.bar.background, 0.25) : Color.bar.background)
-        : Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, Number(root.dockBackgroundOpacity) / 100)
-    readonly property bool dockBackgroundTransparent: root.dockBackgroundOpacity === "theme"
-        ? root.isBarTransparent : Number(root.dockBackgroundOpacity) < 100
+    readonly property color dockBackgroundColor: appearance.backgroundColor
+    readonly property bool dockBackgroundTransparent: appearance.backgroundTransparent
 
     // Static Standard Dock Geometry (Strictly stable, no jumping/twitching on window state)
     readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
     readonly property real iconBaseSize: DockSettings.dockGeometry(dockSize).icon
 
-    // Live 1D Rail Displacement for Main Dock Bar
-    property int dockDragActiveIndex: -1
-    property int dockDragTargetIndex: -1
-    property int currentMergeTargetIndex: -1
-
-    function getDockVisualSlot(itemIdx, dragIdx, targetIdx) {
-        if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return itemIdx;
-        if (itemIdx === dragIdx) return dragIdx;
-        if (dragIdx < targetIdx) {
-            if (itemIdx > dragIdx && itemIdx <= targetIdx) return itemIdx - 1;
-        } else {
-            if (itemIdx >= targetIdx && itemIdx < dragIdx) return itemIdx + 1;
-        }
-        return itemIdx;
-    }
-
-    // Live 2D Rail Displacement inside Folder Grid
-    property int folderDragActiveIndex: -1
-    property int folderDragTargetIndex: -1
-
-    function getFolderVisualSlot(itemIdx, dragIdx, targetIdx) {
-        if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return itemIdx;
-        if (itemIdx === dragIdx) return dragIdx;
-        if (dragIdx < targetIdx) {
-            if (itemIdx > dragIdx && itemIdx <= targetIdx) return itemIdx - 1;
-        } else {
-            if (itemIdx >= targetIdx && itemIdx < dragIdx) return itemIdx + 1;
-        }
-        return itemIdx;
-    }
+    readonly property var drag: dragState
+    DockDragState { id: dragState }
+    readonly property int dockDragActiveIndex: drag.dockIndex
+    readonly property int dockDragTargetIndex: drag.dockTarget
+    readonly property int currentMergeTargetIndex: drag.mergeTarget
+    readonly property int folderDragActiveIndex: drag.folderIndex
+    readonly property int folderDragTargetIndex: drag.folderTarget
 
     // Direct IPC handler for io.github.tcballard.familiar-desktop target
     IpcHandler {
@@ -140,7 +120,7 @@ Item {
         function setAppMenuPosition(pos: string): string { root.setAppMenuPosition(pos); return "ok" }
         function setWidgetsEnabled(val: string): string { root.setWidgetsEnabled(val === "true" || val === "1"); return "ok" }
         function setWidgetPosition(pos: string): string { root.setWidgetPosition(pos); return "ok" }
-        function setEditMode(val: string): string { root.isEditMode = (val === "true" || val === "1"); return "ok" }
+        function setEditMode(val: string): string { root.interaction.setEditing((val === "true" || val === "1")); return "ok" }
         function setDockEnabled(val: string): string { root.dockEnabled = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function setAutohide(val: string): string { root.setAutohide(val === "true" || val === "1"); return "ok" }
         function setVisibilityMode(mode: string): string { root.setVisibilityMode(mode); return "ok" }
@@ -157,20 +137,19 @@ Item {
         function restoreDesktop(): string { return desktopToolsAdapter.run(["restore"]) ? "started" : "busy" }
         function taskbarStatus(): string { return JSON.stringify({mode:taskbarController.mode, active:root.taskbarActive, busy:taskbarController.busy, profile:root.profile, message:taskbarController.message}) }
         function ping(): string { return "ok" }
+        function panelStatus(): string {
+            return JSON.stringify(root.dockItems.filter(function(item) { return !!item.pluginId }).map(function(item) {
+                return {id: item.appId, pluginId: item.pluginId, icon: item.rawIcon, glyph: item.iconGlyph, windows: item.windowCount, active: item.isActive}
+            }))
+        }
     }
 
     function openWidgetPicker() {
         root.opened = true
-        root.widgetPickerRevealOwned = false
-        root.widgetPickerPreviousVisibilityOverride = root.visibilityOverride
-        if (!root.dockRevealed) {
-            var result = root.toggleReveal("internal")
-            if (result !== "shown") return
-            root.widgetPickerRevealOwned = true
-        }
+        if (!visibility.prepareWidgetPicker()) return
         if (widgetPicker) {
             widgetPicker.opened = true
-            autohideLeaveTimer.stop()
+            visibility.cancelLeave()
         }
     }
 
@@ -191,108 +170,31 @@ Item {
 
     function close() {
         root.opened = false
-        root.activeMenuItem = null
-        root.activeStackItem = null
-        root.dockDragActiveIndex = -1
-        root.dockDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
+        root.interaction.dismiss()
+        root.drag.cancel()
     }
 
     function toggle() {
         root.opened = !root.opened
-        root.activeMenuItem = null
-        root.activeStackItem = null
-        root.dockDragActiveIndex = -1
-        root.dockDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
+        root.interaction.dismiss()
+        root.drag.cancel()
     }
 
-    function toggleStack(item, index) {
-        root.activeMenuItem = null
-        if (!item) {
-            root.activeStackItem = null
-            return
-        }
-        var itemId = item.id || item.appId || ""
-        if (root.activeStackItem && (root.activeStackItem.id === itemId || root.activeStackItem.appId === itemId || root.activeStackItemIndex === index)) {
-            root.activeStackItem = null
-        } else {
-            root.activeStackItemIndex = index
-            if (item.isStack) {
-                root.activeStackItem = item
-            }
-        }
+    function toggleStack(item, index) { interaction.toggleFolder(item) }
+
+    DockWindowTracker {
+        id: windowTracker
+        toplevelManager: ToplevelManager
+        hyprland: Hyprland
+        onRefreshRequested: root.updateDockItems()
+        onIconRefreshRequested: iconScanDebounceTimer.restart()
+        onFocusRequested: function(address) { DockCommands.run(Util, ["hyprctl", "dispatch", "focuswindow", "address:" + address]) }
     }
+    readonly property var knownWindows: windowTracker.knownWindows
+    readonly property var focusedWindowHistory: windowTracker.focusedWindowHistory
+    function requestFocusOnLaunch(appId) { windowTracker.requestFocusOnLaunch(appId) }
+    function windowLocation(top) { return windowTracker.windowLocation(top) }
 
-    // Persistent stable chronological window registry (never reordered on focus or workspace switch)
-    property var knownWindows: []
-    property var focusedWindowHistory: []
-    property string pendingFocusAppId: ""
-    property double pendingFocusTimestamp: 0
-
-    function requestFocusOnLaunch(appId) {
-        var clean = DockModel.stripDesktop(appId || "").toLowerCase()
-        if (!clean) return
-        root.pendingFocusAppId = clean
-        root.pendingFocusTimestamp = Date.now()
-    }
-
-    function syncKnownWindows() {
-        var live = ToplevelManager.toplevels ? ToplevelManager.toplevels.values : []
-        var nextKnown = []
-        // 1. Preserve existing known windows in their original creation order if still alive
-        for (var i = 0; i < root.knownWindows.length; i++) {
-            var k = root.knownWindows[i]
-            for (var j = 0; j < live.length; j++) {
-                if (live[j] === k) {
-                    nextKnown.push(k)
-                    break
-                }
-            }
-        }
-        // 2. Append newly opened windows to the end
-        for (var l = 0; l < live.length; l++) {
-            var cand = live[l]
-            if (cand && nextKnown.indexOf(cand) === -1) {
-                nextKnown.push(cand)
-            }
-        }
-
-        var unchanged = nextKnown.length === root.knownWindows.length
-        if (unchanged) {
-            for (var m = 0; m < nextKnown.length; m++) {
-                if (nextKnown[m] !== root.knownWindows[m]) {
-                    unchanged = false
-                    break
-                }
-            }
-        }
-        if (!unchanged) {
-            root.knownWindows = nextKnown
-        }
-        return root.knownWindows
-    }
-
-    function activateAppWindow(appId, winIndex) {
-        root.syncKnownWindows()
-        var tops = root.knownWindows
-        var matched = []
-        for (var i = 0; i < tops.length; i++) {
-            var t = tops[i]
-            if (t && DockModel.matchToplevel(t, appId, null)) {
-                matched.push(t)
-            }
-        }
-        if (winIndex >= 0 && winIndex < matched.length && matched[winIndex] && matched[winIndex].activate) {
-            matched[winIndex].activate()
-        }
-    }
-
-    readonly property var taskbar: taskbarController
     property string pendingTaskbarProfile: ""
     property var taskbarAnchorItem: null
     property real taskbarItemSize: 32
@@ -315,7 +217,23 @@ Item {
         }
         return false
     }
-    readonly property real popupDockOffset: root.taskbarActive ? root.taskbarItemSize : root.slotSize + 2 * (Style.gapsOut || 5) + 8
+    readonly property var dockLayout: Geometry.panelLayout(root.dockScreenPosition, Style.gapsOut || 5, false)
+    readonly property var edgeLayout: Geometry.panelLayout(root.dockScreenPosition, 0, false)
+    function popupLayout(ignoreDockExclusion) {
+        return Geometry.popupLayout({
+            edge: root.dockScreenPosition, slotSize: root.slotSize, gap: Style.gapsOut || 5,
+            taskbar: root.taskbarActive, taskbarSize: root.taskbarItemSize,
+            overlay: root.overlayMode, ignoreDockExclusion: ignoreDockExclusion
+        })
+    }
+    readonly property var appPopupLayout: popupLayout(true)
+    readonly property var folderPopupLayout: popupLayout(false)
+    readonly property real popupDockOffset: appPopupLayout.offset
+    readonly property var popupAppearance: ({
+        transparent: root.isBarTransparent, rounding: root.systemRounding,
+        borderSpec: root.dockBorderSpec, borderAnimated: root.borderAngleAnimationEnabled,
+        borderAnimationDuration: root.borderAngleAnimationDuration
+    })
     readonly property real taskbarAnchorX: root.taskbarAnchorItem
         ? root.taskbarAnchorItem.mapToItem(null, root.taskbarAnchorItem.width / 2, 0).x : 0
     TaskbarController {
@@ -329,10 +247,8 @@ Item {
         }
     }
     onTaskbarActiveChanged: {
-        root.contextAppId = ""
-        root.activeMenuItem = null
-        root.activeStackItem = null
-        root.isEditMode = false
+        root.interaction.dismissApp()
+        root.interaction.dismiss()
         root.taskbarAnchorItem = null
     }
 
@@ -348,9 +264,9 @@ Item {
     InputPreferenceController { id: commandShortcutsController; kind: "command" }
 
     readonly property var desktopTools: desktopToolsAdapter
-    DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
+    DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); windowTracker.refreshSoon() } }
 
-    property bool fileShortcutsEnabled: false
+    property alias fileShortcutsEnabled: settings.fileShortcutsEnabled
     readonly property real fileShortcutsSize: fileShortcutsEnabled ? 3 * slotSize : 0
     property string desktopActionError: ""
     readonly property bool desktopActionBusy: desktopActionProcess.running
@@ -369,72 +285,28 @@ Item {
             if (code !== 0 || !result || result.state !== "ok") {
                 root.desktopActionError = result && result.message ? String(result.message).slice(0, 300) : "Action failed. Check the installed Familiar backend."
             } else {
-                root.contextAppId = ""
+                root.interaction.dismissApp()
                 root.updateDockItems()
-                minimizeRefreshTimer.restart()
+                windowTracker.refreshSoon()
             }
         }
     }
-    function windowLocation(top) {
-        var spaces = Hyprland.workspaces && Hyprland.workspaces.values ? Hyprland.workspaces.values : []
-        for (var i = 0; i < spaces.length; i++) {
-            var ws = spaces[i]
-            var tops = ws.toplevels && ws.toplevels.values ? ws.toplevels.values : []
-            for (var j = 0; j < tops.length; j++) {
-                if (tops[j] === top || tops[j].wayland === top) {
-                    var name = String(ws.name || ws.id)
-                    return name === "special:minimized" ? "Minimised" : name.indexOf("special:") === 0 ? "Special workspace: " + name.slice(8) : "Workspace " + name
-                }
-            }
-        }
-        return "Workspace unavailable"
-    }
-
-    // The app menu is keyed by app id, so window updates do not leave a stale
-    // snapshot behind while the user is choosing a window.
-    property string contextAppId: ""
-    property int contextAppIndex: -1
-    readonly property var contextApp: {
-        for (var i = 0; i < root.dockItems.length; i++) {
-            var item = root.dockItems[i]
-            if (item && !item.isStack && item.appId === root.contextAppId) return item
-        }
-        return null
+    readonly property var interaction: dockInteraction
+    DockInteraction { id: dockInteraction; items: root.dockItems }
+    readonly property string contextAppId: interaction.app ? interaction.app.appId : ""
+    readonly property int contextAppIndex: interaction.app ? interaction.selectedIndex : -1
+    readonly property var contextApp: interaction.app
+    readonly property bool hasActiveDockInteraction: interaction.popup !== "none" || isEditMode || !!(root.widgetPicker && root.widgetPicker.opened)
+    Connections {
+        target: dockInteraction
+        function onPopupChanged() { root.evaluateHoverState() }
     }
 
     function toggleAppMenu(item, index) {
-        if (!item || item.isStack || !item.appId) return
-        if (root.contextAppId === item.appId) {
-            root.contextAppId = ""
-            root.contextAppIndex = -1
-        } else {
-            root.activeStackItem = null
-            root.activeMenuItem = null
-            root.desktopActionError = ""
-            root.contextAppIndex = index
-            root.contextAppId = item.appId
-        }
+        root.desktopActionError = ""
+        interaction.toggleApp(item)
     }
-
-    // Folder icon picker remains separate from the app action menu.
-    function toggleMenu(item, index, fromFolder) {
-        if (!item || !item.isStack) {
-            root.activeMenuItem = null
-            root.isMenuFromFolder = false
-            return
-        }
-        var appId = item.appId || item.id || ""
-        if (root.activeMenuItem && root.activeMenuItem.appId === appId) {
-            root.activeMenuItem = null
-            root.isMenuFromFolder = false
-        } else {
-            root.contextAppId = ""
-            root.activeStackItem = null
-            root.isMenuFromFolder = !!fromFolder
-            root.activeMenuItemIndex = index
-            root.activeMenuItem = item
-        }
-    }
+    function toggleMenu(item, index) { interaction.toggleFolderMenu(item) }
 
     // Standalone plugin lifecycle: enabled by default, disabled ONLY if in disabledPlugins
     function updatePluginEnabled() {
@@ -508,14 +380,15 @@ Item {
 
     // Dock visibility, placement, and folder settings
     property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-settings.json"
-    property string dockBackgroundOpacity: "theme"
-    property string dockSize: "default"
-    property string dockPosition: "auto"
-    property string titlebarSize: "default"
-    property bool titlebarsEnabled: false
-    property string titlebarMode: "theme"
-    property string titlebarStyle: "windows"
-    property string titlebarExclusions: ""
+    property alias dockBackgroundOpacity: settings.dockBackgroundOpacity
+    property alias dockSize: settings.dockSize
+    property alias dockPosition: settings.dockPosition
+    property alias titlebarSize: settings.titlebarSize
+    property alias titlebarsEnabled: settings.titlebarsEnabled
+    property alias titlebarMode: settings.titlebarMode
+    property alias titlebarStyle: settings.titlebarStyle
+    property alias titlebarExclusions: settings.titlebarExclusions
+    property alias skipBrowserTitlebars: settings.skipBrowserTitlebars
     readonly property string titlebarState: titlebars.state
     readonly property string titlebarMessage: titlebars.message
     readonly property bool titlebarBusy: titlebars.busy
@@ -527,178 +400,67 @@ Item {
         mode: root.titlebarMode
         style: root.titlebarStyle
         exclusions: root.titlebarExclusions
+        skipBrowserTitlebars: root.skipBrowserTitlebars
         size: root.titlebarSize
-        background: Color.popups.background
-        foreground: Color.popups.text
+        background: Commons.Color.popups.background
+        foreground: Commons.Color.popups.text
         fontFamily: Style.font.family
         fontSize: Math.max(8, Math.min(32, Style.font.subtitle))
     }
-    property string profile: "general"
-    property string shortcutLabels: "standard"
-    property bool dockEnabled: true
-    property string visibilityMode: "always"
-    property string preferredVisibilityMode: "hover"
+    property alias profile: settings.profile
+    property alias shortcutLabels: settings.shortcutLabels
+    property alias dockEnabled: settings.dockEnabled
+    property alias visibilityMode: settings.visibilityMode
+    property alias preferredVisibilityMode: settings.preferredVisibilityMode
     readonly property bool autohide: root.visibilityMode !== "always"
-    property bool overlayMode: false
-    property int visibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-    property string keyboardTargetWorkspace: ""
-    property string keyboardTargetMonitorName: ""
-    // Which screen triggered the current reveal (edge-hover screen, or the
-    // focused screen for a keyboard toggle). "" means no specific trigger is
-    // recorded, in which case screenRevealTarget() falls back to the focused
-    // monitor.
-    property string revealMonitorName: ""
-    property string baseDockMonitorName: ""
-    property bool widgetPickerRevealOwned: false
-    property int widgetPickerPreviousVisibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-    property string visibleWorkspace: "all"
-    property int autohideEdgeDepth: 1  // pixels from screen edge that trigger dock reveal
+    property alias overlayMode: settings.overlayMode
+    readonly property int visibilityOverride: visibility.overrideMode
+    property alias visibleWorkspace: settings.visibleWorkspace
+    property alias autohideEdgeDepth: settings.autohideEdgeDepth
     readonly property int effectiveAutohideEdgeDepth: Math.max(4, Math.min(64, root.autohideEdgeDepth))
-    property bool showFolderTitles: true
-    property bool showBadges: true
-    property bool windowPreviews: true
-    property bool glassmorphism: false
-    property real blurOpacity: 0.68
+    property alias showFolderTitles: settings.showFolderTitles
+    property alias showBadges: settings.showBadges
+    property alias windowPreviews: settings.windowPreviews
+    property alias glassmorphism: settings.glassmorphism
+    property alias blurOpacity: settings.blurOpacity
     readonly property bool showAppMenu: root.widgetsEnabled && root.dockWidgets && (root.dockWidgets.indexOf("omarchy.apps") !== -1)
-    property string appMenuPosition: "left"
-    property bool widgetsEnabled: true
-    property string widgetPosition: "right"
-    property var dockWidgets: ["omarchy.apps"]
-    property var widgetSavedPositions: ({})
-    property bool isDockHovered: false
+    property alias appMenuPosition: settings.appMenuPosition
+    property alias widgetsEnabled: settings.widgetsEnabled
+    property alias widgetPosition: settings.widgetPosition
+    property alias dockWidgets: settings.dockWidgets
+    property alias widgetSavedPositions: settings.widgetSavedPositions
+    readonly property bool isDockHovered: visibility.hovered
     property bool isStackHovered: false
     property bool isMenuHovered: false
     property bool isWidgetPanelHovered: false
 
-    function workspaceForSelector(selector) {
-        var normalized = DockSettings.normalizeVisibleWorkspace(selector)
-        if (normalized === "all") return null
-        var workspaces = Hyprland.workspaces && Hyprland.workspaces.values ? Hyprland.workspaces.values : []
-        for (var i = 0; i < workspaces.length; i++) {
-            var workspace = workspaces[i]
-            if (workspace && DockSettings.workspaceMatches(normalized, workspace.id, workspace.name)) {
-                return workspace
-            }
-        }
-        return null
+    DockVisibility {
+        id: visibility
+        hyprland: Hyprland
+        toplevelManager: ToplevelManager
+        screens: Quickshell.screens || []
+        mode: root.visibilityMode
+        workspaceSelector: root.visibleWorkspace
+        available: setupController.ready && root.opened && root.pluginEnabled && root.dockEnabled && root.isPinnedLoaded
+        remapping: remapTimer.running
+        taskbarActive: root.taskbarActive
+        dockSurfaces: dockVariants.instances || []
+        popupHovered: root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened
+        interactionActive: root.hasActiveDockInteraction
+        dragActive: root.dockDragActiveIndex >= 0
+        widgetPanelsOpen: function() { return root.checkWidgetPanelsOpen() }
+        onClosePopupsRequested: root.closePopups()
     }
-
-    function screenForMonitorName(monitorName) {
-        var name = String(monitorName || "")
-        if (name === "") return null
-        var screens = Quickshell.screens || []
-        for (var i = 0; i < screens.length; i++) {
-            if (screens[i] && String(screens[i].name || "") === name) return screens[i]
-        }
-        return null
-    }
-
-    function screenForMonitor(monitor) {
-        return monitor ? root.screenForMonitorName(monitor.name) : null
-    }
-
-    function screenShowsDock(screen) {
-        if (!screen) return false
-        var target = DockSettings.dockScreenTarget(
-            root.visibleWorkspace,
-            root.visibilityMode,
-            root.visibilityOverride
-        )
-        var configuredName = (root.configuredWorkspace && root.configuredWorkspace.monitor)
-            ? String(root.configuredWorkspace.monitor.name || "")
-            : ""
-        var focusedName = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-        return DockSettings.screenShowsDock(
-            target,
-            screen.name,
-            configuredName,
-            root.keyboardTargetMonitorName,
-            focusedName
-        )
-    }
-
-    function anyDockSurfaceHovered() {
-        var instances = dockVariants.instances
-        if (!instances) return false
-        for (var i = 0; i < instances.length; i++) {
-            var handler = instances[i] ? instances[i].hoverHandler : null
-            if (handler && handler.hovered) return true
-        }
-        return false
-    }
-
-    function focusedWorkspaceForKeyboardToggle() {
-        var monitorWorkspace = Hyprland.focusedMonitor
-            ? Hyprland.focusedMonitor.activeWorkspace
-            : null
-        var toplevelWorkspace = Hyprland.activeToplevel
-            ? Hyprland.activeToplevel.workspace
-            : null
-        return DockSettings.keyboardToggleWorkspace(
-            monitorWorkspace,
-            Hyprland.focusedWorkspace,
-            toplevelWorkspace
-        )
-    }
-
-    readonly property bool hasExplicitWorkspace: root.visibleWorkspace !== "all"
-    readonly property var configuredWorkspace: root.hasExplicitWorkspace
-        ? root.workspaceForSelector(root.visibleWorkspace)
-        : null
-    readonly property var keyboardTargetWorkspaceObject: root.keyboardTargetWorkspace !== ""
-        ? root.workspaceForSelector(root.keyboardTargetWorkspace)
-        : null
-    readonly property var effectiveDockScreen: {
-        var target = DockSettings.dockScreenTarget(
-            root.visibleWorkspace,
-            root.visibilityMode,
-            root.visibilityOverride
-        )
-        if (target === "configured" && root.configuredWorkspace && root.configuredWorkspace.monitor) {
-            var configuredScreen = root.screenForMonitor(root.configuredWorkspace.monitor)
-            if (configuredScreen) return configuredScreen
-        }
-        if (target === "captured") {
-            var keyboardScreen = root.screenForMonitorName(root.keyboardTargetMonitorName)
-            if (keyboardScreen) return keyboardScreen
-        }
-        if (target === "all") {
-            var focusedForAll = root.screenForMonitor(Hyprland.focusedMonitor)
-            if (focusedForAll) return focusedForAll
-        }
-        if (target === "focused") {
-            var focusedScreen = root.screenForMonitor(Hyprland.focusedMonitor)
-            if (focusedScreen) return focusedScreen
-        }
-        var baseScreen = root.screenForMonitorName(root.baseDockMonitorName)
-        if (baseScreen) return baseScreen
-        return Quickshell.screens && Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
-    }
-
-    readonly property var currentDockWorkspace: {
-        if (root.hasExplicitWorkspace) return root.configuredWorkspace
-        if (root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_SHOWN && root.keyboardTargetWorkspaceObject) {
-            return root.keyboardTargetWorkspaceObject
-        }
-        var screen = root.effectiveDockScreen
-        var monitor = screen ? Hyprland.monitorFor(screen) : Hyprland.focusedMonitor
-        if (monitor && monitor.activeWorkspace) return monitor.activeWorkspace
-        return Hyprland.focusedWorkspace
-    }
-
-    readonly property bool workspaceAllowed: {
-        if (!root.hasExplicitWorkspace) return true
-        var workspace = root.currentDockWorkspace
-        return workspace !== null
-    }
-
-    readonly property bool dockAvailable: setupController.ready && root.opened
-        && root.pluginEnabled
-        && root.dockEnabled
-        && root.workspaceAllowed
-        && root.isPinnedLoaded
-    readonly property bool dockMapped: root.dockAvailable && !remapTimer.running
-    readonly property bool dockRevealed: root.dockAvailable && (root.taskbarActive || !root.shouldSlideOut)
+    readonly property var effectiveDockScreen: visibility.effectiveScreen
+    readonly property bool workspaceAllowed: visibility.workspaceAllowed
+    readonly property bool dockAvailable: visibility.dockAvailable
+    readonly property bool dockMapped: visibility.mapped
+    readonly property bool dockRevealed: visibility.revealed
+    readonly property bool shouldSlideOut: visibility.shouldSlideOut
+    readonly property string revealTargetMonitorName: visibility.revealTargetMonitorName
+    function screenForMonitor(monitor) { return visibility.screenForMonitor(monitor) }
+    function screenShowsDock(screen) { return visibility.screenShowsDock(screen) }
+    function screenSlidesOut(screen) { return visibility.screenSlidesOut(screen) }
 
     property var loadedWidgetItems: []
 
@@ -773,191 +535,9 @@ Item {
         }
     }
 
-    function evaluateHoverState() {
-        if (!root.autohide) return
-        var anyOpenWidget = checkWidgetPanelsOpen()
-        var isDockWinHovered = !root.shouldSlideOut && root.anyDockSurfaceHovered()
-        var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
-        var anyHover = isDockWinHovered || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
-        if (anyHover) {
-            autohideLeaveTimer.stop()
-            root.isDockHovered = true
-        } else {
-            autohideLeaveTimer.restart()
-        }
-    }
-
-    Timer {
-        id: autohideLeaveTimer
-        interval: 1500
-        repeat: false
-        onTriggered: {
-            if (!root.autohide) return
-            var anyOpenWidget = root.checkWidgetPanelsOpen()
-            var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
-            var anyHover = root.anyDockSurfaceHovered() || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
-            if (!anyHover) {
-                root.isDockHovered = false
-                if (DockSettings.shouldAutoDismissKeyboardReveal(root.visibilityMode, root.visibilityOverride)) {
-                    root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-                }
-            }
-        }
-    }
-
-    function getActiveWorkspaceWindowCount() {
-        var workspace = root.currentDockWorkspace
-        if (workspace && workspace.toplevels && workspace.toplevels.values) {
-            return workspace.toplevels.values.length
-        }
-        return 0
-    }
-
-    property int activeWorkspaceWindowCount: root.getActiveWorkspaceWindowCount()
-
-    function refreshActiveWorkspaceWindowCount() {
-        root.activeWorkspaceWindowCount = root.getActiveWorkspaceWindowCount()
-    }
-
-    Connections {
-        target: Hyprland
-        function onFocusedWorkspaceChanged() { root.refreshActiveWorkspaceWindowCount() }
-        function onRawEvent(event) { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Connections {
-        target: Hyprland.workspaces
-        function onValuesChanged() { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Connections {
-        target: ToplevelManager.toplevels
-        function onValuesChanged() { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Timer {
-        id: workspaceCheckTimer
-        interval: 200
-        running: (root.visibilityMode === "hover" || root.visibilityMode === "hybrid") && root.workspaceAllowed
-        repeat: true
-        onTriggered: root.refreshActiveWorkspaceWindowCount()
-    }
-
-    readonly property bool isWorkspaceEmpty: root.activeWorkspaceWindowCount === 0
-    readonly property bool isDockActive: root.isDockHovered
-        || root.isStackHovered
-        || root.isMenuHovered
-        || root.isWidgetPanelHovered
-        || root.isStackOpen
-        || root.isMenuOpen
-        || root.isEditingFolderTitle
-        || root.isEditMode
-        || (root.widgetPicker && root.widgetPicker.opened)
-        || root.checkWidgetPanelsOpen()
-        || (root.dockDragActiveIndex >= 0)
-    readonly property bool shouldSlideOut: DockSettings.shouldSlideOut(
-        root.visibilityMode,
-        root.visibilityOverride,
-        root.isDockActive,
-        root.isWorkspaceEmpty
-    )
-
-    // The screen whose dock should slide in for the current reveal, or "" if
-    // every screen's dock should (always mode, or an explicit visibleWorkspace
-    // selector).
-    readonly property string revealTargetMonitorName: DockSettings.screenRevealTarget(
-        root.visibilityMode,
-        root.visibleWorkspace,
-        root.revealMonitorName,
-        Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-    )
-
-    function screenSlidesOut(screen) {
-        return DockSettings.screenSlidesOut(
-            root.shouldSlideOut,
-            root.revealTargetMonitorName,
-            screen ? screen.name : ""
-        )
-    }
-
-    function closeDockPopups() {
-        root.closePopups()
-    }
-
-    property double lastToggleRevealTime: 0
-
-    function toggleReveal(revealSource) {
-        if (!root.opened || !root.dockEnabled || !root.pluginEnabled || !root.isPinnedLoaded) return "unavailable"
-        var source = revealSource === "internal" ? "internal" : "keyboard"
-        if (!DockSettings.revealRequestAllowed(root.visibilityMode, source)) return "inactive"
-
-        var now = Date.now()
-        if (now - root.lastToggleRevealTime < 300) {
-            return root.dockRevealed ? "shown" : "hidden"
-        }
-        root.lastToggleRevealTime = now
-
-        if (root.dockRevealed) {
-            autohideLeaveTimer.stop()
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_HIDDEN
-            root.isDockHovered = false
-            root.closeDockPopups()
-            return "hidden"
-        } else {
-            autohideLeaveTimer.stop()
-            root.revealMonitorName = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_SHOWN
-            root.isDockHovered = true
-            return "shown"
-        }
-    }
-
-    function handleWidgetPickerOpenedChanged(opened) {
-        if (opened) {
-            autohideLeaveTimer.stop()
-            return
-        }
-
-        root.visibilityOverride = DockSettings.releaseInteractionVisibilityOverride(
-            root.widgetPickerRevealOwned,
-            root.widgetPickerPreviousVisibilityOverride,
-            root.visibilityOverride
-        )
-        root.widgetPickerRevealOwned = false
-        root.isDockHovered = false
-        root.evaluateHoverState()
-    }
-
-    onDockRevealedChanged: {
-        if (!dockRevealed) {
-            root.closeDockPopups()
-            root.revealMonitorName = ""
-        }
-    }
-
-    onVisibilityModeChanged: {
-        root.widgetPickerRevealOwned = false
-        root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-        root.keyboardTargetWorkspace = ""
-        root.keyboardTargetMonitorName = ""
-        root.revealMonitorName = ""
-        root.isDockHovered = false
-        autohideLeaveTimer.stop()
-    }
-
-    onWorkspaceAllowedChanged: {
-        if (!workspaceAllowed && root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_SHOWN) {
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_HIDDEN
-            root.closeDockPopups()
-        }
-    }
-
-    onVisibleWorkspaceChanged: {
-        root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-        root.keyboardTargetWorkspace = ""
-        root.keyboardTargetMonitorName = ""
-        root.revealMonitorName = ""
-    }
+    function evaluateHoverState() { visibility.evaluateHoverState() }
+    function toggleReveal(source) { return visibility.toggleReveal(source) }
+    function handleWidgetPickerOpenedChanged(opened) { visibility.widgetPickerOpenedChanged(opened) }
 
     property var lastRemapScreen: null
     onEffectiveDockScreenChanged: {
@@ -1039,6 +619,8 @@ Item {
 
     readonly property real leftSeparatorSize: hasLeftWidgets ? 8 : 0
     readonly property real rightSeparatorSize: hasRightWidgets ? 8 : 0
+    readonly property real appRailOffset: root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0
+    readonly property var dockSurfaceSize: Geometry.surfaceSize(root.isVertical, root.slotSize, root.totalDockDimension)
     readonly property real itemsWidth: (root.dockItems.length * root.slotSize)
 
     // Dynamic max items limit for dock bar based on logical screen dimensions & scale (15 items on 1080p @ 1.6x, scales dynamically for Ultrawide 21:9 / 32:9)
@@ -1072,141 +654,25 @@ Item {
 
     onDockEnabledChanged: {
         if (!dockEnabled) {
-            root.activeStackItem = null
-            root.activeMenuItem = null
-            root.contextAppId = ""
-            root.isEditMode = false
+            root.interaction.dismiss()
         }
     }
 
-    property bool isSavingSettings: false
+    SettingsStore { id: settings; path: root.settingsPath }
 
-    FileView {
-        id: settingsFile
-        path: root.settingsPath
-        watchChanges: true
-        atomicWrites: true
-        printErrors: false
-        onLoaded: root.readSettings()
-        onFileChanged: {
-            if (!root.isSavingSettings) {
-                reload()
-                root.readSettings()
-            }
-        }
+    function saveSettings() { return settings.save() }
+    readonly property string settingsError: settings.error
+
+    function setPreference(key, value) {
+        var changes = {}; changes[key] = value
+        return settings.patch(changes)
     }
-
-    Timer {
-        id: saveSettingsTimer
-        interval: 300
-        repeat: false
-        onTriggered: root.isSavingSettings = false
-    }
-
-    function readSettings() {
-        if (root.isSavingSettings) return
-        try {
-            var txt = settingsFile.text()
-            if (txt && txt.trim().length > 0) {
-                var s = JSON.parse(txt)
-                if (!s || typeof s !== "object") return
-                root.fileShortcutsEnabled = s.fileShortcutsEnabled === true
-                var normalized = DockSettings.normalize(s)
-                root.profile = normalized.profile
-                root.shortcutLabels = ShortcutLabels.normalize(s.shortcutLabels)
-                root.dockPosition = normalized.dockPosition
-                root.dockBackgroundOpacity = normalized.dockBackgroundOpacity
-                root.dockSize = normalized.dockSize
-                root.titlebarSize = normalized.titlebarSize
-                root.titlebarsEnabled = normalized.titlebarsEnabled
-                root.titlebarMode = normalized.titlebarMode
-                root.titlebarStyle = normalized.titlebarStyle
-                root.titlebarExclusions = normalized.titlebarExclusions
-                root.visibilityMode = normalized.visibilityMode
-                if (s.preferredVisibilityMode !== undefined) {
-                    var pvm = String(s.preferredVisibilityMode).trim().toLowerCase()
-                    if (pvm === "hover" || pvm === "keybind") root.preferredVisibilityMode = pvm
-                } else if (normalized.visibilityMode === "hover" || normalized.visibilityMode === "keybind") {
-                    root.preferredVisibilityMode = normalized.visibilityMode
-                }
-                root.overlayMode = normalized.overlayMode
-                root.visibleWorkspace = normalized.visibleWorkspace
-                if (s.dockEnabled !== undefined) {
-                    root.dockEnabled = (s.dockEnabled === true || s.dockEnabled === "true" || s.dockEnabled === 1 || s.dockEnabled === "1")
-                } else {
-                    root.dockEnabled = true
-                }
-                if (s.autohideEdgeDepth !== undefined) {
-                    var depth = parseInt(s.autohideEdgeDepth, 10)
-                    if (!isNaN(depth) && depth >= 1 && depth <= 64) root.autohideEdgeDepth = depth
-                }
-                root.showFolderTitles = true
-                root.windowPreviews = s.windowPreviews !== false
-                if (s.showBadges !== undefined) {
-                    root.showBadges = (s.showBadges === true)
-                }
-                if (s.glassmorphism !== undefined) {
-                    root.glassmorphism = (s.glassmorphism === true)
-                }
-                if (s.blurOpacity !== undefined) {
-                    var bo = Number(s.blurOpacity)
-                    if (isFinite(bo) && bo >= 0.1 && bo <= 1.0) root.blurOpacity = bo
-                }
-                if (s.appMenuPosition !== undefined) {
-                    root.appMenuPosition = s.appMenuPosition
-                }
-                if (s.widgetPosition !== undefined) {
-                    root.widgetPosition = s.widgetPosition
-                }
-                if (s.widgetsEnabled !== undefined) {
-                    root.widgetsEnabled = (s.widgetsEnabled === true)
-                }
-                if (Array.isArray(s.dockWidgets)) {
-                    root.dockWidgets = DockModel.normalizeDockWidgets(s.dockWidgets)
-                } else {
-                    root.dockWidgets = ["omarchy.apps"]
-                }
-                // Keep old placement metadata available for manual recovery.
-                if (s.widgetSavedPositions && typeof s.widgetSavedPositions === "object")
-                    root.widgetSavedPositions = s.widgetSavedPositions
-            }
-        } catch(e) {}
-    }
-
-    function saveSettings() {
-        root.isSavingSettings = true
-        saveSettingsTimer.restart()
-        var jsonStr = JSON.stringify({
-            profile: root.profile,
-            shortcutLabels: root.shortcutLabels,
-            dockPosition: root.dockPosition,
-            dockBackgroundOpacity: root.dockBackgroundOpacity,
-            dockSize: root.dockSize,
-            titlebarSize: root.titlebarSize,
-            titlebarsEnabled: root.titlebarsEnabled,
-            titlebarMode: root.titlebarMode,
-            titlebarStyle: root.titlebarStyle,
-            titlebarExclusions: root.titlebarExclusions,
-            dockEnabled: root.dockEnabled,
-            fileShortcutsEnabled: root.fileShortcutsEnabled,
-            visibilityMode: root.visibilityMode,
-            preferredVisibilityMode: root.preferredVisibilityMode,
-            autohide: DockSettings.legacyAutohide(root.visibilityMode),
-            overlayMode: root.overlayMode,
-            visibleWorkspace: root.visibleWorkspace,
-            autohideEdgeDepth: root.autohideEdgeDepth,
-            showFolderTitles: root.showFolderTitles,
-            showBadges: root.showBadges,
-            windowPreviews: root.windowPreviews,
-            glassmorphism: root.glassmorphism,
-            blurOpacity: root.blurOpacity,
-            widgetsEnabled: root.widgetsEnabled,
-            appMenuPosition: root.appMenuPosition || "left",
-            widgetPosition: root.widgetPosition || "right",
-            dockWidgets: DockModel.normalizeDockWidgets(root.dockWidgets),
-            widgetSavedPositions: root.widgetSavedPositions || {}
-        }, null, 2)
-        settingsFile.setText(jsonStr + "\n")
+    function setTitlebarMode(mode) {
+        if (["off", "theme", "mac", "windows"].indexOf(mode) < 0) return false
+        var changes = {titlebarMode: mode, titlebarsEnabled: mode !== "off"}
+        if (mode !== "off") changes.dockEnabled = true
+        if (mode === "mac" || mode === "windows") changes.titlebarStyle = mode
+        return settings.patch(changes)
     }
 
     function setDockEnabled(val) {
@@ -1229,25 +695,18 @@ Item {
         root.overlayMode = defaults.overlayMode
         root.titlebarStyle = defaults.titlebarStyle
         if (root.titlebarMode !== "theme" && root.titlebarMode !== "off") root.titlebarMode = defaults.titlebarStyle
-        root.contextAppId = ""
-        root.activeMenuItem = null
-        root.activeStackItem = null
+        root.interaction.dismissApp()
+        root.interaction.dismiss()
         root.saveSettings()
     }
 
     function setAutohide(val) {
-        if (val) {
-            if (!root.dockEnabled) {
-                root.dockEnabled = true
-            }
-            root.visibilityMode = root.preferredVisibilityMode || "hover"
-        } else {
-            if (root.visibilityMode === "hover" || root.visibilityMode === "keybind") {
-                root.preferredVisibilityMode = root.visibilityMode
-            }
-            root.visibilityMode = "always"
-        }
-        saveSettings()
+        var keybind = root.visibilityMode === "keybind" || root.visibilityMode === "hybrid"
+        settings.patch({dockEnabled: true, visibilityMode: val ? (keybind ? "hybrid" : "hover") : (keybind ? "keybind" : "always")})
+    }
+    function setKeybindMode(val) {
+        var hover = root.visibilityMode === "hover" || root.visibilityMode === "hybrid"
+        settings.patch({dockEnabled: true, visibilityMode: val ? (hover ? "hybrid" : "keybind") : (hover ? "hover" : "always")})
     }
 
     function setVisibilityMode(mode) {
@@ -1359,94 +818,27 @@ Item {
     }
 
     function configureHostedWidget(item, widgetId, anchorItem) {
-        if (!item) return
-        if (root.loadedWidgetItems.indexOf(item) === -1) root.loadedWidgetItems.push(item)
-        if ("bar" in item) item.bar = dockBarContext
-        if ("shell" in item) item.shell = root.shell
-        if ("widgetId" in item) item.widgetId = widgetId
-        if ("moduleName" in item) item.moduleName = widgetId
+        HostedWidgets.attach(widgetHost, item, widgetId, anchorItem)
+        root.widgetIconRevision++
+    }
+    QtObject {
+        id: widgetHost
+        readonly property var loadedWidgetItems: root.loadedWidgetItems
+        readonly property var shell: root.shell
+        readonly property var barContext: dockBarContext
+        readonly property var dockWindow: root.dockWindow
+        function evaluateHoverState() { root.evaluateHoverState() }
+        property alias widgetIconRevision: root.widgetIconRevision
+    }
 
-        function applyToPanel(p) {
-            if (!p) return
-            if ("centerOnBar" in p) {
-                p.centerOnBar = false
-            }
-            if ("bar" in p) {
-                p.bar = dockBarContext
-            }
-            if ("anchorItem" in p) {
-                p.anchorItem = anchorItem || (root.dockWindow ? root.dockWindow.contentItem : null)
-            }
-            if ("opened" in p && p.openedChanged) {
-                p.openedChanged.connect(function() {
-                    root.evaluateHoverState()
-                })
-            }
-            if ("open" in p && p.openChanged) {
-                p.openChanged.connect(function() {
-                    root.evaluateHoverState()
-                })
-            }
-        }
-
-        function scan(obj) {
-            if (!obj) return
-            applyToPanel(obj)
-            if (obj.panel) {
-                applyToPanel(obj.panel)
-            }
-            if (obj.data) {
-                for (var i = 0; i < obj.data.length; i++) {
-                    var d = obj.data[i]
-                    if (d) {
-                        applyToPanel(d)
-                        if (d.panel) applyToPanel(d.panel)
-                    }
-                }
-            }
-            if (obj.children) {
-                for (var j = 0; j < obj.children.length; j++) {
-                    var c = obj.children[j]
-                    if (c) {
-                        applyToPanel(c)
-                        if (c.panel) applyToPanel(c.panel)
-                    }
-                }
-            }
-        }
-
-        scan(item)
-
-        if (item) {
-            if ("iconChanged" in item && item.iconChanged && typeof item.iconChanged.connect === "function") {
-                item.iconChanged.connect(function() { root.widgetIconRevision++ })
-            }
-            if ("displayTextChanged" in item && item.displayTextChanged && typeof item.displayTextChanged.connect === "function") {
-                item.displayTextChanged.connect(function() { root.widgetIconRevision++ })
-            }
-            if ("playIconChanged" in item && item.playIconChanged && typeof item.playIconChanged.connect === "function") {
-                item.playIconChanged.connect(function() { root.widgetIconRevision++ })
-            }
-            if ("updateAvailableChanged" in item && item.updateAvailableChanged && typeof item.updateAvailableChanged.connect === "function") {
-                item.updateAvailableChanged.connect(function() { root.widgetIconRevision++ })
-            }
-            if ("activeChanged" in item && item.activeChanged && typeof item.activeChanged.connect === "function") {
-                item.activeChanged.connect(function() { root.widgetIconRevision++ })
-            }
-            if ("mutedChanged" in item && item.mutedChanged && typeof item.mutedChanged.connect === "function") {
-                item.mutedChanged.connect(function() { root.widgetIconRevision++ })
-            }
-        }
-
-        if (item.panelLoader) {
-            var handlePanelLoader = function() {
-                if (item.panelLoader && item.panelLoader.item) {
-                    scan(item.panelLoader.item)
-                }
-            }
-            handlePanelLoader()
-            item.panelLoader.loaded.connect(handlePanelLoader)
-        }
+    // The visual delegate receives only the widget-host operations it needs.
+    QtObject {
+        id: widgetActions
+        function componentFor(id) { return root.getWidgetComponent(id) }
+        function sourceFor(id) { return root.getWidgetSource(id) }
+        function attach(item, id, anchor) { root.configureHostedWidget(item, id, anchor) }
+        function iconFor(id, item) { return root.getWidgetIcon(id, item) }
+        function activate(id, item, anchor, mouse) { root.activateWidget(id, item, anchor, mouse) }
     }
 
     // Proxy Bar context for hosted widgets
@@ -1459,11 +851,11 @@ Item {
         property string position: root.dockScreenPosition
         property var screen: (root.dockWindow && root.dockWindow.screen) ? root.dockWindow.screen : null
         property var shell: root.shell
-        property color foreground: Color.composed("bar.text", "bar.text-alpha", Color.text, 0.9)
-        property color barForeground: Color.composed("bar.text", "bar.text-alpha", Color.text, 0.9)
-        property color urgent: Color.urgent
-        property color muted: Color.muted
-        property color accent: Color.accent
+        property color foreground: Commons.Color.composed("bar.text", "bar.text-alpha", Commons.Color.text, 0.9)
+        property color barForeground: Commons.Color.composed("bar.text", "bar.text-alpha", Commons.Color.text, 0.9)
+        property color urgent: Commons.Color.urgent
+        property color muted: Commons.Color.muted
+        property color accent: Commons.Color.accent
         property bool foregroundAnimationEnabled: true
         property string fontFamily: Style.font.family
         property var activePopout: null
@@ -1478,6 +870,7 @@ Item {
 
     // Reactive tracking for hardware and system states
     property int widgetIconRevision: 0
+    onWidgetIconRevisionChanged: updateDockItems()
 
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
@@ -1537,6 +930,7 @@ Item {
         }
         if (widgetId === "omarchy.tray") return "󰇙"
         if (widgetId === "omarchy.agents") return "󰚩"
+        if (widgetId === "io.github.tcballard.rss-feed") return ""
         if (widgetId === "omarchy.indicators") return "󰂚"
         if (widgetId === "silvaio.gamemode") return "󰊴"
         if (widgetId === "lgse.sandman") return "󰒲"
@@ -1595,7 +989,7 @@ Item {
     function handleWidgetSlotClick(widgetId, mouse) {
         if (root.isEditMode) {
             if (mouse && mouse.button === Qt.RightButton) {
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
             return
         }
@@ -1645,7 +1039,7 @@ Item {
         windowPreview.close()
         if (root.isEditMode) {
             if (mouse && mouse.button === Qt.RightButton) {
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
             return
         }
@@ -1747,15 +1141,14 @@ Item {
         if (root.lastRemapBarPosition !== root.barPosition) {
             if (root.lastRemapBarPosition !== "") {
                 root.closePopups()
-                root.contextAppId = ""
-                root.dockDragActiveIndex = -1
-                root.dockDragTargetIndex = -1
+                root.interaction.dismissApp()
+                root.drag.cancelDock()
             }
             root.lastRemapBarPosition = root.barPosition
             // Drop the sticky hover flag before the surfaces are rebuilt: the
             // pointer cannot be over a dock that does not exist yet, and the
             // edge trigger re-reveals the dock the moment it really is.
-            root.isDockHovered = false
+            visibility.clearHover()
             remapTimer.restart()
         }
     }
@@ -1807,213 +1200,20 @@ Item {
         if (!layersProc.running) layersProc.running = true
     }
 
-    // Dynamic system tiling border size, rounding & active gradient border
-    property int systemBorderSize: 2
-    property int systemRounding: Style.cornerRadius >= 0 ? Style.cornerRadius : 12
-    property string hyprlandActiveBorderRaw: ""
-
-    function parseHyprlandColor(str) {
-        var s = String(str || "").trim()
-        var m8 = s.match(/^(?:0x|#|rgba\()?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})\)?$/)
-        if (m8) {
-            var a = parseInt(m8[1], 16) / 255
-            var r = parseInt(m8[2], 16)
-            var g = parseInt(m8[3], 16)
-            var b = parseInt(m8[4], 16)
-            return Qt.rgba(r / 255, g / 255, b / 255, a)
-        }
-        var m6 = s.match(/^(?:0x|#|rgb\()?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})\)?$/)
-        if (m6) {
-            var r = parseInt(m6[1], 16)
-            var g = parseInt(m6[2], 16)
-            var b = parseInt(m6[3], 16)
-            return Qt.rgba(r / 255, g / 255, b / 255, 1.0)
-        }
-        return s
+    DockAppearance {
+        id: appearance
+        hyprland: Hyprland
+        backgroundOpacity: root.dockBackgroundOpacity
+        barTransparent: root.isBarTransparent
     }
+    readonly property int systemBorderSize: appearance.systemBorderSize
+    readonly property int systemRounding: appearance.systemRounding
+    readonly property var dockBorderSpec: appearance.dockBorderSpec
+    readonly property bool borderAngleAnimationEnabled: appearance.borderAngleAnimationEnabled
+    readonly property real borderAngleAnimationDuration: appearance.borderAngleAnimationDuration
+    function refreshHyprlandOptions() { appearance.refresh() }
 
-    function parseHyprlandGradient(raw, fallbackColor) {
-        var s = String(raw || "").trim()
-        if (!s) return { colors: [fallbackColor], angle: 0, enabled: false }
-        var parts = s.split(/\s+/)
-        var colors = []
-        var angle = 0
-        for (var i = 0; i < parts.length; i++) {
-            var p = parts[i]
-            if (p.match(/^-?\d+(?:\.\d+)?deg$/)) {
-                angle = Number(p.replace(/deg$/, ""))
-            } else {
-                var c = root.parseHyprlandColor(p)
-                if (c) colors.push(c)
-            }
-        }
-        if (colors.length === 0) colors.push(fallbackColor)
-        return {
-            colors: colors,
-            angle: angle,
-            enabled: colors.length > 1
-        }
-    }
-
-    property var dockBorderSpec: {
-        if (root.dockBackgroundTransparent || root.systemBorderSize <= 0) {
-            return Border.none()
-        }
-        var raw = root.hyprlandActiveBorderRaw
-        if (raw && raw.length > 0) {
-            var grad = root.parseHyprlandGradient(raw, Color.accent)
-            return {
-                color: grad.colors[0],
-                widths: { top: root.systemBorderSize, right: root.systemBorderSize, bottom: root.systemBorderSize, left: root.systemBorderSize },
-                gradient: grad
-            }
-        }
-        return Border.hyprlandActiveSpec(Color.accent, root.systemBorderSize)
-    }
-
-    Process {
-        id: roundingProc
-        command: ["hyprctl", "-j", "getoption", "decoration:rounding"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var n = Number(json.int)
-                    if (isFinite(n) && n >= 0) {
-                        if (root.systemRounding !== n) {
-                            root.systemRounding = n
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Process {
-        id: borderSizeProc
-        command: ["hyprctl", "-j", "getoption", "general:border_size"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var n = Number(json.int)
-                    if (isFinite(n) && n >= 0) {
-                        if (root.systemBorderSize !== n) {
-                            root.systemBorderSize = n
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Process {
-        id: activeBorderProc
-        command: ["hyprctl", "-j", "getoption", "general:col.active_border"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var grad = String(json.gradient || json.str || "").trim()
-                    if (grad.length > 0) {
-                        if (root.hyprlandActiveBorderRaw !== grad) {
-                            root.hyprlandActiveBorderRaw = grad
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    property bool borderAngleAnimationEnabled: true
-    property real borderAngleAnimationDuration: 6000
-
-    Process {
-        id: animationsProc
-        command: ["hyprctl", "animations"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var str = text || ""
-                    var match = str.match(/name:\s*borderangle[\s\S]*?enabled:\s*([0-9-]+)[\s\S]*?speed:\s*([0-9.]+)/)
-                    if (match) {
-                        var en = Number(match[1])
-                        var sp = Number(match[2])
-                        root.borderAngleAnimationEnabled = (en === 1)
-                        if (isFinite(sp) && sp > 0) {
-                            root.borderAngleAnimationDuration = Math.max(1000, sp * 200)
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer {
-        id: hyprlandRefreshDebounceTimer
-        interval: 150
-        repeat: false
-        onTriggered: root.doRefreshHyprlandOptions()
-    }
-
-    function refreshHyprlandOptions() {
-        hyprlandRefreshDebounceTimer.restart()
-    }
-
-    function doRefreshHyprlandOptions() {
-        if (!roundingProc.running) roundingProc.running = true
-        if (!borderSizeProc.running) borderSizeProc.running = true
-        if (!activeBorderProc.running) activeBorderProc.running = true
-        if (!animationsProc.running) animationsProc.running = true
-    }
-
-    Connections {
-        target: Hyprland
-        function onRawEvent(event) {
-            if (event && event.name === "configreloaded") {
-                root.refreshHyprlandOptions()
-            }
-        }
-    }
-
-    Connections {
-        target: Style
-        function onCornerRadiusChanged() {
-            if (Style.cornerRadius >= 0) root.systemRounding = Style.cornerRadius
-        }
-        function onNormalBorderWidthChanged() {
-            if (Style.normalBorderWidth >= 0) root.systemBorderSize = Style.normalBorderWidth
-        }
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-        onLoaded: root.refreshHyprlandOptions()
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.config/hypr/hyprland.conf"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.local/state/omarchy/toggles/hypr/window-no-gaps.lua"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-    }
-
-    // Unified Edit Mode State (Jiggle Mode across dock and open folders)
-    property bool isEditMode: false
+    readonly property bool isEditMode: interaction.editingItems
 
     function closeAppWindows(appIdOrItem) {
         if (!appIdOrItem) return
@@ -2070,7 +1270,7 @@ Item {
         var scriptPath = Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, "")
         DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
-        minimizeRefreshTimer.restart()
+        windowTracker.refreshSoon()
     }
 
     function restoreOrLaunchItem(itemData, targetIndex) {
@@ -2098,28 +1298,16 @@ Item {
         DockModel.setPendingCliHint(itemData.appId || itemData.desktopId || "", root.knownWindows)
         DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
-        minimizeRefreshTimer.restart()
+        windowTracker.refreshSoon()
     }
 
     // Right-Click Menu State
-    property var activeMenuItem: null
-    property int activeMenuItemIndex: 0
-    property bool isMenuFromFolder: false
-    property int activeMenuItemFolderIndex: 0
+    readonly property var activeMenuItem: interaction.folderMenu
     readonly property bool isMenuOpen: activeMenuItem !== null
-
-    property var activeStackItem: null
-    property int activeStackItemIndex: 0
-    property bool isEditingFolderTitle: false
+    readonly property var activeStackItem: interaction.folder
+    readonly property int activeStackItemIndex: interaction.folder ? interaction.selectedIndex : -1
+    readonly property bool isEditingFolderTitle: interaction.renamingFolder
     readonly property bool isStackOpen: activeStackItem !== null
-
-    onActiveStackItemChanged: {
-        if (activeStackItem) {
-            if (stackWindow && stackWindow.stackCard) stackWindow.stackCard.forceActiveFocus()
-        } else {
-            root.isEditingFolderTitle = false
-        }
-    }
 
     // Pinned apps persistence
     property string userPinnedPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-pinned.json"
@@ -2132,80 +1320,20 @@ Item {
     readonly property var availableFolderIcons: ["󰉋", "󰒓", "󰞷", "󰝚", "󰊴", "󰏘", "󰭹", "󰖟", "󰕧", "󰈔", "󰍹", "󰖩", "󰌾", "♥"]
 
     function resolveIcon(itemObj) {
-        if (!itemObj) return Quickshell.iconPath("application-x-executable", true)
-        var raw = (typeof itemObj === "string") ? itemObj : (itemObj.rawIcon || itemObj.icon || itemObj.appId || itemObj.id || "")
-        if (!raw) return Quickshell.iconPath("application-x-executable", true)
-        if (raw.indexOf("://") >= 0) return raw
-        if (raw.indexOf("/") === 0) return "file://" + raw
-
-        var cands = (typeof itemObj === "string")
-            ? DockModel.getCandidates(itemObj, itemObj, itemObj)
-            : DockModel.getCandidates(itemObj.rawIcon, itemObj.icon, itemObj.appId || itemObj.id)
-
-        for (var i = 0; i < cands.length; i++) {
-            var c = cands[i]
-            if (c.indexOf("://") >= 0) return c
-            if (c.indexOf("/") === 0) return "file://" + c
-            var diskHit = DockModel.getDiskIcon(c)
-            if (diskHit) return diskHit
-            var diskHitLow = DockModel.getDiskIcon(c.toLowerCase())
-            if (diskHitLow) return diskHitLow
-            if (shell && shell.appLibrary && typeof shell.appLibrary.iconSource === "function") {
-                var src = shell.appLibrary.iconSource(c)
-                if (src && src.length > 0 && src.indexOf("application-x-executable") === -1) {
-                    return src
-                }
-                var cLow = c.toLowerCase()
-                if (cLow !== c) {
-                    var srcLow = shell.appLibrary.iconSource(cLow)
-                    if (srcLow && srcLow.length > 0 && srcLow.indexOf("application-x-executable") === -1) {
-                        return srcLow
-                    }
-                }
-            }
-            var qs = Quickshell.iconPath(c, true)
-            if (qs && qs.length > 0 && qs.indexOf("application-x-executable") === -1) {
-                return qs
-            }
-            var qsLow = Quickshell.iconPath(c.toLowerCase(), true)
-            if (qsLow && qsLow.length > 0 && qsLow.indexOf("application-x-executable") === -1) {
-                return qsLow
-            }
-        }
-
-        return Quickshell.iconPath("application-x-executable", true)
-    }
-
-    // Exact Geometric Horizontal Center for Stack Popup Card (100% centered over folder icon in dock)
-    readonly property real calculatedStackLeft: {
-        var screenW = (dockWindow && dockWindow.screen) ? dockWindow.screen.width : 1920
-        var dockW = root.isVertical ? (root.slotSize + 4) : (root.totalDockDimension + 8)
-        var dockLeft = (screenW - dockW) / 2
-        var appBaseOffset = (root.widgetPosition === "left" && root.hasWidgets) ? (root.widgetsWidth + root.separatorSize) : 0
-        var iconCenterX = dockLeft + 4 + appBaseOffset + root.activeStackItemIndex * root.slotSize + (root.slotSize / 2)
-        var cardW = (stackWindow && stackWindow.stackCard) ? stackWindow.stackCard.width : 180
-        return Math.round(Math.max(6, Math.min(screenW - cardW - 6, iconCenterX - cardW / 2)))
-    }
-
-    readonly property real calculatedStackTop: {
-        var screenH = (dockWindow && dockWindow.screen) ? dockWindow.screen.height : 1080
-        var dockH = root.isVertical ? (root.totalDockDimension + 8) : (root.slotSize + 4)
-        var dockTop = (screenH - dockH) / 2
-        var appBaseOffset = (root.widgetPosition === "left" && root.hasWidgets) ? (root.widgetsWidth + root.separatorSize) : 0
-        var iconCenterY = dockTop + 4 + appBaseOffset + root.activeStackItemIndex * root.slotSize + (root.slotSize / 2)
-        var cardH = (stackWindow && stackWindow.stackCard) ? stackWindow.stackCard.height : 180
-        return Math.round(Math.max(6, Math.min(screenH - cardH - 6, iconCenterY - cardH / 2)))
+        return Icons.resolve(itemObj, {
+            candidates: DockModel.getCandidates,
+            diskIcon: DockModel.getDiskIcon,
+            library: shell ? shell.appLibrary : null,
+            iconPath: function(name) { return Quickshell.iconPath(name, true) },
+            friendlyFallback: false
+        })
     }
 
     function closePopups() {
         windowPreview.close()
-        root.activeStackItem = null
-        root.activeMenuItem = null
-        root.isEditMode = false
-        root.isEditingFolderTitle = false
-        root.folderDragActiveIndex = -1
-        root.folderDragTargetIndex = -1
-        root.currentMergeTargetIndex = -1
+        root.interaction.dismiss()
+        root.drag.cancelFolder()
+        root.drag.clearMerge()
         if (widgetPicker) widgetPicker.opened = false
         root.closeAllWidgetPanels()
         root.evaluateHoverState()
@@ -2322,33 +1450,9 @@ Item {
         })
     }
 
-    function getMinimizedToplevels() {
-        var minTops = []
-        if (typeof Hyprland !== "undefined" && Hyprland.workspaces && Hyprland.workspaces.values) {
-            var wsArr = Hyprland.workspaces.values
-            for (var w = 0; w < wsArr.length; w++) {
-                var ws = wsArr[w]
-                if (ws && String(ws.name || "").indexOf("special:") === 0) {
-                    if (ws.toplevels && ws.toplevels.values) {
-                        var tops = ws.toplevels.values
-                        for (var wt = 0; wt < tops.length; wt++) {
-                            var ht = tops[wt]
-                            if (ht) {
-                                if (ht.wayland) minTops.push(ht.wayland)
-                                minTops.push(ht)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return minTops
-    }
-
     function doUpdateDockItems() {
-        root.syncKnownWindows()
-        var toplevels = root.knownWindows
-        var minTops = root.getMinimizedToplevels()
+        var toplevels = windowTracker.syncKnownWindows()
+        var minTops = windowTracker.getMinimizedToplevels()
         var active = ToplevelManager.activeToplevel
         if (active) {
             if (minTops.indexOf(active) !== -1) {
@@ -2364,58 +1468,19 @@ Item {
         var allEntries = (typeof DesktopEntries !== "undefined" && DesktopEntries.applications && DesktopEntries.applications.values && DesktopEntries.applications.values.length > 0)
             ? DesktopEntries.applications.values
             : (lib && typeof lib.sortedEntries === "function" ? lib.sortedEntries("") : root.appRows)
-        root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, toplevels, active)
-        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
+        windowTracker.recordFocus(toplevels, active)
+        var panelEntries = PluginPanels.entriesFor(root.barWidgetRegistry ? root.barWidgetRegistry.widgets : {}, function(id) {
+            var hosted = null
+            for (var i = 0; i < root.loadedWidgetItems.length; i++) {
+                var item = root.loadedWidgetItems[i]
+                if (item && item.moduleName === id) { hosted = item; break }
+            }
+            return root.getWidgetIcon(id, hosted)
+        })
+        root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory, panelEntries)
 
-        // Refresh active stack item contents if open
-        if (root.activeStackItem) {
-            var found = false
-            for (var i = 0; i < root.dockItems.length; i++) {
-                var it = root.dockItems[i]
-                if (it && (it.id === root.activeStackItem.id || it.appId === root.activeStackItem.appId)) {
-                    if (it.isStack && it.subApps && it.subApps.length >= 2) {
-                        root.activeStackItem = it
-                        root.activeStackItemIndex = i
-                        found = true
-                    }
-                    break
-                }
-            }
-            if (!found) {
-                root.activeStackItem = null
-                root.folderDragActiveIndex = -1
-                root.folderDragTargetIndex = -1
-            }
-        }
-
-        // Refresh active menu item (multi-window menu) if open
-        if (root.activeMenuItem && !root.activeMenuItem.isStack && root.activeMenuItem.windows) {
-            var mAppId = root.activeMenuItem.appId
-            var mWinList = []
-            for (var mw = 0; mw < toplevels.length; mw++) {
-                var mTop = toplevels[mw]
-                if (mTop && DockModel.matchToplevel(mTop, mAppId, null)) {
-                    var mActive = (active && mTop === active)
-                    mWinList.push({
-                        index: mWinList.length,
-                        title: mTop.title || root.activeMenuItem.name || "",
-                        isActive: !!mActive
-                    })
-                }
-            }
-            if (mWinList.length === 0) {
-                root.activeMenuItem = null
-            } else {
-                root.activeMenuItem = {
-                    id: root.activeMenuItem.id,
-                    appId: root.activeMenuItem.appId,
-                    name: root.activeMenuItem.name,
-                    icon: root.activeMenuItem.icon,
-                    rawIcon: root.activeMenuItem.rawIcon,
-                    isStack: false,
-                    windows: mWinList
-                }
-            }
+        if (!root.isStackOpen) {
+            root.drag.cancelFolder()
         }
     }
 
@@ -2424,66 +1489,6 @@ Item {
     onShellChanged: {
         root.appRows = (shell && shell.appLibrary) ? shell.appLibrary.sortedEntries("") : []
         root.updateDockItems()
-    }
-
-    Connections {
-        target: ToplevelManager.toplevels
-        function onValuesChanged() {
-            var live = ToplevelManager.toplevels ? ToplevelManager.toplevels.values : []
-            var hasNewTerm = false
-            for (var i = 0; i < live.length; i++) {
-                var t = live[i]
-                if (t && (t.appId === "foot" || t.appId === "ghostty" || t.appId === "kitty" || t.appId === "alacritty" || t.appId === "wezterm")) {
-                    if (root.knownWindows.indexOf(t) === -1) {
-                        hasNewTerm = true
-                        break
-                    }
-                }
-            }
-            if (hasNewTerm) {
-                root.lastTerminalOpenTime = Date.now()
-                cliScannerProc.running = true
-                terminalSettleTimer.restart()
-            } else if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-    }
-
-    Connections {
-        target: ToplevelManager
-        function onActiveToplevelChanged() {
-            // Record each focus event even when model rebuilding is debounced.
-            root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, ToplevelManager.toplevels.values, ToplevelManager.activeToplevel)
-            if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-    }
-
-    property double lastWindowOpenTime: 0
-    property double lastTerminalOpenTime: 0
-
-    Process {
-        id: cliScannerProc
-        running: false
-        command: [Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "dock", "scan-cli"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var apps = JSON.parse(text)
-                    if (Array.isArray(apps)) {
-                        DockModel.setDetectedCliApps(apps)
-                        root.updateDockItems()
-                    }
-                } catch(e) {}
-            }
-        }
     }
 
     Process {
@@ -2516,97 +1521,8 @@ Item {
         }
     }
 
-    Timer {
-        id: terminalSettleTimer
-        interval: 100
-        repeat: false
-        onTriggered: {
-            if (Date.now() - root.lastTerminalOpenTime < 2000) {
-                cliScannerProc.running = true
-            }
-            root.updateDockItems()
-        }
-    }
-
-    Timer {
-        id: titleChangeDebounceTimer
-        interval: 250
-        repeat: false
-        onTriggered: root.updateDockItems()
-    }
-
-    Timer {
-        id: minimizeRefreshTimer
-        interval: 65
-        repeat: false
-        onTriggered: root.updateDockItems()
-    }
-
     Connections {
-        target: (typeof Hyprland !== "undefined") ? Hyprland : null
-        function onActiveToplevelChanged() {
-            if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-        function onRawEvent(event) {
-            if (!event) return
-            var name = String(event.name || "")
-            if (name === "windowtitle" || name === "windowtitlev2") {
-                if (Date.now() - root.lastWindowOpenTime < 2000) {
-                    root.updateDockItems()
-                } else {
-                    titleChangeDebounceTimer.restart()
-                }
-                return
-            }
-            if (name === "movewindow" || name === "movewindowv2" || name === "activewindow" || name === "activewindowv2" || name === "closewindow" || name === "workspace" || name === "workspacev2" || name === "focusedmon") {
-                root.updateDockItems()
-                return
-            }
-            if (name === "openwindow") {
-                root.lastWindowOpenTime = Date.now()
-                iconScanDebounceTimer.restart()
-                var openArgs = String(event.args || "")
-                var openParts = openArgs.split(",")
-                var openClass = openParts.length >= 3 ? openParts[2].trim().toLowerCase() : ""
-                var isTerm = (openClass === "foot" || openClass === "ghostty" || openClass === "kitty" || openClass === "alacritty" || openClass === "wezterm")
-
-                if (isTerm) {
-                    root.lastTerminalOpenTime = Date.now()
-                    cliScannerProc.running = true
-                    terminalSettleTimer.restart()
-                } else {
-                    root.updateDockItems()
-                }
-
-                if (root.pendingFocusAppId) {
-                    if (Date.now() - root.pendingFocusTimestamp > 8000) {
-                        root.pendingFocusAppId = ""
-                        return
-                    }
-                    if (openParts.length >= 3) {
-                        var addr = openParts[0].trim()
-                        var winClass = openParts[2].trim().toLowerCase()
-                        var pending = root.pendingFocusAppId.toLowerCase()
-                        var normClass = winClass.replace(/[^a-z0-9]/g, "")
-                        var normPending = pending.replace(/[^a-z0-9]/g, "")
-                        if (winClass === pending || (normPending.length > 0 && (normClass.indexOf(normPending) !== -1 || normPending.indexOf(normClass) !== -1))) {
-                            root.pendingFocusAppId = ""
-                            var cleanAddr = (addr.indexOf("0x") === 0) ? addr : ("0x" + addr)
-                            if (/^0x[0-9a-f]+$/i.test(cleanAddr))
-                                DockCommands.run(Util, ["hyprctl", "dispatch", "focuswindow", "address:" + cleanAddr])
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Connections {
-        target: Color
+        target: Commons.Color
         function onAccentChanged() {
             if (shell && shell.appLibrary && typeof shell.appLibrary.refreshIcons === "function") {
                 shell.appLibrary.refreshIcons()
@@ -2621,7 +1537,6 @@ Item {
     Connections {
         target: Style
         function onCornerRadiusChanged() {
-            root.systemRounding = Style.cornerRadius >= 0 ? Style.cornerRadius : 12
             root.doUpdateDockItems()
         }
     }
@@ -2784,9 +1699,7 @@ Item {
     }
 
     Component.onCompleted: {
-        if (Hyprland.focusedMonitor) {
-            root.baseDockMonitorName = String(Hyprland.focusedMonitor.name || "")
-        }
+        visibility.rememberBaseMonitor()
         root.parseShellConfigFile()
         taskbarController.run("status")
         try {
@@ -2799,7 +1712,7 @@ Item {
                 }
             }
         } catch(e) {}
-        root.readSettings()
+        settings.reload()
         root.refreshHyprlandOptions()
         if (shell && shell.appLibrary && typeof shell.appLibrary.refreshIcons === "function") {
             shell.appLibrary.refreshIcons()
@@ -2860,7 +1773,7 @@ Item {
         active: root.isMenuOpen
         windows: [menuWindow]
         onCleared: {
-            root.activeMenuItem = null
+            root.interaction.dismissFolderMenu()
         }
     }
 
@@ -2870,7 +1783,7 @@ Item {
         active: root.isEditMode && !root.isStackOpen && !root.isMenuOpen
         windows: root.taskbarActive && root.dockWindow ? [root.dockWindow] : dockVariants.instances
         onCleared: {
-            root.isEditMode = false
+            root.interaction.setEditing(false)
         }
     }
 
@@ -2889,21 +1802,7 @@ Item {
         root.evaluateHoverState()
     }
 
-    onIsMenuOpenChanged: {
-        if (isMenuOpen) {
-            if (menuWindow && menuWindow.menuCard) {
-                menuWindow.menuCard.forceActiveFocus()
-                if (root.activeMenuItem && root.activeMenuItem.isStack) {
-                    var curIcon = root.activeMenuItem.icon || "grid"
-                    var foundIdx = root.availableFolderIcons.indexOf(curIcon)
-                    menuWindow.menuCard.selectedIndex = (foundIdx >= 0) ? foundIdx : 0
-                } else {
-                    menuWindow.menuCard.selectedIndex = -1
-                }
-            }
-        }
-        root.evaluateHoverState()
-    }
+    onIsMenuOpenChanged: root.evaluateHoverState()
 
     onIsEditingFolderTitleChanged: {
         root.evaluateHoverState()
@@ -3010,17 +1909,17 @@ Item {
                 }
 
                 anchors {
-                    top: root.barPosition === "bottom"
-                    bottom: root.barPosition === "top"
-                    left: root.barPosition === "right"
-                    right: root.barPosition === "left"
+                    top: root.dockLayout.anchors.top
+                    bottom: root.dockLayout.anchors.bottom
+                    left: root.dockLayout.anchors.left
+                    right: root.dockLayout.anchors.right
                 }
 
                 margins {
-                    bottom: (!root.isVertical && root.barPosition === "top") ? (Style.gapsOut || 5) : 0
-                    top: (!root.isVertical && root.barPosition === "bottom") ? (Style.gapsOut || 5) : 0
-                    right: (root.isVertical && root.barPosition === "left") ? (Style.gapsOut || 5) : 0
-                    left: (root.isVertical && root.barPosition === "right") ? (Style.gapsOut || 5) : 0
+                    top: root.dockLayout.margins.top
+                    bottom: root.dockLayout.margins.bottom
+                    left: root.dockLayout.margins.left
+                    right: root.dockLayout.margins.right
                 }
 
                 // Hosted KeyboardPanel anchors use screen-relative coordinates along the bar.
@@ -3040,8 +1939,8 @@ Item {
         Rectangle {
             id: dockSurface
             anchors.centerIn: parent
-            width: root.isVertical ? (root.slotSize + 4) : Math.max(root.slotSize + 4, root.totalDockDimension + 8)
-            height: root.isVertical ? Math.max(root.slotSize + 4, root.totalDockDimension + 8) : (root.slotSize + 4)
+            width: root.dockSurfaceSize.width
+            height: root.dockSurfaceSize.height
             visible: root.dockMapped
             opacity: root.isDockVisualReady ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
@@ -3050,13 +1949,13 @@ Item {
             Keys.onEscapePressed: function(event) {
                 event.accepted = true
                 if (root.isEditingFolderTitle) {
-                    root.isEditingFolderTitle = false
+                    root.interaction.renameFolder(false)
                     return
                 }
                 if (root.isStackOpen) {
-                    root.activeStackItem = null
+                    root.interaction.dismissFolder()
                 }
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
 
             color: root.dockBackgroundColor
@@ -3088,9 +1987,9 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: (root.dockDragActiveIndex >= 0) ? Qt.BlankCursor : (root.isEditMode ? Qt.PointingHandCursor : Qt.ArrowCursor)
                 onClicked: {
-                    root.isEditMode = false
-                    root.activeMenuItem = null
-                    root.activeStackItem = null
+                    root.interaction.setEditing(false)
+                    root.interaction.dismissFolderMenu()
+                    root.interaction.dismissFolder()
                 }
             }
 
@@ -3134,142 +2033,25 @@ Item {
                 Repeater {
                     model: root.leftWidgetsList
 
-                    Item {
-                        id: leftWidgetSlotRoot
-                        required property string modelData
-                        required property int index
-
-                        readonly property real widgetSlotDimension: (modelData === "omarchy.clock" && !root.isVertical) ? root.clockSlotWidth : root.slotSize
-                        readonly property real widgetPos: root.getLeftWidgetOffset(index)
-                        x: root.isVertical ? 0 : widgetPos
-                        y: root.isVertical ? widgetPos : 0
-                        width: root.isVertical ? root.slotSize : widgetSlotDimension
-                        height: root.isVertical ? widgetSlotDimension : root.slotSize
-                        z: 1
-
-                        Item {
-                            id: leftWidgetWrapper
-                            anchors.centerIn: parent
-                            width: (modelData === "omarchy.clock" && !root.isVertical) ? (leftWidgetSlotRoot.width - 10) : root.iconBaseSize
-                            height: (modelData === "omarchy.clock" && root.isVertical) ? (root.slotSize - 8) : root.iconBaseSize
-                            scale: root.isEditMode ? 0.82 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                id: leftClockHorizontalLabel
-                                visible: modelData === "omarchy.clock" && !root.isVertical
-                                anchors.centerIn: parent
-                                text: (leftWidgetLoader.item && leftWidgetLoader.item.displayText) ? leftWidgetLoader.item.displayText : (root.clockDisplayText !== "" ? root.clockDisplayText : Qt.formatDateTime(new Date(), "dddd HH:mm"))
-                                textFormat: Text.PlainText
-                                font.family: Style.font.family
-                                font.pixelSize: 12
-                                font.weight: Font.Medium
-                                color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                renderType: Text.CurveRendering
-                                font.hintingPreference: Font.PreferNoHinting
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Column {
-                                id: leftClockVerticalCol
-                                visible: modelData === "omarchy.clock" && root.isVertical
-                                anchors.centerIn: parent
-                                spacing: 1
-
-                                Repeater {
-                                    model: [root.currentHourString, root.currentMinutePart]
-
-                                    Text {
-                                        required property string modelData
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData
-                                        textFormat: Text.PlainText
-                                        font.family: Style.font.family
-                                        font.pixelSize: modelData.length > 3 ? 9 : 10
-                                        font.weight: Font.Medium
-                                        color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                        renderType: Text.CurveRendering
-                                        font.hintingPreference: Font.PreferNoHinting
-                                    }
-                                }
-                            }
-
-                            DockGlyph {
-                                id: leftWidgetGlyph
-                                visible: modelData !== "omarchy.clock"
-                                anchors.centerIn: parent
-                                width: root.iconBaseSize
-                                height: root.iconBaseSize
-                                text: {
-                                    var _rev = root.widgetIconRevision
-                                    var _v = root.pipewireSinkVolume
-                                    var _m = root.pipewireSinkMuted
-                                    var _sm = root.pipewireSourceMuted
-                                    var _bp = root.upowerBatteryPercentage
-                                    var _bs = root.upowerBatteryState
-                                    var it = leftWidgetLoader.item
-                                    var _ic = it ? (it.icon || it.displayText || it.playIcon || "") : ""
-                                    return root.getWidgetIcon(modelData, it)
-                                }
-                                fontFamily: (leftWidgetLoader.item && leftWidgetLoader.item.fontFamily) ? leftWidgetLoader.item.fontFamily : ((leftWidgetLoader.item && leftWidgetLoader.item.font && leftWidgetLoader.item.font.family) ? leftWidgetLoader.item.font.family : Style.font.family)
-                                fontSize: 22
-                                color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Loader {
-                                id: leftWidgetLoader
-                                anchors.fill: parent
-                                opacity: 0.0
-                                // source and sourceComponent clear one another, so pick one
-                                // imperatively instead of binding both. This runs on every
-                                // registry revision (dozens during shell start-up); re-assigning
-                                // an unchanged source would still tear the item down, so it
-                                // returns early when nothing changed.
-                                function applyWidgetSource() {
-                                    var comp = root.getWidgetComponent(modelData)
-                                    if (comp) {
-                                        if (sourceComponent === comp) return
-                                        source = ""
-                                        sourceComponent = comp
-                                        return
-                                    }
-                                    var url = root.getWidgetSource(modelData)
-                                    if (url !== "" && String(source) === url) return
-                                    sourceComponent = null
-                                    source = url
-                                }
-                                Component.onCompleted: applyWidgetSource()
-                                Connections {
-                                    target: root
-                                    function onWidgetRegistryRevisionChanged() { leftWidgetLoader.applyWidgetSource() }
-                                }
-                                onLoaded: {
-                                    if (item) {
-                                        root.configureHostedWidget(item, modelData, leftWidgetSlotRoot)
-                                        if (modelData === "omarchy.clock") {
-                                            if (item.displayText !== undefined) root.clockDisplayText = item.displayText
-                                            if (item.displayTextChanged) {
-                                                item.displayTextChanged.connect(function() {
-                                                    root.clockDisplayText = item.displayText
-                                                })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: leftWidgetSlotMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                            cursorShape: root.isEditMode ? Qt.ArrowCursor : Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                root.activateWidget(modelData, leftWidgetLoader.item, leftWidgetSlotRoot, mouse)
-                            }
-                        }
+                    DockWidgetSlot {
+                        actions: widgetActions
+                        offset: root.getLeftWidgetOffset(index)
+                        isVertical: root.isVertical
+                        clockSlotWidth: root.clockSlotWidth
+                        slotSize: root.slotSize
+                        iconBaseSize: root.iconBaseSize
+                        isEditMode: root.isEditMode
+                        clockDisplayText: root.clockDisplayText
+                        currentHourString: root.currentHourString
+                        currentMinutePart: root.currentMinutePart
+                        widgetIconRevision: root.widgetIconRevision
+                        pipewireSinkVolume: root.pipewireSinkVolume
+                        pipewireSinkMuted: root.pipewireSinkMuted
+                        pipewireSourceMuted: root.pipewireSourceMuted
+                        upowerBatteryPercentage: root.upowerBatteryPercentage
+                        upowerBatteryState: root.upowerBatteryState
+                        widgetRegistryRevision: root.widgetRegistryRevision
+                        onClockUpdated: function(text) { root.clockDisplayText = text }
                     }
                 }
 
@@ -3289,7 +2071,7 @@ Item {
                         width: root.isVertical ? (root.slotSize - 18) : 1.5
                         height: root.isVertical ? 1.5 : (root.slotSize - 18)
                         radius: 0.75
-                        color: Util.alpha(Color.bar.text, 0.25)
+                        color: Util.alpha(Commons.Color.bar.text, 0.25)
                     }
                 }
 
@@ -3308,18 +2090,19 @@ Item {
                         totalCount: root.dockItems.length
                         barPosition: root.barPosition
                         shell: root.shell
+                        knownWindows: root.knownWindows
                         slotSize: root.slotSize
                         iconBaseSize: root.iconBaseSize
                         iconRevision: root.iconRevision
                         iconsReady: root.iconsReady
                         systemBorderSize: root.systemBorderSize
                         systemRounding: root.systemRounding
-                        isSelected: (!root.isMenuFromFolder && root.activeMenuItem && (root.activeMenuItem.appId === modelData.appId || root.activeMenuItem.id === modelData.id)) || (root.activeStackItem && (root.activeStackItem.id === modelData.id || root.activeStackItem.appId === modelData.appId))
+                        isSelected: (root.activeMenuItem && root.activeMenuItem.id === modelData.id) || (root.activeStackItem && root.activeStackItem.id === modelData.id)
                         isMergeTarget: (root.currentMergeTargetIndex === index)
 
                         // 1D Live Rail Displacement (with Left Widget offset)
-                        readonly property real appBaseOffset: (root.hasLeftWidgets ? (root.leftWidgetsWidth + root.leftSeparatorSize) : 0)
-                        readonly property int visualSlot: (root.dockDragActiveIndex === index) ? index : root.getDockVisualSlot(index, root.dockDragActiveIndex, root.dockDragTargetIndex)
+                        readonly property real appBaseOffset: root.appRailOffset
+                        readonly property int visualSlot: (root.dockDragActiveIndex === index) ? index : Drag.visualSlot(index, root.dockDragActiveIndex, root.dockDragTargetIndex)
                         x: root.isVertical ? 0 : (appBaseOffset + visualSlot * root.slotSize)
                         y: root.isVertical ? (appBaseOffset + visualSlot * root.slotSize) : 0
 
@@ -3331,12 +2114,12 @@ Item {
                         dockDragActiveIndex: root.dockDragActiveIndex
 
                         onEditModeRequested: {
-                            root.isEditMode = true
-                            root.activeMenuItem = null
+                            root.interaction.setEditing(true)
+                            root.interaction.dismissFolderMenu()
                         }
 
                         onEditModeExitRequested: {
-                            root.isEditMode = false
+                            root.interaction.setEditing(false)
                         }
 
                         onTogglePinRequested: function(appId) {
@@ -3357,30 +2140,30 @@ Item {
 
                         onDissolveRequested: function(stackId) {
                             root.setPinned(DockModel.dissolveStack(root.pinnedIds, stackId))
-                            root.isEditMode = false
+                            root.interaction.setEditing(false)
                         }
 
                         onItemLeftClicked: function(item) {
-                            root.contextAppId = ""
+                            root.interaction.dismissApp()
                             if (item && !item.isStack) {
                                 root.clearBadge(item)
                             }
                             if (item && item.isStack) {
                                 root.toggleStack(item, index)
                             } else {
-                                root.activeStackItem = null
-                                root.activeMenuItem = null
+                                root.interaction.dismissFolder()
+                                root.interaction.dismissFolderMenu()
                                 if (root.isEditMode) return
                             }
                         }
 
                         onItemRightClicked: function(item, targetItem) {
                             if (root.isEditMode) {
-                                root.isEditMode = false
+                                root.interaction.setEditing(false)
                                 return
                             }
                             if (item && item.isStack) {
-                                root.toggleMenu(item, index, false)
+                                root.toggleMenu(item, index)
                                 return
                             }
                             if (item) {
@@ -3389,38 +2172,24 @@ Item {
                         }
 
                         onDragStarted: function(fromIdx) {
-                            root.dockDragActiveIndex = fromIdx
+                            root.drag.startDock(fromIdx)
                         }
 
                         onDragHoverChanged: function(fromIdx, targetIdx, isMergeIntent) {
-                            if (fromIdx < 0) {
-                                root.dockDragActiveIndex = -1
-                                root.dockDragTargetIndex = -1
-                                root.currentMergeTargetIndex = -1
-                                return
-                            }
-                            root.dockDragActiveIndex = fromIdx
-                            root.dockDragTargetIndex = (targetIdx >= 0 && !isMergeIntent) ? targetIdx : -1
-                            root.currentMergeTargetIndex = (targetIdx >= 0 && isMergeIntent) ? targetIdx : -1
+                            root.drag.hoverDock(fromIdx, targetIdx, isMergeIntent)
                         }
 
                         onDragEnded: function() {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                         }
 
                         onMoveRequested: function(fromIdx, toIdx) {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                             root.setPinned(DockModel.reorderPinned(root.pinnedIds, root.dockItems, fromIdx, toIdx))
                         }
 
                         onMergeRequested: function(fromIdx, targetIdx) {
-                            root.dockDragActiveIndex = -1
-                            root.dockDragTargetIndex = -1
-                            root.currentMergeTargetIndex = -1
+                            root.drag.cancelDock()
                             root.setPinned(DockModel.mergeIntoStack(root.pinnedIds, root.dockItems, fromIdx, targetIdx, root.appRows))
                         }
                     }
@@ -3443,7 +2212,7 @@ Item {
                         width: root.isVertical ? (root.slotSize - 18) : 1.5
                         height: root.isVertical ? 1.5 : (root.slotSize - 18)
                         radius: 0.75
-                        color: Util.alpha(Color.bar.text, 0.25)
+                        color: Util.alpha(Commons.Color.bar.text, 0.25)
                     }
                 }
 
@@ -3451,143 +2220,25 @@ Item {
                 Repeater {
                     model: root.rightWidgetsList
 
-                    Item {
-                        id: rightWidgetSlotRoot
-                        required property string modelData
-                        required property int index
-
-                        readonly property real rWidgetBaseOffset: (root.hasLeftWidgets ? (root.leftWidgetsWidth + root.leftSeparatorSize) : 0) + root.itemsWidth + root.rightSeparatorSize
-                        readonly property real rWidgetSlotDimension: (modelData === "omarchy.clock" && !root.isVertical) ? root.clockSlotWidth : root.slotSize
-                        readonly property real rWidgetPos: rWidgetBaseOffset + root.getRightWidgetOffset(index)
-                        x: root.isVertical ? 0 : rWidgetPos
-                        y: root.isVertical ? rWidgetPos : 0
-                        width: root.isVertical ? root.slotSize : rWidgetSlotDimension
-                        height: root.isVertical ? rWidgetSlotDimension : root.slotSize
-                        z: 1
-
-                        Item {
-                            id: rightWidgetWrapper
-                            anchors.centerIn: parent
-                            width: (modelData === "omarchy.clock" && !root.isVertical) ? (rightWidgetSlotRoot.width - 10) : root.iconBaseSize
-                            height: (modelData === "omarchy.clock" && root.isVertical) ? (root.slotSize - 8) : root.iconBaseSize
-                            scale: root.isEditMode ? 0.82 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                id: rightClockHorizontalLabel
-                                visible: modelData === "omarchy.clock" && !root.isVertical
-                                anchors.centerIn: parent
-                                text: (rightWidgetLoader.item && rightWidgetLoader.item.displayText) ? rightWidgetLoader.item.displayText : (root.clockDisplayText !== "" ? root.clockDisplayText : Qt.formatDateTime(new Date(), "dddd HH:mm"))
-                                textFormat: Text.PlainText
-                                font.family: Style.font.family
-                                font.pixelSize: 12
-                                font.weight: Font.Medium
-                                color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                renderType: Text.CurveRendering
-                                font.hintingPreference: Font.PreferNoHinting
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Column {
-                                id: rightClockVerticalCol
-                                visible: modelData === "omarchy.clock" && root.isVertical
-                                anchors.centerIn: parent
-                                spacing: 1
-
-                                Repeater {
-                                    model: [root.currentHourString, root.currentMinutePart]
-
-                                    Text {
-                                        required property string modelData
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData
-                                        textFormat: Text.PlainText
-                                        font.family: Style.font.family
-                                        font.pixelSize: modelData.length > 3 ? 9 : 10
-                                        font.weight: Font.Medium
-                                        color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                        renderType: Text.CurveRendering
-                                        font.hintingPreference: Font.PreferNoHinting
-                                    }
-                                }
-                            }
-
-                            DockGlyph {
-                                id: rightWidgetGlyph
-                                visible: modelData !== "omarchy.clock"
-                                anchors.centerIn: parent
-                                width: root.iconBaseSize
-                                height: root.iconBaseSize
-                                text: {
-                                    var _rev = root.widgetIconRevision
-                                    var _v = root.pipewireSinkVolume
-                                    var _m = root.pipewireSinkMuted
-                                    var _sm = root.pipewireSourceMuted
-                                    var _bp = root.upowerBatteryPercentage
-                                    var _bs = root.upowerBatteryState
-                                    var it = rightWidgetLoader.item
-                                    var _ic = it ? (it.icon || it.displayText || it.playIcon || "") : ""
-                                    return root.getWidgetIcon(modelData, it)
-                                }
-                                fontFamily: (rightWidgetLoader.item && rightWidgetLoader.item.fontFamily) ? rightWidgetLoader.item.fontFamily : ((rightWidgetLoader.item && rightWidgetLoader.item.font && rightWidgetLoader.item.font.family) ? rightWidgetLoader.item.font.family : Style.font.family)
-                                fontSize: 22
-                                color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Loader {
-                                id: rightWidgetLoader
-                                anchors.fill: parent
-                                opacity: 0.0
-                                // source and sourceComponent clear one another, so pick one
-                                // imperatively instead of binding both. This runs on every
-                                // registry revision (dozens during shell start-up); re-assigning
-                                // an unchanged source would still tear the item down, so it
-                                // returns early when nothing changed.
-                                function applyWidgetSource() {
-                                    var comp = root.getWidgetComponent(modelData)
-                                    if (comp) {
-                                        if (sourceComponent === comp) return
-                                        source = ""
-                                        sourceComponent = comp
-                                        return
-                                    }
-                                    var url = root.getWidgetSource(modelData)
-                                    if (url !== "" && String(source) === url) return
-                                    sourceComponent = null
-                                    source = url
-                                }
-                                Component.onCompleted: applyWidgetSource()
-                                Connections {
-                                    target: root
-                                    function onWidgetRegistryRevisionChanged() { rightWidgetLoader.applyWidgetSource() }
-                                }
-                                onLoaded: {
-                                    if (item) {
-                                        root.configureHostedWidget(item, modelData, rightWidgetSlotRoot)
-                                        if (modelData === "omarchy.clock") {
-                                            if (item.displayText !== undefined) root.clockDisplayText = item.displayText
-                                            if (item.displayTextChanged) {
-                                                item.displayTextChanged.connect(function() {
-                                                    root.clockDisplayText = item.displayText
-                                                })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: rightWidgetSlotMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                            cursorShape: root.isEditMode ? Qt.ArrowCursor : Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                root.activateWidget(modelData, rightWidgetLoader.item, rightWidgetSlotRoot, mouse)
-                            }
-                        }
+                    DockWidgetSlot {
+                        actions: widgetActions
+                        offset: (root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0) + root.itemsWidth + root.rightSeparatorSize + root.getRightWidgetOffset(index)
+                        isVertical: root.isVertical
+                        clockSlotWidth: root.clockSlotWidth
+                        slotSize: root.slotSize
+                        iconBaseSize: root.iconBaseSize
+                        isEditMode: root.isEditMode
+                        clockDisplayText: root.clockDisplayText
+                        currentHourString: root.currentHourString
+                        currentMinutePart: root.currentMinutePart
+                        widgetIconRevision: root.widgetIconRevision
+                        pipewireSinkVolume: root.pipewireSinkVolume
+                        pipewireSinkMuted: root.pipewireSinkMuted
+                        pipewireSourceMuted: root.pipewireSourceMuted
+                        upowerBatteryPercentage: root.upowerBatteryPercentage
+                        upowerBatteryState: root.upowerBatteryState
+                        widgetRegistryRevision: root.widgetRegistryRevision
+                        onClockUpdated: function(text) { root.clockDisplayText = text }
                     }
                 }
             }
@@ -3599,9 +2250,15 @@ Item {
     // 2. The Isolated Action Card Popup Overlay Window (Folder Icon Picker)
     FolderMenu {
         id: menuWindow
-        root: root
+        interaction: root.interaction
+        placement: root.folderPopupLayout
+        appearance: root.popupAppearance
+        revealed: root.dockRevealed
+        icons: root.availableFolderIcons
         dockWindow: root.dockWindow
-        stackWindow: stackWindow
+        onHoverChanged: function(hovered) { root.isMenuHovered = hovered; root.evaluateHoverState() }
+        onIconChosen: function(id, icon) { root.setPinned(DockModel.setStackIcon(root.pinnedIds, id, icon)) }
+        onDissolveRequested: function(id) { root.setPinned(DockModel.dissolveStack(root.pinnedIds, id)) }
     }
 
     AppMenu {
@@ -3651,10 +2308,10 @@ Item {
 
                 // Anchor to the same edge as the dock, no margins — hug the screen edge
                 anchors {
-                    top:    root.dockScreenPosition === "top"
-                    bottom: root.dockScreenPosition === "bottom"
-                    left:   root.dockScreenPosition === "left"
-                    right:  root.dockScreenPosition === "right"
+                    top: root.edgeLayout.anchors.top
+                    bottom: root.edgeLayout.anchors.bottom
+                    left: root.edgeLayout.anchors.left
+                    right: root.edgeLayout.anchors.right
                 }
 
                 margins {
@@ -3678,13 +2335,7 @@ Item {
                             hoverEnabled: true
                             acceptedButtons: Qt.NoButton
                             onEntered: {
-                                // Cursor reached the screen edge — reset keyboard override and show dock
-                                if (root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_HIDDEN) {
-                                    root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-                                }
-                                root.revealMonitorName = edgeTriggerWindow.modelData ? String(edgeTriggerWindow.modelData.name || "") : ""
-                                root.isDockHovered = true
-                                autohideLeaveTimer.restart()
+                                visibility.edgeReveal(edgeTriggerWindow.modelData ? edgeTriggerWindow.modelData.name : "")
                             }
                         }
                     }

@@ -26,6 +26,7 @@ pub struct Args {
     pub font_size: i64,
     pub size: String,
     pub exclude: String,
+    pub include_browsers: bool,
     pub library: Option<PathBuf>,
     pub install_dependency: bool,
     pub enable: bool,
@@ -45,6 +46,7 @@ impl Default for Args {
             font_size: 13,
             size: "default".into(),
             exclude: String::new(),
+            include_browsers: false,
             library: None,
             install_dependency: false,
             enable: false,
@@ -71,6 +73,7 @@ impl Args {
             match key.as_str() {
                 "--if-owner" => a.if_owner = true,
                 "--enable" => a.enable = true,
+                "--include-browsers" => a.include_browsers = true,
                 "--install-dependency" => a.install_dependency = true,
                 "--owner" | "--style" | "--mode" | "--background" | "--foreground" | "--size"
                 | "--font-family" | "--font-size" | "--exclude" | "--library" => {
@@ -278,6 +281,7 @@ pub fn theme_policy(document: &Value, args: &Args) -> Result<Value> {
         return Err("Use up to 32 excluded window classes".into());
     }
     options["exclusions"] = json!(exclusions);
+    options["skipBrowserTitlebars"] = json!(!args.include_browsers);
     Ok(options)
 }
 pub fn render(paths: &Paths, library: &Path, o: &Value) -> Result<String> {
@@ -336,6 +340,11 @@ pub fn render(paths: &Paths, library: &Path, o: &Value) -> Result<String> {
             )),
             lua(&action(name))
         );
+    }
+    if o["skipBrowserTitlebars"] != false {
+        // Chrome/Chromium already put window controls in their tab strip.
+        // Match actual browser classes, leaving separately named web apps alone.
+        s += "hl.window_rule({ name = 'familiar-titlebars-browsers', match = { class = '(?i)^(google-chrome(-beta|-unstable)?|chromium(-browser)?)$' }, ['hyprbars:no_bar'] = true })\n";
     }
     for (i, cls) in o["exclusions"]
         .as_array()

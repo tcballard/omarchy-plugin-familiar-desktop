@@ -1,4 +1,5 @@
 //! Explicit native input preferences. No input daemon, global key swap or sudo.
+use crate::config_file::{self, GeneratedUpdate, read as text};
 use crate::{
     Result,
     common::{self, Hypr, checked},
@@ -24,9 +25,16 @@ pub fn paths(kind: &str) -> Result<Paths> {
 }
 
 pub fn hook(kind: &str, manifest: &Path) -> Result<String> {
+    hook_version(kind, manifest, false)
+}
+
+fn hook_version(kind: &str, manifest: &Path, legacy: bool) -> Result<String> {
     valid_kind(kind)?;
     let body = if kind == "resize" {
         "hl.config({ general = { resize_on_border = true, extend_border_grab_area = 15, hover_icon_on_border = true } })\n"
+    } else if legacy {
+        // Exact old output is recognised for upgrades; edited files still fail closed.
+        include_str!("legacy/command_shortcuts.lua")
     } else {
         include_str!("command_shortcuts.lua")
     };
@@ -53,49 +61,18 @@ pub fn include(kind: &str, p: &Paths) -> String {
     )
 }
 
-fn text(path: &Path) -> Result<String> {
-    let m = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
-    if !m.file_type().is_file() {
-        return Err("Refusing a symlink or non-regular configuration file".into());
-    }
-    String::from_utf8(common::bounded_file(path, common::FILE_LIMIT)?).map_err(|e| e.to_string())
-}
-
 fn generated(kind: &str, p: &Paths) -> Result<Option<String>> {
     match fs::symlink_metadata(&p.generated) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.to_string()),
         Ok(_) => {
             let s = text(&p.generated)?;
-            if s != hook(kind, &p.manifest)? {
+            if s != hook(kind, &p.manifest)? && s != hook_version(kind, &p.manifest, true)? {
                 return Err("Familiar input config was edited; no files changed".into());
             }
             Ok(Some(s))
         }
     }
-}
-
-fn restore(p: &Paths, expected: &str, previous: &Option<String>) -> Result<()> {
-    if text(&p.generated)? != expected {
-        return Err("Input config changed externally; preserve it and review the backup".into());
-    }
-    match previous {
-        Some(s) => common::atomic(&p.generated, s.as_bytes()),
-        None => fs::remove_file(&p.generated).map_err(|e| e.to_string()),
-    }
-}
-
-fn reload(h: &mut impl Hypr) -> Result<()> {
-    checked(h, &["reload"])?;
-    let errors: Vec<String> = serde_json::from_str(&h.command(&["-j", "configerrors"])?)
-        .map_err(|_| "Cannot verify configuration errors")?;
-    if errors.iter().any(|e| !e.trim().is_empty()) {
-        return Err(format!(
-            "Hyprland configuration error: {}",
-            common::clipped(&errors.join("; "))
-        ));
-    }
-    Ok(())
 }
 
 pub fn change(kind: &str, mode: &str, p: &Paths, h: &mut impl Hypr) -> Result<Value> {
@@ -130,7 +107,7 @@ pub fn change(kind: &str, mode: &str, p: &Paths, h: &mut impl Hypr) -> Result<Va
         let probe = if kind == "resize" {
             "assert(hl and hl.config, 'Native border resizing requires Hyprland Lua')"
         } else {
-            "assert(hl and hl.bind and hl.unbind and hl.get_active_window and hl.dsp and hl.dsp.send_shortcut, 'Command shortcuts require Hyprland Lua')"
+            "assert(hl and hl.bind and hl.unbind and hl.get_active_window and hl.dispatch and hl.timer and hl.dsp and hl.dsp.send_key_state, 'Command shortcuts require Hyprland Lua')"
         };
         checked(h, &["eval", probe])?;
     }
@@ -139,44 +116,24 @@ pub fn change(kind: &str, mode: &str, p: &Paths, h: &mut impl Hypr) -> Result<Va
     } else {
         None
     };
-    if let Some(s) = &new {
-        common::atomic(&p.generated, s.as_bytes())?;
-    }
     let after = if mode == "enable" {
         format!("{clean}{owned}")
     } else {
         clean
     };
-    let backup = match crate::config_file::replace(&p.config, &before, &after, &p.state) {
-        Ok(b) => b,
-        Err(e) => {
-            if let Some(s) = &new {
-                restore(p, s, &old)?;
-            }
-            return Err(e);
-        }
-    };
-    if let Err(e) = reload(h) {
-        if text(&p.config)? != after {
-            return Err(format!(
-                "{e}; configuration changed externally; review {backup:?}"
-            ));
-        }
-        if let Some(s) = &new {
-            restore(p, s, &old)?;
-        }
-        crate::config_file::replace(&p.config, &after, &before, &p.state)?;
-        let recovery = reload(h);
-        return Err(format!(
-            "{e}. Previous configuration restored. Recovery reload: {}",
-            recovery.err().unwrap_or_else(|| "ok".into())
-        ));
-    }
-    if mode == "reset"
-        && let Some(s) = &old
-    {
-        restore(p, s, &None)?;
-    }
+    let backup = config_file::apply_generated(
+        h,
+        GeneratedUpdate {
+            config: &p.config,
+            generated: &p.generated,
+            backups: &p.state,
+            before: &before,
+            after: &after,
+            generated_before: old.as_deref(),
+            generated_after: new.as_deref(),
+        },
+        |_| Ok(()),
+    )?;
     Ok(
         json!({"state":"ok","mode":mode,"backup":backup,"message":if mode=="reset" {"Your original configuration is active again."} else if kind=="resize" {"Drag window borders or corners to resize; no modifier key required."} else {"Command editing shortcuts enabled. The listed Super bindings are replaced until reset."}}),
     )

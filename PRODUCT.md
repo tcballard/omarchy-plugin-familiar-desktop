@@ -1,100 +1,41 @@
-# Familiar Desktop: product and development record
+# Familiar Desktop
 
-## Intended user
+Familiar gives Omarchy users visible app and window controls, with General,
+Windows and Mac starting layouts. It runs as a hosted service and bar widget
+inside Omarchy's Quickshell process under `io.github.tcballard.familiar-desktop`.
 
-People moving to Omarchy from Windows or macOS need a visible, familiar route
-to apps and windows. The General preset is for people who simply prefer a
-mouse-friendly desktop, regardless of their previous OS. The first release
-should answer: what is open, which window is mine, and how do I get back to it?
+## Current scope
 
-## Ownership and architecture
+- App dock, optional Windows taskbar, pins and folders, window previews, app and
+  window actions, badge counts, file shortcuts and hosted Omarchy widgets.
+- Shared settings with dock size, placement, visibility, background opacity,
+  widget layout, titlebar style and exclusions, and shortcut-label preferences.
+- Optional native preferences for Caps Lock, border resizing, Command editing
+  shortcuts, new-window floating/tiling and trackpad gestures. Each is explicit
+  and reversible; personal configuration is preserved.
+- Getting Started, system tools, window arrangement and Show Desktop/Restore.
+- In-app setup and repair plus source-bound development installation and rollback.
+  Network downloads belong to explicit setup/install/repair actions.
+- Optional bundled window controls for supported existing installations. The
+  official titlebar-package transition remains tracked separately in
+  [TITLEBAR-MIGRATION.md](docs/TITLEBAR-MIGRATION.md).
 
-- ID: `io.github.tcballard.familiar-desktop`.
-- Kinds: `service` (`DockPanel.qml`) and `bar-widget` (`BarWidget.qml`).
-- Process: hosted in the existing Omarchy Quickshell process. No second shell.
-- Settings: plugin-owned JSON in `~/.config/omarchy/`; pins are separate and
-  shared by all three presets. Dock widgets leave the bar layout unchanged;
-  `~/.config/omarchy/shell.json` is read-only.
-  The hosted runtime does not modify themes, global bar position or shortcuts,
-  or install packages. Optional title-bar dependency setup is an explicit
-  terminal operation, described below.
-- External operations: the shared Rust `bin/familiar-desktop` backend uses
-  `hyprctl` for window activation and minimization, title-bar setup, policy and actions; icon/CLI scans
-  use local desktop files. No network calls or privileged commands are added.
-- IPC: existing dock methods plus `setProfile general|windows|mac`.
-- Disable/remove: hosted surfaces disappear; plugin settings and pins persist.
+Settings and pins belong to Familiar. Native preferences own exact guarded
+includes and generated Lua, with backups and verification. Taskbar selection is
+an explicit exception: its Rust transaction changes the selected shell layout
+and keeps a reversible snapshot. Ordinary dock widgets leave bar layout alone.
+No hosted runtime invokes Cargo, launches a second shell, or silently installs
+companion apps or packages.
 
-## Shipped in this prototype
+The planned curated app front door remains future scope. Historical prototypes,
+release plans and dated evidence are in the [archived product notes](docs/history/PRODUCT-2026-10-10.md)
+and the individual release documents; they do not establish acceptance of a new
+build.
 
-The forked dock has its own ID and config paths. Right-click gives an explicit
-app action menu with named windows and direct actions. A bar settings control
-applies three starting presets; manual settings can then be adjusted. The Mac
-and Windows names denote layout starting points, not pixel-perfect emulation.
+## Developing Familiar
 
-## Next milestones
-
-1. Verify on an Omarchy XPS. Fix any QML loading, focus, layer, menu dismissal,
-   and multi-monitor defects observed there. Add keyboard navigation to the
-   app menu and avoid opening a second context card across displays.
-2. Improve discovery: use app and folder menus for pin, reorder, edit, and
-   removal without requiring long-press gestures; make running state clearer.
-3. Build a true Windows taskbar presentation from the shared app model, and a
-   Mac dock presentation with previews. Keep General independently useful.
-4. Add a reversible, opt-in setup experience for companion theme/apps once
-   those projects have stable package identities. Do not make a shell plugin
-   perform installation or privilege changes.
-5. Test 200% scale, light/dark themes, tiled,
-   floating, fullscreen, monitor hotplug, reload, disable, and removal before
-   opening a release or marketplace submission.
-
-## Current evidence
-
-Portable manifest/path validation and unit tests pass. An approved isolated QML render
-of the settings modal is in the README. The audit environment has no Omarchy
-session or Quickshell imports, so lifecycle behavior is unverified
-here. Version 0.0.6 is prepared as an early preview; publication is a separate step.
-
-
-## Integrated window controls
-
-Familiar remains one Omarchy plugin. Optional Hyprbars decorations provide a
-visible window title and mouse controls, Mac/Windows placement, dragging and
-double-click maximise. Minimise and restore share the existing dock helper.
-Controls inherit shell background/text colours and fonts. Theme mode reads
-`familiar-desktop.json` from the active theme for enablement, placement, geometry,
-button colours and exclusions; explicit Off/Mac/Windows choices take precedence.
-Theme switches and local policy edits queue serialized refreshes. Invalid policy
-fails closed. The Familiar theme provides Windows defaults for desktop tuning.
-A terminal installer owns the one-time dependency/config setup; runtime QML
-only reconciles local configuration. One-time dependency setup remains required.
-Existing explicit choices are preserved; other installations default to Theme.
-Title bars require
-live Hyprland verification before release, especially grouping, CSD apps,
-fullscreen, mixed scales, upgrade and removal behaviour.
-
-## v0.1.0-rc.1 candidate
-
-Implemented on the candidate branch: Getting Started with live described
-Hyprland shortcuts and installed companion links; Show Desktop and journaled
-Restore windows; Default/Large/Extra large dock and title-bar sizes; graceful
-same-process Quit and pidfd-based Force Quit with explicit confirmation.
-The test bundle installer pins its source SHA and verifies prebuilt assets.
-
-Getting Started opens existing tools only. Companion installation, a true
-Windows taskbar, Mac previews and Familiar Paint are outside this desktop
-candidate. Live XPS acceptance in docs/XPS-TEST.md remains the next gate.
-
-## v0.1.0-rc.2 addition
-
-Opt-in Caps Lock / Compose / Use configuration control in Familiar settings.
-Adapts the behaviour proposed in omacom/omarchy#12752 without requiring that
-upstream core change. Preserves non-Caps keyboard options and input.lua; requires
-live XPS acceptance of keymaps, persistence and reset.
-
-## Release scope agreed 4 October 2026
-
-v0.1.0 is the core desktop release: app/window dock, General/Windows/Mac starting layouts, optional title bars, centred settings, window arrangement and recovery, Show Desktop/Restore, size controls, Quit/confirmed Force Quit, active shortcut help, file shortcuts and opt-in Caps Lock behavior. Getting Started exposes System settings and Troubleshooting only. No curated app collection, package installer, compulsory app/theme bundle or new global shortcuts.
-
-v0.2.0 is the planned curated front door: Open for installed apps, Install only for apps with a verified package and supported installation path. Initial candidates are Paint, Notepad, Task Manager and selected tools such as Postcard. Their package status must be verified individually; inclusion here is a plan, not a claim that packages exist. Existing dock app launching remains in v0.1.0. Backend tool commands are retained for compatibility but are not surfaced as a companion collection.
-
-Publication target: Monday 5 October 2026, after green candidate CI and source-bound XPS acceptance. Version 0.1.0 in source is not a release announcement.
+Start with [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the feature-to-file map and
+ownership boundaries. [DEVELOPMENT.md](docs/DEVELOPMENT.md) explains local checks,
+exact-source development builds and rollback. [WORKFLOW.md](docs/WORKFLOW.md)
+requires green current CI, Tom's acceptance of the exact build on the XPS and
+merge authorization. Release authorization is separate.

@@ -1,3 +1,3 @@
 pragma Singleton
 import QtQuick
-QtObject { property var toplevels: ({values: []}) }
+QtObject { signal rawEvent(var event); property var toplevels: ({values: []}) }

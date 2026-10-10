@@ -28,72 +28,22 @@ assert.equal(execFileSync('/bin/sh', ['-c', received], { encoding: 'utf8' }), ar
 assert.equal(commands.run({ execArgv() { throw Error('must reject NUL'); } }, ['x', '\x00']), false);
 console.log('widget selection and literal command arguments: passed');
 
-// Execute the actual settings handlers, without a Quickshell UI, to exercise
-// both writers/readers when widgets are disabled and after a reload.
-const settings = load('DockSettings.js');
-for (const filename of ['DockPanel.qml', 'BarWidget.qml']) {
-  const source = fs.readFileSync(filename, 'utf8');
-  const indent = filename === 'DockPanel.qml' ? '    ' : '  ';
-  const root = { isSavingSettings: false, widgetsEnabled: false, dockWidgets: selection.slice() };
-  let disk = JSON.stringify({ shortcutLabels: "mac", widgetsEnabled: false, dockWidgets: selection, dockSize: "large", titlebarSize: "extra-large", titlebarsEnabled: true, titlebarStyle: "mac", titlebarExclusions: "org.gnome.Nautilus,kitty" });
-  const context = {
-    root, ShortcutLabels: load("ShortcutLabels.js"), DockSettings: settings, DockModel: widgets, DockWidgets: widgets,
-    settingsFile: { text: () => disk, setText: value => { disk = value; } },
-    saveSettingsTimer: { restart() {} }
-  };
-  vm.createContext(context);
-  for (const name of ['readSettings', 'saveSettings']) {
-    const start = source.indexOf(indent + 'function ' + name + '() {');
-    assert.ok(start >= 0);
-    const end = source.indexOf('\n' + indent + '}', start) + indent.length + 2;
-    vm.runInContext(source.slice(start, end), context);
-  }
-  context.readSettings();
-  assert.equal(root.widgetsEnabled, false);
-  assert.equal(root.titlebarsEnabled, true);
-  assert.equal(root.titlebarStyle, "mac");
-  assert.equal(root.titlebarMode, "mac");
-  assert.equal(root.titlebarExclusions, "org.gnome.Nautilus,kitty");
-  assert.deepEqual(plain(root.dockWidgets), selection);
-  assert.equal(root.dockSize, "large");
-  assert.equal(root.titlebarSize, "extra-large");
-  context.saveSettings();
-  assert.equal(JSON.parse(disk).shortcutLabels, "mac");
-  assert.equal(JSON.parse(disk).dockSize, "large");
-  assert.equal(JSON.parse(disk).titlebarSize, "extra-large");
-  assert.deepEqual(JSON.parse(disk).dockWidgets, selection);
-  assert.equal(JSON.parse(disk).titlebarsEnabled, true);
-  assert.equal(JSON.parse(disk).titlebarStyle, "mac");
-  assert.equal(JSON.parse(disk).titlebarMode, "mac");
-  assert.equal(JSON.parse(disk).titlebarExclusions, "org.gnome.Nautilus,kitty");
-  root.isSavingSettings = false;
-  root.dockWidgets = [];
-  context.readSettings();
-  assert.deepEqual(plain(root.dockWidgets), selection);
-  disk = JSON.stringify({ titlebarMode: "theme", titlebarsEnabled: false, titlebarStyle: "mac" });
-  context.readSettings();
-  assert.equal(root.titlebarMode, "theme");
-  context.saveSettings();
-  assert.equal(JSON.parse(disk).titlebarMode, "theme");
-  // Exercise both real readers/writers: old files migrate to Automatic; each
-  // explicit choice survives unrelated edits and a fresh reader state.
-  for (const position of ['auto', 'bottom', 'left', 'right']) {
-    root.isSavingSettings = false;
-    disk = JSON.stringify({ dockPosition: position, profile: 'mac', dockWidgets: selection });
-    context.readSettings();
-    assert.equal(root.dockPosition, position);
-    root.showBadges = false;
-    context.saveSettings();
-    assert.equal(JSON.parse(disk).dockPosition, position);
-    root.isSavingSettings = false;
-    root.dockPosition = 'discarded';
-    context.readSettings();
-    assert.equal(root.dockPosition, position);
-  }
-  root.isSavingSettings = false;
-  disk = '{}';
-  context.readSettings();
-  assert.equal(root.dockPosition, 'auto');
+// Exercise the production schema through its module interface.
+const schema = require('./helpers/load-js.cjs')('components/SettingsSchema.js');
+const legacy = {shortcutLabels:'mac',widgetsEnabled:false,dockWidgets:selection,dockSize:'large',titlebarSize:'extra-large',titlebarsEnabled:true,titlebarStyle:'mac',showFolderTitles:false,unknownFutureOption:{enabled:true}};
+const normalized = schema.normalize(legacy);
+assert.equal(normalized.titlebarMode,'mac');
+assert.equal(normalized.showFolderTitles,false);
+assert.equal(normalized.widgetsEnabled,false);
+assert.deepEqual(plain(normalized.dockWidgets),selection);
+const saved = JSON.parse(schema.encode(legacy,normalized));
+assert.deepEqual(saved.unknownFutureOption,{enabled:true});
+assert.equal(saved.shortcutLabels,'mac');
+assert.equal(saved.titlebarSize,'extra-large');
+for(const position of ['auto','bottom','left','right']) {
+  assert.equal(JSON.parse(schema.encode(legacy,{...normalized,dockPosition:position})).dockPosition,position);
 }
-console.log('both QML settings handlers preserve disabled widget selections: passed');
-console.log('both QML settings handlers preserve dock position: passed');
+assert.deepEqual(plain(schema.normalize({dockWidgets:[]}).dockWidgets),[]);
+assert.equal(schema.normalize({titlebarMode:'theme',titlebarsEnabled:false}).titlebarMode,'theme');
+assert.equal(schema.normalize({}).dockPosition,'auto');
+console.log('single settings schema preserves preferences, empty selections and unknown fields: passed');

@@ -239,6 +239,24 @@ fn file_shortcuts_use_literal_local_paths_and_surface_failures() {
             .unwrap()
             .ends_with("trash:///\n")
     );
+    // Ordinary handlers remain alive after gio exits, holding its streams.
+    fs::write(
+        f.tools.join("gio"),
+        "#!/bin/sh\nsleep 30 &\nprintf '%s\\n' \"$!\" > \"$HOME/location-child\"\n",
+    )
+    .unwrap();
+    let started = std::time::Instant::now();
+    let out = f.run(&["dock", "open-location", "home"]);
+    let pid: i32 = fs::read_to_string(f.home.join("location-child"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    // SAFETY: this PID was just reported by the fixture's spawned handler.
+    let alive = unsafe { libc::kill(pid, 0) == 0 };
+    unsafe { libc::kill(pid, libc::SIGTERM) };
+    assert!(out.status.success() && alive);
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
     assert!(
         !f.run(&["dock", "open-location", "unknown"])
             .status

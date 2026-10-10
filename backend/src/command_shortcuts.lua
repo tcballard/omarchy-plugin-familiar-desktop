@@ -26,6 +26,9 @@ for _, entry in ipairs(shortcuts) do
       return {pass_event=true}
     end
     local mods = (terminal or shift) and 'CTRL SHIFT' or 'CTRL'
-    return hl.dsp.send_shortcut({mods=mods, key=key, window=window})()
+    hl.dispatch(hl.dsp.send_key_state({mods=mods, key=key, state='down', window=window}))
+    hl.timer(function()
+      hl.dispatch(hl.dsp.send_key_state({mods=mods, key=key, state='up', window=window}))
+    end, {timeout=50, type='oneshot'})
   end, {description='Familiar Command: ' .. name})
 end

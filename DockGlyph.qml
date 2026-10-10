@@ -1,13 +1,13 @@
 import QtQuick
 import qs.Commons
-
+import qs.Commons as Commons
 Item {
     id: root
 
     property string text: ""
     property string fontFamily: Style.font.family
     property real fontSize: 16
-    property color color: Color.foreground
+    property color color: Commons.Color.foreground
 
     readonly property int renderedFontSize: Math.max(1, Math.round(fontSize))
     readonly property real tightWidth: Math.max(1, glyphMetrics.tightBoundingRect.width)

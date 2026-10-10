@@ -2,9 +2,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
 import "../AppMenuSelection.js" as MenuSelection
+import "../DockGeometry.js" as Geometry
 
 // A named, mouse-first window list. It uses the same output and layer as the
 // dock, and only the card accepts pointer input outside the dock itself.
@@ -38,7 +40,7 @@ PanelWindow {
     ], windows.length ? [{label: "Minimise", kind: "minimize", enabled: canAct}] : [])
     readonly property int cardHeight: Math.max(80, Math.min(screenHeight - dockOffset - 12, menuContent.implicitHeight + 14))
     readonly property int dockOffset: root.popupDockOffset
-    readonly property real appOffset: (root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0) +
+    readonly property real appOffset: root.appRailOffset +
                                       (root.contextAppIndex + 0.5) * root.slotSize
     readonly property real screenWidth: dockWindow && dockWindow.screen ? dockWindow.screen.width : 1920
     readonly property real screenHeight: dockWindow && dockWindow.screen ? dockWindow.screen.height : 1080
@@ -52,18 +54,20 @@ PanelWindow {
     color: "transparent"
     mask: Region { item: card }
 
+    readonly property var placement: menu.root.appPopupLayout
     anchors {
-        top: root.barPosition === "bottom" || root.isVertical
-        bottom: root.barPosition === "top" || root.isVertical
-        left: root.barPosition === "right" || !root.isVertical
-        right: root.barPosition === "left" || !root.isVertical
+        top: placement.anchors.top
+        bottom: placement.anchors.bottom
+        left: placement.anchors.left
+        right: placement.anchors.right
     }
     margins {
-        top: root.barPosition === "bottom" ? dockOffset : 0
-        bottom: root.barPosition === "top" ? dockOffset : 0
-        left: root.barPosition === "right" ? dockOffset : 0
-        right: root.barPosition === "left" ? dockOffset : 0
+        top: placement.margins.top
+        bottom: placement.margins.bottom
+        left: placement.margins.left
+        right: placement.margins.right
     }
+
     implicitWidth: root.isVertical ? cardWidth : screenWidth
     implicitHeight: root.isVertical ? screenHeight : cardHeight
 
@@ -72,7 +76,7 @@ PanelWindow {
         card.forceActiveFocus()
     }
 
-    function dismiss() { root.contextAppId = ""; root.contextAppIndex = -1 }
+    function dismiss() { root.interaction.dismissApp() }
     function action(kind) {
         if (!app) return
         if (kind === "go-window" || kind === "bring-here") {
@@ -94,18 +98,18 @@ PanelWindow {
         id: card
         width: menu.cardWidth
         height: menu.cardHeight
-        x: menu.root.isVertical
-            ? 0
-            : Math.max(6, Math.min(menu.width - width - 6,
-                (menu.root.taskbarActive ? menu.root.taskbarAnchorX : (menu.width - menu.root.totalDockDimension) / 2 + menu.appOffset) - width / 2))
-        y: menu.root.isVertical
-            ? Math.max(6, Math.min(menu.height - height - 6,
-                (menu.height - menu.root.totalDockDimension) / 2 + menu.appOffset - height / 2))
-            : 0
+        readonly property var position: Geometry.appMenuPosition({
+            vertical: menu.root.isVertical, width: menu.width, height: menu.height,
+            dockLength: menu.root.totalDockDimension, itemOffset: menu.appOffset,
+            cardWidth: width, cardHeight: height,
+            taskbarAnchor: menu.root.taskbarActive ? menu.root.taskbarAnchorX : null
+        })
+        x: position.x
+        y: position.y
         radius: Math.min(12, menu.root.systemRounding)
-        color: Color.popups.background
+        color: Commons.Color.popups.background
         border.width: Math.max(1, menu.root.systemBorderSize)
-        border.color: Color.popups.border
+        border.color: Commons.Color.popups.border
         focus: true
         Keys.onEscapePressed: function(event) { menu.dismiss(); event.accepted = true }
 
@@ -132,7 +136,7 @@ PanelWindow {
                 font.family: Style.font.family
                 font.pixelSize: 14
                 font.bold: true
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
 
             Flickable {
@@ -156,7 +160,7 @@ PanelWindow {
                             activeFocusOnTab: true
                             Keys.onReturnPressed: menu.selectedWindowAddress = menu.root.targetWindowArg(menu.app, index)
                             Keys.onSpacePressed: menu.selectedWindowAddress = menu.root.targetWindowArg(menu.app, index)
-                            color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Color.accent : "transparent"
+                            color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Commons.Color.accent : "transparent"
                             Text {
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
@@ -168,7 +172,7 @@ PanelWindow {
                                 textFormat: Text.PlainText
                                 font.family: Style.font.family
                                 font.pixelSize: 12
-                                color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Color.popups.background : Color.popups.text
+                                color: activeFocus || windowMouse.containsMouse || menu.selectedIndex === index ? Commons.Color.popups.background : Commons.Color.popups.text
                             }
                             MouseArea {
                                 id: windowMouse
@@ -188,11 +192,11 @@ PanelWindow {
                 visible: text !== ""
                 height: visible ? implicitHeight : 0
                 wrapMode: Text.WordWrap
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 font.family: Style.font.family
                 font.pixelSize: 11
             }
-            Rectangle { width: parent.width; height: 1; color: Color.popups.border }
+            Rectangle { width: parent.width; height: 1; color: Commons.Color.popups.border }
             Repeater {
                 model: menu.actions
                 delegate: Rectangle {
@@ -203,7 +207,7 @@ PanelWindow {
                     activeFocusOnTab: modelData.enabled
                     Keys.onReturnPressed: if (modelData.enabled) menu.action(modelData.kind)
                     Keys.onSpacePressed: if (modelData.enabled) menu.action(modelData.kind)
-                    color: actionMouse.containsMouse && modelData.enabled ? Color.accent : "transparent"
+                    color: actionMouse.containsMouse && modelData.enabled ? Commons.Color.accent : "transparent"
                     Text {
                         anchors.fill: parent
                         anchors.leftMargin: 10
@@ -215,8 +219,8 @@ PanelWindow {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 12
-                        color: !modelData.enabled ? Color.popups.text :
-                               actionMouse.containsMouse ? Color.popups.background : Color.popups.text
+                        color: !modelData.enabled ? Commons.Color.popups.text :
+                               actionMouse.containsMouse ? Commons.Color.popups.background : Commons.Color.popups.text
                         opacity: modelData.enabled ? 1 : 0.45
                     }
                     MouseArea {

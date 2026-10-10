@@ -21,6 +21,8 @@ TestCase {
         compare(adapter.command[0], item.helper)
         compare(adapter.command[1], "titlebars")
         compare(adapter.starts, 1)
+        verify(adapter.command.indexOf("--include-browsers") < 0)
+        item.skipBrowserTitlebars = false
         item.mode = "windows"
         item.refresh()
         wait(220)
@@ -29,6 +31,7 @@ TestCase {
         verify(item.message !== "obsolete")
         tryCompare(adapter, "starts", 2)
         compare(adapter.command[adapter.command.indexOf("--mode") + 1], "windows")
+        verify(adapter.command.indexOf("--include-browsers") >= 0)
         adapter.complete('{"state":"active","message":"current"}', 0)
         compare(item.state, "active")
         compare(item.message, "current")

@@ -4,8 +4,10 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../DockModel.js" as DockModel
+import "../DockDrag.js" as Drag
 import ".."
 
 PanelWindow {
@@ -19,9 +21,6 @@ PanelWindow {
     visible: stackWindow.root.isStackOpen && stackWindow.root.dockRevealed
 
     readonly property bool isOverlay: stackWindow.root.overlayMode === true
-    readonly property int dockThickness: stackWindow.root.slotSize + 8
-    readonly property int dockGap: (Style.gapsOut || 5)
-    readonly property int dockOffset: stackWindow.root.taskbarActive ? (stackWindow.root.taskbarItemSize + 4) : (isOverlay ? (dockGap + dockThickness + dockGap) : dockGap)
 
     WlrLayershell.namespace: "omarchy-dock-stack"
     WlrLayershell.layer: isOverlay ? WlrLayer.Overlay : WlrLayer.Top
@@ -32,19 +31,20 @@ PanelWindow {
     color: "transparent"
     mask: Region { item: stackCard }
 
+    readonly property var placement: stackWindow.root.folderPopupLayout
     anchors {
-        top: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "bottom") ? true : (stackWindow.root.isVertical ? true : false)
-        bottom: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "top") ? true : (stackWindow.root.isVertical ? true : false)
-        left: (stackWindow.root.isVertical && stackWindow.root.barPosition === "right") ? true : (!stackWindow.root.isVertical ? true : false)
-        right: (stackWindow.root.isVertical && stackWindow.root.barPosition === "left") ? true : (!stackWindow.root.isVertical ? true : false)
+        top: placement.anchors.top
+        bottom: placement.anchors.bottom
+        left: placement.anchors.left
+        right: placement.anchors.right
+    }
+    margins {
+        top: placement.margins.top
+        bottom: placement.margins.bottom
+        left: placement.margins.left
+        right: placement.margins.right
     }
 
-    margins {
-        bottom: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "top") ? dockOffset : 0
-        top: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "bottom") ? dockOffset : 0
-        right: (stackWindow.root.isVertical && stackWindow.root.barPosition === "left") ? dockOffset : 0
-        left: (stackWindow.root.isVertical && stackWindow.root.barPosition === "right") ? dockOffset : 0
-    }
 
         implicitWidth: stackWindow.root.isVertical ? stackCard.width : (dockWindow.screen ? dockWindow.screen.width : 1920)
         implicitHeight: stackWindow.root.isVertical ? (dockWindow.screen ? dockWindow.screen.height : 1080) : stackCard.height
@@ -58,9 +58,9 @@ PanelWindow {
                 if (stackWindow.root.isEditingFolderTitle && typeof titleInput !== "undefined") {
                     titleInput.saveAndClose()
                 }
-                stackWindow.root.activeStackItem = null
-                stackWindow.root.isEditMode = false
-                stackWindow.root.isEditingFolderTitle = false
+                stackWindow.root.interaction.dismissFolder()
+                stackWindow.root.interaction.setEditing(false)
+                stackWindow.root.interaction.renameFolder(false)
             }
         }
 
@@ -91,14 +91,14 @@ PanelWindow {
                     if (typeof titleInput !== "undefined") {
                         titleInput.text = (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.name !== undefined) ? stackWindow.root.activeStackItem.name : ""
                     }
-                    stackWindow.root.isEditingFolderTitle = false
+                    stackWindow.root.interaction.renameFolder(false)
                     stackCard.forceActiveFocus()
                     return
                 }
                 if (stackWindow.root.isEditMode) {
-                    stackWindow.root.isEditMode = false
+                    stackWindow.root.interaction.setEditing(false)
                 }
-                stackWindow.root.activeStackItem = null
+                stackWindow.root.interaction.dismissFolder()
             }
 
             readonly property int totalApps: (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.subApps) ? stackWindow.root.activeStackItem.subApps.length : 0
@@ -111,8 +111,8 @@ PanelWindow {
             height: (stackWindow.root.showFolderTitles ? 36 : 0) + (gridRows * 50 - 6) + 24
 
             color: stackWindow.root.isBarTransparent
-                ? Util.alpha(Color.popups.background, 0.45)
-                : Color.popups.background
+                ? Util.alpha(Commons.Color.popups.background, 0.45)
+                : Commons.Color.popups.background
             border.width: (Border.canUseNative(stackWindow.root.dockBorderSpec) && !stackWindow.root.isBarTransparent) ? Border.uniformWidth(stackWindow.root.dockBorderSpec) : 0
             border.color: (Border.canUseNative(stackWindow.root.dockBorderSpec) && !stackWindow.root.isBarTransparent) ? Border.color(stackWindow.root.dockBorderSpec) : "transparent"
             radius: stackWindow.root.systemRounding
@@ -141,7 +141,7 @@ PanelWindow {
                         titleInput.saveAndClose()
                     }
                     if (mouse.button === Qt.RightButton || mouse.button === Qt.LeftButton) {
-                        stackWindow.root.isEditMode = false
+                        stackWindow.root.interaction.setEditing(false)
                     }
                 }
             }
@@ -207,10 +207,10 @@ PanelWindow {
                         anchors.fill: parent
                         radius: 6
                         color: (stackWindow.root.isEditingFolderTitle || titleInput.activeFocus)
-                            ? Style.hoverFillFor(Color.popups.text, Color.accent)
-                            : (titleHoverArea.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent")
+                            ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
+                            : (titleHoverArea.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent")
                         border.width: (stackWindow.root.isEditingFolderTitle || titleInput.activeFocus) ? 1 : 0
-                        border.color: Color.accent
+                        border.color: Commons.Color.accent
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
@@ -256,7 +256,7 @@ PanelWindow {
                             font.family: Style.font.family
                             font.pixelSize: 12
                             font.bold: true
-                            color: Color.popups.text
+                            color: Commons.Color.popups.text
                             elide: Text.ElideNone
                             wrapMode: Text.NoWrap
                             verticalAlignment: Text.AlignVCenter
@@ -275,7 +275,7 @@ PanelWindow {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         selectByMouse: true
                         cursorVisible: true
                         clip: true
@@ -293,9 +293,8 @@ PanelWindow {
                             var n = text.trim()
                             if (stackWindow.root.activeStackItem) {
                                 stackWindow.root.setPinned(DockModel.renameStack(stackWindow.root.pinnedIds, stackWindow.root.activeStackItem.id, n))
-                                stackWindow.root.activeStackItem.name = n
                             }
-                            stackWindow.root.isEditingFolderTitle = false
+                            stackWindow.root.interaction.renameFolder(false)
                             focus = false
                             stackCard.forceActiveFocus()
                         }
@@ -305,7 +304,7 @@ PanelWindow {
                         Keys.onEscapePressed: function(event) {
                             event.accepted = true
                             text = (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.name !== undefined) ? stackWindow.root.activeStackItem.name : ""
-                            stackWindow.root.isEditingFolderTitle = false
+                            stackWindow.root.interaction.renameFolder(false)
                             focus = false
                             stackCard.forceActiveFocus()
                         }
@@ -321,7 +320,7 @@ PanelWindow {
                         cursorShape: (stackWindow.root.folderDragActiveIndex >= 0 || titleHoverArea.containsMouse) ? Qt.BlankCursor : Qt.IBeamCursor
                         onClicked: {
                             if (stackWindow.root.activeStackItem) {
-                                stackWindow.root.isEditingFolderTitle = true
+                                stackWindow.root.interaction.renameFolder(true)
                             }
                         }
                     }
@@ -342,40 +341,23 @@ PanelWindow {
                         Item {
                             id: subItemRoot
                             readonly property int totalSub: (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.subApps) ? stackWindow.root.activeStackItem.subApps.length : 0
-                            readonly property int visualSubSlot: (stackWindow.root.folderDragActiveIndex === index) ? index : stackWindow.root.getFolderVisualSlot(index, stackWindow.root.folderDragActiveIndex, stackWindow.root.folderDragTargetIndex)
+                            readonly property int visualSubSlot: (stackWindow.root.folderDragActiveIndex === index) ? index : Drag.visualSlot(index, stackWindow.root.folderDragActiveIndex, stackWindow.root.folderDragTargetIndex)
                             readonly property int slotCol: visualSubSlot % stackCard.gridCols
                             readonly property int slotRow: Math.floor(visualSubSlot / stackCard.gridCols)
 
-                            property int subPreviewTopIndex: -1
-                            property bool isSubWheelScrolling: false
-
-                            Timer {
-                                id: subWheelCursorTimer
-                                interval: 1200
-                                repeat: false
-                                onTriggered: {
-                                    subItemRoot.isSubWheelScrolling = false
+                            readonly property int subPreviewTopIndex: subInteraction.previewIndex
+                            readonly property bool isSubWheelScrolling: subInteraction.cycling
+                            readonly property int subEffectiveTopIndex: subInteraction.effectiveIndex
+                            AppTileInteraction {
+                                id: subInteraction
+                                itemData: modelData
+                                hovered: subMouse.containsMouse
+                                onFeedbackRequested: subClickEffectAnim.restart()
+                                onLaunchRequested: function(item) {
+                                    DockModel.setPendingCliHint(item.appId || item.desktopId || "", stackWindow.root.knownWindows)
+                                    DockModel.launchApp(stackWindow.root.shell, item, Util)
                                 }
-                            }
-
-                            readonly property int subRealActiveTopIndex: (modelData && typeof modelData.activeTopIndex === "number") ? modelData.activeTopIndex : 0
-
-                            readonly property int subEffectiveTopIndex: {
-                                var total = (modelData && modelData.toplevels) ? modelData.toplevels.length : 0
-                                if (total === 0) return 0
-                                if (subItemRoot.subPreviewTopIndex >= 0 && subItemRoot.subPreviewTopIndex < total) return subItemRoot.subPreviewTopIndex
-                                return subItemRoot.subRealActiveTopIndex
-                            }
-
-                            Timer {
-                                id: subPreviewResetTimer
-                                interval: 1500
-                                repeat: false
-                                onTriggered: {
-                                    if (!subMouse.containsMouse) {
-                                        subItemRoot.subPreviewTopIndex = -1
-                                    }
-                                }
+                                onRestoreRequested: function(item, index) { stackWindow.root.restoreOrLaunchItem(item, index) }
                             }
 
                             x: slotCol * 50
@@ -403,7 +385,7 @@ PanelWindow {
                                 radius: width / 2
                                 color: "transparent"
                                 border.width: 2
-                                border.color: Color.accent
+                                border.color: Commons.Color.accent
                                 opacity: 0.0
                                 scale: 0.5
                                 z: 0
@@ -449,19 +431,13 @@ PanelWindow {
                                     NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
                                 }
 
-                                Image {
+                                AppIcon {
                                     id: subIcon
                                     anchors.centerIn: parent
                                     width: 28
                                     height: 28
-                                    fillMode: Image.PreserveAspectFit
-                                    cache: true
+                                    glyph: modelData ? (modelData.iconGlyph || "") : ""
                                     source: (stackWindow.root.iconRevision, stackWindow.root.resolveIcon(modelData))
-                                    sourceSize: Qt.size(Math.max(128, 28 * 4 * Screen.devicePixelRatio), Math.max(128, 28 * 4 * Screen.devicePixelRatio))
-                                    asynchronous: false
-                                    mipmap: true
-                                    smooth: true
-                                    antialiasing: true
                                 }
 
                                 // iOS-Style Theme Notification Badge on Sub-App (Modular)
@@ -540,7 +516,7 @@ PanelWindow {
                                     width: (modelData && modelData.isActive && !modelData.isMinimized) ? 10 : 4
                                     height: 2
                                     radius: 1
-                                    color: (modelData && modelData.isActive && !modelData.isMinimized) ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.6)
+                                    color: (modelData && modelData.isActive && !modelData.isMinimized) ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.6)
                                     antialiasing: true
                                     smooth: true
 
@@ -557,7 +533,7 @@ PanelWindow {
                                 onTriggered: {
                                     if (stackWindow.root.activeStackItem && stackWindow.root.folderDragActiveIndex < 0) {
                                         subMouse.didSubLongPress = true
-                                        stackWindow.root.isEditMode = true
+                                        stackWindow.root.interaction.setEditing(true)
                                     }
                                 }
                             }
@@ -580,7 +556,7 @@ PanelWindow {
                                     text: "-"
                                     fontFamily: Style.font.family
                                     fontSize: 16
-                                    color: subExtractMouse.containsMouse ? Color.accent : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.85)
+                                    color: subExtractMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.85)
 
                                     scale: subExtractMouse.containsMouse ? 1.25 : 1.0
                                     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -595,7 +571,7 @@ PanelWindow {
                                     cursorShape: (stackWindow.root.folderDragActiveIndex >= 0) ? Qt.BlankCursor : Qt.PointingHandCursor
                                     onClicked: function(mouse) {
                                         if (mouse.button === Qt.RightButton) {
-                                            stackWindow.root.isEditMode = false
+                                            stackWindow.root.interaction.setEditing(false)
                                             return
                                         }
                                         if (stackWindow.root.activeStackItem) {
@@ -603,25 +579,12 @@ PanelWindow {
                                             var remaining = (stackWindow.root.activeStackItem.subApps ? stackWindow.root.activeStackItem.subApps.length : 0) - 1
                                             stackWindow.root.setPinned(DockModel.extractFromStackToDock(stackWindow.root.pinnedIds, stackId, modelData.appId, stackWindow.root.activeStackItemIndex + 1))
                                             if (remaining <= 1) {
-                                                stackWindow.root.activeStackItem = null
-                                                stackWindow.root.isEditMode = false
+                                                stackWindow.root.interaction.dismissFolder()
+                                                stackWindow.root.interaction.setEditing(false)
                                             }
                                         }
                                     }
                                 }
-                            }
-
-                            function cycleSubDuplicate(forward) {
-                                if (!modelData || !modelData.isRunning || !modelData.toplevels) return
-                                var len = modelData.toplevels.length
-                                if (len <= 1) return
-
-                                subItemRoot.isSubWheelScrolling = true
-                                subWheelCursorTimer.restart()
-                                subPreviewResetTimer.stop()
-                                var curIdx = subItemRoot.subEffectiveTopIndex
-                                var nextIdx = forward ? ((curIdx + 1) % len) : ((curIdx - 1 + len) % len)
-                                subItemRoot.subPreviewTopIndex = nextIdx
                             }
 
                             MouseArea {
@@ -648,39 +611,10 @@ PanelWindow {
                                     subMouse.forceActiveFocus()
                                 }
 
-                                Keys.onRightPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        subItemRoot.cycleSubDuplicate(true)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onLeftPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        subItemRoot.cycleSubDuplicate(false)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onTabPressed: function(event) {
-                                    if (modelData) {
-                                        subClickEffectAnim.restart()
-                                        DockModel.setPendingCliHint(modelData.appId || modelData.desktopId || "", (stackWindow.root && stackWindow.root.knownWindows) ? stackWindow.root.knownWindows : [])
-                                        DockModel.launchApp(stackWindow.root.shell, modelData, Util)
-                                        event.accepted = true
-                                    }
-                                }
-
-                                Keys.onReturnPressed: function(event) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2 && subItemRoot.subPreviewTopIndex >= 0) {
-                                        var top = modelData.toplevels[subItemRoot.subPreviewTopIndex]
-                                        if (top && typeof top.activate === "function") {
-                                            top.activate()
-                                            subItemRoot.subPreviewTopIndex = -1
-                                            event.accepted = true
-                                        }
-                                    }
-                                }
+                                Keys.onRightPressed: function(event) { event.accepted = subInteraction.cycle(true) }
+                                Keys.onLeftPressed: function(event) { event.accepted = subInteraction.cycle(false) }
+                                Keys.onTabPressed: function(event) { event.accepted = subInteraction.launch() }
+                                Keys.onReturnPressed: function(event) { event.accepted = subInteraction.confirmPreview() }
 
                                 onPressed: function(mouse) {
                                     if (mouse.button === Qt.LeftButton) {
@@ -692,7 +626,7 @@ PanelWindow {
                                     } else if (mouse.button === Qt.RightButton) {
                                         if (stackWindow.root.isEditMode) {
                                             subClickEffectAnim.restart()
-                                            stackWindow.root.isEditMode = false
+                                            stackWindow.root.interaction.setEditing(false)
                                             return
                                         }
                                         if (modelData) {
@@ -705,14 +639,12 @@ PanelWindow {
                                 }
 
                                 onPositionChanged: function(mouse) {
-                                    if (subItemRoot.isSubWheelScrolling) {
-                                        subItemRoot.isSubWheelScrolling = false
-                                    }
+                                    subInteraction.pointerMoved()
                                     if (subMouse.drag.active) {
                                         subLongPressTimer.stop()
                                         if (!isDraggingActive) {
                                             isDraggingActive = true
-                                            stackWindow.root.folderDragActiveIndex = index
+                                            stackWindow.root.drag.startFolder(index)
                                         }
 
                                         var rawOffsetX = subDragOffset.x
@@ -726,7 +658,7 @@ PanelWindow {
                                         var col = Math.max(0, Math.min(stackCard.gridCols - 1, Math.round(currentPosX / 50)))
                                         var row = Math.max(0, Math.min(stackCard.gridRows - 1, Math.round(currentPosY / 50)))
                                         var targetIdx = Math.max(0, Math.min(totalSub - 1, row * stackCard.gridCols + col))
-                                        stackWindow.root.folderDragTargetIndex = targetIdx
+                                        stackWindow.root.drag.hoverFolder(targetIdx)
                                     }
                                 }
 
@@ -735,8 +667,7 @@ PanelWindow {
                                     if (isDraggingActive && stackWindow.root.activeStackItem) {
                                         isDraggingActive = false
                                         var finalTarget = stackWindow.root.folderDragTargetIndex
-                                        stackWindow.root.folderDragActiveIndex = -1
-                                        stackWindow.root.folderDragTargetIndex = -1
+                                        stackWindow.root.drag.cancelFolder()
                                         subDragOffset.x = 0
                                         subDragOffset.y = 0
 
@@ -747,31 +678,21 @@ PanelWindow {
                                 }
 
                                 onExited: {
-                                    subItemRoot.isSubWheelScrolling = false
-                                    subPreviewResetTimer.restart()
+                                    subInteraction.leave()
                                 }
 
                                 onCanceled: {
                                     subLongPressTimer.stop()
                                     if (isDraggingActive) {
                                         isDraggingActive = false
-                                        stackWindow.root.folderDragActiveIndex = -1
-                                        stackWindow.root.folderDragTargetIndex = -1
+                                        stackWindow.root.drag.cancelFolder()
                                         subDragOffset.x = 0
                                         subDragOffset.y = 0
                                     }
                                 }
 
                                 onWheel: function(wheel) {
-                                    if (modelData && modelData.isRunning && modelData.toplevels && modelData.toplevels.length >= 2) {
-                                        if (wheel.angleDelta.y < 0 || wheel.angleDelta.x > 0) {
-                                            subItemRoot.cycleSubDuplicate(true)
-                                            wheel.accepted = true
-                                        } else if (wheel.angleDelta.y > 0 || wheel.angleDelta.x < 0) {
-                                            subItemRoot.cycleSubDuplicate(false)
-                                            wheel.accepted = true
-                                        }
-                                    }
+                                    wheel.accepted = subInteraction.wheel(wheel.pixelDelta.x, wheel.pixelDelta.y, wheel.angleDelta.x, wheel.angleDelta.y)
                                 }
 
                                 onClicked: function(mouse) {
@@ -780,38 +701,12 @@ PanelWindow {
                                         return
                                     }
 
-                                    // Middle Click (Wheel Button click) -> Immediately launch duplicate
                                     if (mouse.button === Qt.MiddleButton) {
+                                        subInteraction.launch()
+                                    } else if (mouse.button === Qt.LeftButton) {
                                         subClickEffectAnim.restart()
-                                        DockModel.setPendingCliHint(modelData.appId || modelData.desktopId || "", (stackWindow.root && stackWindow.root.knownWindows) ? stackWindow.root.knownWindows : [])
-                                        DockModel.launchApp(stackWindow.root.shell, modelData, Util)
-                                        return
-                                    }
-
-                                    if (mouse.button === Qt.LeftButton) {
-                                        subClickEffectAnim.restart()
-                                        if (modelData) {
-                                            stackWindow.root.clearBadge(modelData)
-                                        }
-                                        if (stackWindow.root.isEditMode) {
-                                            return
-                                        }
-                                        if (modelData) {
-                                            if (subItemRoot.subPreviewTopIndex >= 0) {
-                                                stackWindow.root.restoreOrLaunchItem(modelData, subItemRoot.subPreviewTopIndex)
-                                            } else {
-                                                var subTops = modelData.toplevels || []
-                                                if (subTops.length >= 2 && modelData.isActive) {
-                                                    var subNextIdx = (subItemRoot.subRealActiveTopIndex + 1) % subTops.length
-                                                    stackWindow.root.restoreOrLaunchItem(modelData, subNextIdx)
-                                                } else {
-                                                    stackWindow.root.restoreOrLaunchItem(modelData, subItemRoot.subRealActiveTopIndex)
-                                                }
-                                            }
-                                            subItemRoot.subPreviewTopIndex = -1
-                                        }
-                                    } else if (mouse.button === Qt.RightButton) {
-                                        return
+                                        if (modelData) stackWindow.root.clearBadge(modelData)
+                                        if (!stackWindow.root.isEditMode) subInteraction.restore()
                                     }
                                 }
                             }

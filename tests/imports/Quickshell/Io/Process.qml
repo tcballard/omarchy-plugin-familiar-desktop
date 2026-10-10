@@ -3,7 +3,8 @@ Item {
     property var command: []
     property bool stdinEnabled: false
     signal started()
-    function write(data) {}
+    property var writes: []
+    function write(data) { writes = writes.concat([data]) }
     property bool running: false
     property var stderr
     property var stdout
@@ -13,6 +14,7 @@ Item {
     function complete(text, code) {
         stdout.text = text
         running = false
+        if (stdout && typeof stdout.streamFinished === "function") stdout.streamFinished()
         exited(code, 0)
     }
 }

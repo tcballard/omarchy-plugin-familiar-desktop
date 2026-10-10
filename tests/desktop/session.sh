@@ -89,9 +89,13 @@ library=$(bash "$plugin/install-titlebars.sh")
 helper="$plugin/bin/familiar-desktop"
 "$helper" titlebars setup --library "$library" --enable --style mac
 omarchy-shell shell rescanPlugins
-wait_for omarchy plugin enable "$plugin_id"
 familiar_ready() { [[ $(timeout 3 omarchy-shell "$plugin_id" ping 2>/dev/null) == ok ]]; }
-wait_for familiar_ready
+# Qt 6.12 cannot render the old release's bare Color references. Its binary/
+# ownership fixture is used for installation, without claiming old UI acceptance.
+if [[ $EXPECTED_QT == 6.11.2 ]]; then
+  wait_for omarchy plugin enable "$plugin_id"
+  wait_for familiar_ready
+fi
 phase=install-candidate
 bundle="$SMOKE_ROOT/desktop-bundle"
 (cd "$bundle" && sha256sum --check --strict SHA256SUMS)
@@ -99,7 +103,44 @@ jq -e --arg sha "$SOURCE_SHA" '.commit == $sha and .channel == "development"' "$
 cp "$bundle/DEV-BUILD.json" "$EVIDENCE/tested-build.json"
 bash "$bundle/install-dev.sh"
 [[ $(git -C "$plugin" rev-parse HEAD) == "$SOURCE_SHA" ]]
+# Installation preserves placement. The Qt 6.12 fixture started disabled to
+# avoid rendering the incompatible old UI, so enable the new candidate now.
+if [[ $EXPECTED_QT == 6.12.0 ]]; then
+  wait_for omarchy plugin enable "$plugin_id"
+fi
 wait_for familiar_ready
+# Exercise the injected widget catalogue and a real shared-shell FloatingWindow.
+# This is a disposable icon/identity fixture, not RSS networking acceptance.
+phase=plugin-panel-icon
+rss_id=io.github.tcballard.rss-feed
+rss_fixture="$HOME/.config/omarchy/plugins/$rss_id"
+cp -R "$SMOKE_ROOT/tests/desktop/panel-fixture" "$rss_fixture"
+omarchy-shell shell rescanPlugins
+wait_for omarchy plugin enable "$rss_id"
+omarchy-shell shell summon "$rss_id" '{}'
+rss_icon_ready() {
+  timeout 3 omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" \
+    'any(.[]; .id == $id and .pluginId == $id and .glyph == "\uf09e" and .windows == 1)' >/dev/null
+}
+wait_for rss_icon_ready
+omarchy-shell "$plugin_id" panelStatus > "$EVIDENCE/plugin-panel-icons.json"
+rss_window=$(hyprctl -j clients | jq -er '.[] | select(.title == "RSS Feed") | .address')
+"$helper" dock activate-instance "$rss_window"
+rss_active() { omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" 'any(.[]; .id == $id and .active == true)' >/dev/null; }
+wait_for rss_active
+omarchy-shell shell hide "$rss_id"
+rss_closed() { omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" 'all(.[]; .id != $id)' >/dev/null; }
+wait_for rss_closed
+omarchy plugin disable "$rss_id"
+rm -rf "$rss_fixture"
+omarchy-shell shell rescanPlugins
+phase=palette
+palette="$XDG_RUNTIME_DIR/palette-probe"
+mkdir -p "$palette"
+ln -s "$OMARCHY_PATH/shell/Commons" "$palette/Commons"
+cp "$SMOKE_ROOT/tests/desktop/palette-probe.qml" "$palette/shell.qml"
+timeout 15 qs -p "$palette/shell.qml" > "$EVIDENCE/palette-probe.log" 2>&1
+grep -q 'PASS: qualified Commons palette' "$EVIDENCE/palette-probe.log"
 phase=windows
 foot --app-id familiar-smoke-a --title 'Familiar fixture A' sleep 600 > "$EVIDENCE/foot-a.log" 2>&1 &
 foot --app-id familiar-smoke-b --title 'Familiar fixture B' sleep 600 > "$EVIDENCE/foot-b.log" 2>&1 &
@@ -110,6 +151,19 @@ b=$(hyprctl -j clients | jq -er '.[] | select(.class == "familiar-smoke-b") | .a
 "$helper" dock activate-instance "$a"
 active_a() { timeout 3 hyprctl -j activewindow | jq -e --arg a "$a" '.address == $a' >/dev/null; }
 wait_for active_a
+phase=native-input
+"$helper" gestures desktop | tee "$EVIDENCE/gestures-enable.json"
+"$helper" input-preference command enable | tee "$EVIDENCE/shortcuts-enable.json"
+hyprctl configerrors > "$EVIDENCE/native-input-config-errors.txt"
+[[ -z "$(cat "$EVIDENCE/native-input-config-errors.txt")" ]]
+hyprctl eval "dofile('$SMOKE_ROOT/tests/desktop/native-input-probe.lua')" | tee "$EVIDENCE/native-input-probe.txt"
+grep -qx 'ok' "$EVIDENCE/native-input-probe.txt"
+sleep 0.2
+cp "$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprland.log" "$EVIDENCE/native-input-hyprland.log"
+! grep -Eq 'Runtime error in lua|dispatcher objects cannot be called' "$EVIDENCE/native-input-hyprland.log"
+"$helper" input-preference command reset
+"$helper" gestures reset
+phase=windows
 "$helper" dock minimize-instance "$a"
 minimized_a() { timeout 3 hyprctl -j clients | jq -e --arg a "$a" 'any(.[]; .address == $a and .workspace.name == "special:minimized")' >/dev/null; }
 wait_for minimized_a
@@ -231,14 +285,18 @@ wait "$probe_pid" || true
 omarchy-shell "$plugin_id" setProfile windows
 wait_for taskbar_ready
 phase=rollback
-bash "$bundle/install-dev.sh" --rollback
-[[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
-[[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
-[[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
-jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
-cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
-cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+if [[ $EXPECTED_QT == 6.11.2 ]]; then
+  bash "$bundle/install-dev.sh" --rollback
+  [[ $(git -C "$plugin" rev-parse HEAD) == "$baseline" ]]
+  [[ ! -e "$HOME/.local/state/familiar-desktop/dev-build.json" ]]
+  [[ ! -e "$HOME/.local/state/familiar-desktop/taskbar/placement.json" ]]
+  jq -S '.bar' "$HOME/.config/omarchy/shell.json" > "$EVIDENCE/bar-after-rollback.json"
+  cmp "$EVIDENCE/bar-original.json" "$EVIDENCE/bar-after-rollback.json"
+  cmp "$EVIDENCE/style-before-taskbar.toml" "$HOME/.config/omarchy/shell.toml"
+else
+  echo 'Qt 6.12: old-release UI/rollback compatibility is outside this candidate check.'
+fi
 wait_for familiar_ready
 wait_for two_windows
 phase=passed
-echo 'PASS: real shell, stable-to-development install, two windows, focus, minimise/restore, shell restart, dock layer and rollback.'
+echo 'PASS: real shell, source-matched installation, native palette/input, two windows, focus, minimise/restore, shell restart and dock layer.'

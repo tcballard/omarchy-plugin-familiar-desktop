@@ -1,6 +1,6 @@
 import QtQuick
 import qs.Commons
-
+import qs.Commons as Commons
 Rectangle {
     id: root
     property string text: ""
@@ -9,9 +9,9 @@ Rectangle {
     implicitHeight: 40
     implicitWidth: Math.max(120, label.implicitWidth + 24)
     radius: 7
-    color: selected ? Color.accent : (mouse.containsMouse || activeFocus ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent")
+    color: selected ? Commons.Color.accent : (mouse.containsMouse || activeFocus ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent")
     border.width: 1
-    border.color: activeFocus ? Color.accent : Color.popups.border
+    border.color: activeFocus ? Commons.Color.accent : Commons.Color.popups.border
     opacity: enabled ? 1 : 0.45
     activeFocusOnTab: enabled
     Accessible.role: Accessible.Button
@@ -30,7 +30,7 @@ Rectangle {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: 12
-        color: root.selected ? Color.background : Color.popups.text
+        color: root.selected ? Commons.Color.background : Commons.Color.popups.text
     }
     MouseArea {
         id: mouse

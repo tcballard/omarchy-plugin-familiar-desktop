@@ -1,4 +1,5 @@
 //! Explicit, reversible trackpad preference. Never rewrite input.lua or core files.
+use crate::config_file::{self, GeneratedUpdate, read as text};
 use crate::{
     Result,
     common::{self, Hypr, checked},
@@ -39,6 +40,10 @@ impl Paths {
 }
 
 pub fn hook(mode: &str, manifest: &Path) -> Result<String> {
+    hook_version(mode, manifest, false)
+}
+
+fn hook_version(mode: &str, manifest: &Path, legacy: bool) -> Result<String> {
     if !["all", "workspace", "desktop"].contains(&mode) {
         return Err("Choose all, workspace, desktop or reset".into());
     }
@@ -54,11 +59,20 @@ pub fn hook(mode: &str, manifest: &Path) -> Result<String> {
         );
     }
     if mode == "all" || mode == "desktop" {
-        body.push_str(&format!(
-            "    hl.gesture({{ fingers = 4, direction = 'down', action = hl.dsp.exec_cmd({}) }})\n    hl.gesture({{ fingers = 4, direction = 'up', action = hl.dsp.exec_cmd({}) }})\n",
-            common::lua(&format!("{command} desktop show")),
-            common::lua(&format!("{command} desktop restore"))
-        ));
+        for (direction, action) in [("down", "show"), ("up", "restore")] {
+            let dispatcher = format!(
+                "hl.dsp.exec_cmd({})",
+                common::lua(&format!("{command} desktop {action}"))
+            );
+            let callback = if legacy {
+                dispatcher
+            } else {
+                format!("function() hl.dispatch({dispatcher}) end")
+            };
+            body.push_str(&format!(
+                "    hl.gesture({{ fingers = 4, direction = '{direction}', action = {callback} }})\n"
+            ));
+        }
     }
     Ok(format!(
         "{BEGIN}-- mode: {mode}\ndo\n  local plugin = io.open({}, 'r')\n  if plugin then\n    plugin:close()\n{body}  end\nend\n{END}",
@@ -82,10 +96,12 @@ fn generated_content(paths: &Paths) -> Result<Option<String>> {
         Err(e) => Err(e.to_string()),
         Ok(_) => {
             let value = text(&paths.generated)?;
-            if !["all", "workspace", "desktop"]
-                .iter()
-                .any(|mode| hook(mode, &paths.manifest).is_ok_and(|expected| value == expected))
-            {
+            if !["all", "workspace", "desktop"].iter().any(|mode| {
+                [false, true].into_iter().any(|legacy| {
+                    hook_version(mode, &paths.manifest, legacy)
+                        .is_ok_and(|expected| value == expected)
+                })
+            }) {
                 return Err(
                     "Familiar's separate trackpad config was edited; no file changed".into(),
                 );
@@ -118,29 +134,6 @@ pub fn split_current(value: &str, paths: &Paths) -> Result<(String, String)> {
     split(value, &paths.manifest)
 }
 
-fn restore_generated(paths: &Paths, expected: &str, before: &Option<String>) -> Result<()> {
-    if text(&paths.generated)? != expected {
-        return Err(
-            "Separate trackpad config changed externally; preserve it and review the backup".into(),
-        );
-    }
-    match before {
-        Some(value) => common::atomic(&paths.generated, value.as_bytes()),
-        None => fs::remove_file(&paths.generated).map_err(|e| e.to_string()),
-    }
-}
-
-fn text(path: &Path) -> Result<String> {
-    // Refuse symlink replacement (including broken links) and non-regular files.
-    let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
-    if !metadata.file_type().is_file() {
-        return Err(
-            "Hyprland config must be a regular file, not a symlink; no file changed".into(),
-        );
-    }
-    String::from_utf8(common::bounded_file(path, common::FILE_LIMIT)?).map_err(|e| e.to_string())
-}
-
 pub fn split(text: &str, manifest: &Path) -> Result<(String, String)> {
     let starts = text.matches("-- BEGIN FAMILIAR TRACKPAD MODE").count();
     let ends = text.matches("-- END FAMILIAR TRACKPAD MODE").count();
@@ -149,37 +142,19 @@ pub fn split(text: &str, manifest: &Path) -> Result<(String, String)> {
     }
     if starts == 1 && ends == 1 {
         for mode in ["all", "workspace", "desktop"] {
-            let block = hook(mode, manifest)?;
-            if let Some(start) = text.find(&block) {
-                return Ok((
-                    format!("{}{}", &text[..start], &text[start + block.len()..]),
-                    mode.into(),
-                ));
+            for legacy in [false, true] {
+                let block = hook_version(mode, manifest, legacy)?;
+                if let Some(start) = text.find(&block) {
+                    return Ok((
+                        format!("{}{}", &text[..start], &text[start + block.len()..]),
+                        mode.into(),
+                    ));
+                }
             }
         }
     }
 
     Err("Familiar Trackpad block was edited, damaged or belongs to another installation; no file changed".into())
-}
-
-fn reload(hypr: &mut impl Hypr) -> Result<()> {
-    checked(hypr, &["reload"])?;
-    let errors: Vec<String> = serde_json::from_str(&hypr.command(&["-j", "configerrors"])?)
-        .map_err(|_| "Could not verify Hyprland configuration errors")?;
-    // Hyprland 0.56.2 / Hyprutils 0.14 serialises an empty error string as [""].
-    // Ignore blank entries only; malformed responses and real diagnostics still fail.
-    let errors: Vec<&str> = errors
-        .iter()
-        .map(|error| error.trim())
-        .filter(|error| !error.is_empty())
-        .collect();
-    if !errors.is_empty() {
-        return Err(format!(
-            "Hyprland configuration error: {}",
-            common::clipped(&errors.join("; "))
-        ));
-    }
-    Ok(())
 }
 
 pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> {
@@ -209,7 +184,7 @@ pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
             hypr,
             &[
                 "eval",
-                "assert(hl and hl.gesture and hl.dsp and hl.dsp.exec_cmd, 'Familiar Trackpad requires Hyprland Lua gesture support')",
+                "assert(hl and hl.gesture and hl.dispatch and hl.dsp and hl.dsp.exec_cmd, 'Familiar Trackpad requires Hyprland Lua gesture support')",
             ],
         )?;
         format!("{}{}", clean, include_hook(paths))
@@ -220,40 +195,19 @@ pub fn change(mode: &str, paths: &Paths, hypr: &mut impl Hypr) -> Result<Value> 
     } else {
         Some(hook(mode, &paths.manifest)?)
     };
-    if let Some(content) = &generated_after {
-        common::atomic(&paths.generated, content.as_bytes())?;
-    }
-    let backup = match crate::config_file::replace(&paths.config, &before, &after, &paths.state) {
-        Ok(backup) => backup,
-        Err(error) => {
-            if let Some(content) = &generated_after {
-                restore_generated(paths, content, &generated_before)?;
-            }
-            return Err(error);
-        }
-    };
-    let applied = reload(hypr);
-    if let Err(error) = applied {
-        if text(&paths.config)? != after {
-            return Err(format!(
-                "{error}. Config changed externally; preserve your edits and recover from {backup:?}"
-            ));
-        }
-        if let Some(content) = &generated_after {
-            restore_generated(paths, content, &generated_before)?;
-        }
-        crate::config_file::replace(&paths.config, &after, &before, &paths.state)?;
-        let recovery = reload(hypr);
-        return Err(format!(
-            "{error}. Previous configuration restored on disk. Recovery reload: {}",
-            recovery.err().unwrap_or_else(|| "ok".into())
-        ));
-    }
-    if mode == "reset"
-        && let Some(content) = &generated_before
-    {
-        restore_generated(paths, content, &None)?;
-    }
+    let backup = config_file::apply_generated(
+        hypr,
+        GeneratedUpdate {
+            config: &paths.config,
+            generated: &paths.generated,
+            backups: &paths.state,
+            before: &before,
+            after: &after,
+            generated_before: generated_before.as_deref(),
+            generated_after: generated_after.as_deref(),
+        },
+        |_| Ok(()),
+    )?;
     Ok(
         json!({"state":"ok","mode":mode,"backup":backup,"message":if mode == "reset" { "Familiar gesture preferences removed; your configuration is restored." } else { "Trackpad gestures enabled. Three fingers switch workspaces; four down shows desktop and four up restores, according to the selected group." }}),
     )

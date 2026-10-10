@@ -103,6 +103,11 @@ jq -e --arg sha "$SOURCE_SHA" '.commit == $sha and .channel == "development"' "$
 cp "$bundle/DEV-BUILD.json" "$EVIDENCE/tested-build.json"
 bash "$bundle/install-dev.sh"
 [[ $(git -C "$plugin" rev-parse HEAD) == "$SOURCE_SHA" ]]
+# Installation preserves placement. The Qt 6.12 fixture started disabled to
+# avoid rendering the incompatible old UI, so enable the new candidate now.
+if [[ $EXPECTED_QT == 6.12.0 ]]; then
+  wait_for omarchy plugin enable "$plugin_id"
+fi
 wait_for familiar_ready
 phase=palette
 palette="$XDG_RUNTIME_DIR/palette-probe"

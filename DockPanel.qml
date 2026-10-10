@@ -1328,6 +1328,16 @@ Item {
         }
     }
 
+    // The visual delegate receives only the widget-host operations it needs.
+    QtObject {
+        id: widgetActions
+        function componentFor(id) { return root.getWidgetComponent(id) }
+        function sourceFor(id) { return root.getWidgetSource(id) }
+        function attach(item, id, anchor) { root.configureHostedWidget(item, id, anchor) }
+        function iconFor(id, item) { return root.getWidgetIcon(id, item) }
+        function activate(id, item, anchor, mouse) { root.activateWidget(id, item, anchor, mouse) }
+    }
+
     // Proxy Bar context for hosted widgets
     QtObject {
         id: dockBarContext
@@ -3013,142 +3023,27 @@ Item {
                 Repeater {
                     model: root.leftWidgetsList
 
-                    Item {
-                        id: leftWidgetSlotRoot
+                    DockWidgetSlot {
                         required property string modelData
                         required property int index
-
-                        readonly property real widgetSlotDimension: (modelData === "omarchy.clock" && !root.isVertical) ? root.clockSlotWidth : root.slotSize
-                        readonly property real widgetPos: root.getLeftWidgetOffset(index)
-                        x: root.isVertical ? 0 : widgetPos
-                        y: root.isVertical ? widgetPos : 0
-                        width: root.isVertical ? root.slotSize : widgetSlotDimension
-                        height: root.isVertical ? widgetSlotDimension : root.slotSize
-                        z: 1
-
-                        Item {
-                            id: leftWidgetWrapper
-                            anchors.centerIn: parent
-                            width: (modelData === "omarchy.clock" && !root.isVertical) ? (leftWidgetSlotRoot.width - 10) : root.iconBaseSize
-                            height: (modelData === "omarchy.clock" && root.isVertical) ? (root.slotSize - 8) : root.iconBaseSize
-                            scale: root.isEditMode ? 0.82 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                id: leftClockHorizontalLabel
-                                visible: modelData === "omarchy.clock" && !root.isVertical
-                                anchors.centerIn: parent
-                                text: (leftWidgetLoader.item && leftWidgetLoader.item.displayText) ? leftWidgetLoader.item.displayText : (root.clockDisplayText !== "" ? root.clockDisplayText : Qt.formatDateTime(new Date(), "dddd HH:mm"))
-                                textFormat: Text.PlainText
-                                font.family: Style.font.family
-                                font.pixelSize: 12
-                                font.weight: Font.Medium
-                                color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                renderType: Text.CurveRendering
-                                font.hintingPreference: Font.PreferNoHinting
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Column {
-                                id: leftClockVerticalCol
-                                visible: modelData === "omarchy.clock" && root.isVertical
-                                anchors.centerIn: parent
-                                spacing: 1
-
-                                Repeater {
-                                    model: [root.currentHourString, root.currentMinutePart]
-
-                                    Text {
-                                        required property string modelData
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData
-                                        textFormat: Text.PlainText
-                                        font.family: Style.font.family
-                                        font.pixelSize: modelData.length > 3 ? 9 : 10
-                                        font.weight: Font.Medium
-                                        color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                        renderType: Text.CurveRendering
-                                        font.hintingPreference: Font.PreferNoHinting
-                                    }
-                                }
-                            }
-
-                            DockGlyph {
-                                id: leftWidgetGlyph
-                                visible: modelData !== "omarchy.clock"
-                                anchors.centerIn: parent
-                                width: root.iconBaseSize
-                                height: root.iconBaseSize
-                                text: {
-                                    var _rev = root.widgetIconRevision
-                                    var _v = root.pipewireSinkVolume
-                                    var _m = root.pipewireSinkMuted
-                                    var _sm = root.pipewireSourceMuted
-                                    var _bp = root.upowerBatteryPercentage
-                                    var _bs = root.upowerBatteryState
-                                    var it = leftWidgetLoader.item
-                                    var _ic = it ? (it.icon || it.displayText || it.playIcon || "") : ""
-                                    return root.getWidgetIcon(modelData, it)
-                                }
-                                fontFamily: (leftWidgetLoader.item && leftWidgetLoader.item.fontFamily) ? leftWidgetLoader.item.fontFamily : ((leftWidgetLoader.item && leftWidgetLoader.item.font && leftWidgetLoader.item.font.family) ? leftWidgetLoader.item.font.family : Style.font.family)
-                                fontSize: 22
-                                color: leftWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Loader {
-                                id: leftWidgetLoader
-                                anchors.fill: parent
-                                opacity: 0.0
-                                // source and sourceComponent clear one another, so pick one
-                                // imperatively instead of binding both. This runs on every
-                                // registry revision (dozens during shell start-up); re-assigning
-                                // an unchanged source would still tear the item down, so it
-                                // returns early when nothing changed.
-                                function applyWidgetSource() {
-                                    var comp = root.getWidgetComponent(modelData)
-                                    if (comp) {
-                                        if (sourceComponent === comp) return
-                                        source = ""
-                                        sourceComponent = comp
-                                        return
-                                    }
-                                    var url = root.getWidgetSource(modelData)
-                                    if (url !== "" && String(source) === url) return
-                                    sourceComponent = null
-                                    source = url
-                                }
-                                Component.onCompleted: applyWidgetSource()
-                                Connections {
-                                    target: root
-                                    function onWidgetRegistryRevisionChanged() { leftWidgetLoader.applyWidgetSource() }
-                                }
-                                onLoaded: {
-                                    if (item) {
-                                        root.configureHostedWidget(item, modelData, leftWidgetSlotRoot)
-                                        if (modelData === "omarchy.clock") {
-                                            if (item.displayText !== undefined) root.clockDisplayText = item.displayText
-                                            if (item.displayTextChanged) {
-                                                item.displayTextChanged.connect(function() {
-                                                    root.clockDisplayText = item.displayText
-                                                })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: leftWidgetSlotMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                            cursorShape: root.isEditMode ? Qt.ArrowCursor : Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                root.activateWidget(modelData, leftWidgetLoader.item, leftWidgetSlotRoot, mouse)
-                            }
-                        }
+                        actions: widgetActions
+                        offset: root.getLeftWidgetOffset(index)
+                        isVertical: root.isVertical
+                        clockSlotWidth: root.clockSlotWidth
+                        slotSize: root.slotSize
+                        iconBaseSize: root.iconBaseSize
+                        isEditMode: root.isEditMode
+                        clockDisplayText: root.clockDisplayText
+                        currentHourString: root.currentHourString
+                        currentMinutePart: root.currentMinutePart
+                        widgetIconRevision: root.widgetIconRevision
+                        pipewireSinkVolume: root.pipewireSinkVolume
+                        pipewireSinkMuted: root.pipewireSinkMuted
+                        pipewireSourceMuted: root.pipewireSourceMuted
+                        upowerBatteryPercentage: root.upowerBatteryPercentage
+                        upowerBatteryState: root.upowerBatteryState
+                        widgetRegistryRevision: root.widgetRegistryRevision
+                        onClockUpdated: function(text) { root.clockDisplayText = text }
                     }
                 }
 
@@ -3330,143 +3225,27 @@ Item {
                 Repeater {
                     model: root.rightWidgetsList
 
-                    Item {
-                        id: rightWidgetSlotRoot
+                    DockWidgetSlot {
                         required property string modelData
                         required property int index
-
-                        readonly property real rWidgetBaseOffset: (root.hasLeftWidgets ? (root.leftWidgetsWidth + root.leftSeparatorSize) : 0) + root.itemsWidth + root.rightSeparatorSize
-                        readonly property real rWidgetSlotDimension: (modelData === "omarchy.clock" && !root.isVertical) ? root.clockSlotWidth : root.slotSize
-                        readonly property real rWidgetPos: rWidgetBaseOffset + root.getRightWidgetOffset(index)
-                        x: root.isVertical ? 0 : rWidgetPos
-                        y: root.isVertical ? rWidgetPos : 0
-                        width: root.isVertical ? root.slotSize : rWidgetSlotDimension
-                        height: root.isVertical ? rWidgetSlotDimension : root.slotSize
-                        z: 1
-
-                        Item {
-                            id: rightWidgetWrapper
-                            anchors.centerIn: parent
-                            width: (modelData === "omarchy.clock" && !root.isVertical) ? (rightWidgetSlotRoot.width - 10) : root.iconBaseSize
-                            height: (modelData === "omarchy.clock" && root.isVertical) ? (root.slotSize - 8) : root.iconBaseSize
-                            scale: root.isEditMode ? 0.82 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                id: rightClockHorizontalLabel
-                                visible: modelData === "omarchy.clock" && !root.isVertical
-                                anchors.centerIn: parent
-                                text: (rightWidgetLoader.item && rightWidgetLoader.item.displayText) ? rightWidgetLoader.item.displayText : (root.clockDisplayText !== "" ? root.clockDisplayText : Qt.formatDateTime(new Date(), "dddd HH:mm"))
-                                textFormat: Text.PlainText
-                                font.family: Style.font.family
-                                font.pixelSize: 12
-                                font.weight: Font.Medium
-                                color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                renderType: Text.CurveRendering
-                                font.hintingPreference: Font.PreferNoHinting
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Column {
-                                id: rightClockVerticalCol
-                                visible: modelData === "omarchy.clock" && root.isVertical
-                                anchors.centerIn: parent
-                                spacing: 1
-
-                                Repeater {
-                                    model: [root.currentHourString, root.currentMinutePart]
-
-                                    Text {
-                                        required property string modelData
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData
-                                        textFormat: Text.PlainText
-                                        font.family: Style.font.family
-                                        font.pixelSize: modelData.length > 3 ? 9 : 10
-                                        font.weight: Font.Medium
-                                        color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                        renderType: Text.CurveRendering
-                                        font.hintingPreference: Font.PreferNoHinting
-                                    }
-                                }
-                            }
-
-                            DockGlyph {
-                                id: rightWidgetGlyph
-                                visible: modelData !== "omarchy.clock"
-                                anchors.centerIn: parent
-                                width: root.iconBaseSize
-                                height: root.iconBaseSize
-                                text: {
-                                    var _rev = root.widgetIconRevision
-                                    var _v = root.pipewireSinkVolume
-                                    var _m = root.pipewireSinkMuted
-                                    var _sm = root.pipewireSourceMuted
-                                    var _bp = root.upowerBatteryPercentage
-                                    var _bs = root.upowerBatteryState
-                                    var it = rightWidgetLoader.item
-                                    var _ic = it ? (it.icon || it.displayText || it.playIcon || "") : ""
-                                    return root.getWidgetIcon(modelData, it)
-                                }
-                                fontFamily: (rightWidgetLoader.item && rightWidgetLoader.item.fontFamily) ? rightWidgetLoader.item.fontFamily : ((rightWidgetLoader.item && rightWidgetLoader.item.font && rightWidgetLoader.item.font.family) ? rightWidgetLoader.item.font.family : Style.font.family)
-                                fontSize: 22
-                                color: rightWidgetSlotMouse.containsMouse ? Color.accent : Color.bar.text
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-
-                            Loader {
-                                id: rightWidgetLoader
-                                anchors.fill: parent
-                                opacity: 0.0
-                                // source and sourceComponent clear one another, so pick one
-                                // imperatively instead of binding both. This runs on every
-                                // registry revision (dozens during shell start-up); re-assigning
-                                // an unchanged source would still tear the item down, so it
-                                // returns early when nothing changed.
-                                function applyWidgetSource() {
-                                    var comp = root.getWidgetComponent(modelData)
-                                    if (comp) {
-                                        if (sourceComponent === comp) return
-                                        source = ""
-                                        sourceComponent = comp
-                                        return
-                                    }
-                                    var url = root.getWidgetSource(modelData)
-                                    if (url !== "" && String(source) === url) return
-                                    sourceComponent = null
-                                    source = url
-                                }
-                                Component.onCompleted: applyWidgetSource()
-                                Connections {
-                                    target: root
-                                    function onWidgetRegistryRevisionChanged() { rightWidgetLoader.applyWidgetSource() }
-                                }
-                                onLoaded: {
-                                    if (item) {
-                                        root.configureHostedWidget(item, modelData, rightWidgetSlotRoot)
-                                        if (modelData === "omarchy.clock") {
-                                            if (item.displayText !== undefined) root.clockDisplayText = item.displayText
-                                            if (item.displayTextChanged) {
-                                                item.displayTextChanged.connect(function() {
-                                                    root.clockDisplayText = item.displayText
-                                                })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: rightWidgetSlotMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                            cursorShape: root.isEditMode ? Qt.ArrowCursor : Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                root.activateWidget(modelData, rightWidgetLoader.item, rightWidgetSlotRoot, mouse)
-                            }
-                        }
+                        actions: widgetActions
+                        offset: (root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0) + root.itemsWidth + root.rightSeparatorSize + root.getRightWidgetOffset(index)
+                        isVertical: root.isVertical
+                        clockSlotWidth: root.clockSlotWidth
+                        slotSize: root.slotSize
+                        iconBaseSize: root.iconBaseSize
+                        isEditMode: root.isEditMode
+                        clockDisplayText: root.clockDisplayText
+                        currentHourString: root.currentHourString
+                        currentMinutePart: root.currentMinutePart
+                        widgetIconRevision: root.widgetIconRevision
+                        pipewireSinkVolume: root.pipewireSinkVolume
+                        pipewireSinkMuted: root.pipewireSinkMuted
+                        pipewireSourceMuted: root.pipewireSourceMuted
+                        upowerBatteryPercentage: root.upowerBatteryPercentage
+                        upowerBatteryState: root.upowerBatteryState
+                        widgetRegistryRevision: root.widgetRegistryRevision
+                        onClockUpdated: function(text) { root.clockDisplayText = text }
                     }
                 }
             }

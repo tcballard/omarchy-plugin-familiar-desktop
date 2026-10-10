@@ -11,6 +11,7 @@ Item {
     property string fontFamily: "Sans"
     property int fontSize: 13
     property string exclusions: ""
+    property bool skipBrowserTitlebars: true
     property string size: "default"
     property color background: "#202020"
     property color foreground: "#ffffff"
@@ -41,6 +42,7 @@ Item {
                            "--style", style, "--background", hexColour(background),
                            "--foreground", hexColour(foreground), "--exclude", exclusions,
                            "--mode", mode, "--size", size, "--font-family", fontFamily, "--font-size", String(fontSize)]
+        if (!skipBrowserTitlebars) adapter.command = adapter.command.concat(["--include-browsers"])
         adapter.running = true
     }
     onAvailableChanged: schedule()
@@ -50,6 +52,7 @@ Item {
     onFontFamilyChanged: schedule()
     onFontSizeChanged: schedule()
     onExclusionsChanged: schedule()
+    onSkipBrowserTitlebarsChanged: schedule()
     onSizeChanged: schedule()
     onBackgroundChanged: schedule()
     onForegroundChanged: schedule()

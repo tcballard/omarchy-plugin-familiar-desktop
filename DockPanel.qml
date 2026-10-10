@@ -381,6 +381,7 @@ Item {
     property alias titlebarMode: settings.titlebarMode
     property alias titlebarStyle: settings.titlebarStyle
     property alias titlebarExclusions: settings.titlebarExclusions
+    property alias skipBrowserTitlebars: settings.skipBrowserTitlebars
     readonly property string titlebarState: titlebars.state
     readonly property string titlebarMessage: titlebars.message
     readonly property bool titlebarBusy: titlebars.busy
@@ -392,6 +393,7 @@ Item {
         mode: root.titlebarMode
         style: root.titlebarStyle
         exclusions: root.titlebarExclusions
+        skipBrowserTitlebars: root.skipBrowserTitlebars
         size: root.titlebarSize
         background: Commons.Color.popups.background
         foreground: Commons.Color.popups.text

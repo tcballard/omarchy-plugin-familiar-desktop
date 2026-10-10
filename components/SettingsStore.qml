@@ -19,6 +19,7 @@ Item {
     property string titlebarMode: "theme"
     property string titlebarStyle: "windows"
     property string titlebarExclusions: ""
+    property bool skipBrowserTitlebars: true
     property string visibilityMode: "always"
     property string preferredVisibilityMode: "hover"
     property bool overlayMode: false
@@ -67,6 +68,7 @@ Item {
             "titlebarMode": store.titlebarMode,
             "titlebarStyle": store.titlebarStyle,
             "titlebarExclusions": store.titlebarExclusions,
+            "skipBrowserTitlebars": store.skipBrowserTitlebars,
             "visibilityMode": store.visibilityMode,
             "preferredVisibilityMode": store.preferredVisibilityMode,
             "overlayMode": store.overlayMode,

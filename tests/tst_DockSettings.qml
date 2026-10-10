@@ -75,6 +75,8 @@ TestCase {
         compare(defaults.titlebarMode, "off")
         compare(defaults.titlebarStyle, "windows")
         compare(defaults.titlebarExclusions, "")
+        compare(defaults.skipBrowserTitlebars, true)
+        compare(DockSettings.normalize({skipBrowserTitlebars: false}).skipBrowserTitlebars, false)
         var settings = DockSettings.normalize({ titlebarsEnabled: true, titlebarStyle: "mac", titlebarExclusions: "kitty" })
         compare(settings.titlebarsEnabled, true)
         compare(settings.titlebarStyle, "mac")

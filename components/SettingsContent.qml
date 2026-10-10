@@ -374,9 +374,17 @@ ColumnLayout {
                 }
             }
         }
+        PreferenceToggle {
+            visible: content.service.titlebarMode !== "off"
+            objectName: "skipBrowserTitlebars"
+            Layout.fillWidth: true
+            label: "Skip Chrome and Chromium title bars"
+            checked: content.service.skipBrowserTitlebars
+            onToggled: function(value) { content.service.setPreference("skipBrowserTitlebars", value); }
+        }
         Text {
             visible: content.service.titlebarMode !== "off"
-            text: "Skip apps with their own title bars (window classes, comma-separated)"
+            text: "Skip other apps with their own title bars (window classes, comma-separated)"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.family: Style.font.family

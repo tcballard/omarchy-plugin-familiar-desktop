@@ -29,6 +29,7 @@ BarWidget {
   readonly property string titlebarMode: desktopService ? desktopService.titlebarMode : "theme"
   readonly property string titlebarStyle: desktopService ? desktopService.titlebarStyle : "windows"
   readonly property string titlebarExclusions: desktopService ? desktopService.titlebarExclusions : ""
+  readonly property bool skipBrowserTitlebars: desktopService ? desktopService.skipBrowserTitlebars : true
   property string titlebarStatusText: ""
   property bool titlebarOptionsOpen: false
   property bool gettingStartedOpen: false

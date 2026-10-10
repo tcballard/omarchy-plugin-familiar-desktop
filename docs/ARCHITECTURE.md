@@ -8,15 +8,16 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | Behaviour | Owner and entry point | Focused coverage |
 | --- | --- | --- |
 | Durable dock and titlebar preferences | `components/SettingsStore.qml`, `components/SettingsSchema.js`; service aliases in `DockPanel.qml` | `tst_SettingsStore.qml`, `test_widget_config.cjs`, `test_dock_opacity.cjs` |
-| Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml` |
-| Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`, `DockPosition.js`, `components/DockVisibility.qml` | `test_dock_position.cjs`, `tst_DockVisibility.qml`, desktop smoke |
-| App matching and window history | `DockModel.js` facade → `DockMatcher.js`; curated data in `AppCatalog.js` | `test_window_history.cjs`, `test_app_identity.cjs` |
+| Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`, `PreferenceToggle.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml`, `tst_PreferenceToggle.qml` |
+| Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`; shared placement in `DockGeometry.js` | `test_dock_position.cjs`, `tst_DockSettings.qml`, desktop smoke |
+| App matching and window history | `DockModel.js` facade → `DockMatcher.js`; normalized lookup in `DesktopCatalog.js`, curated data in `AppCatalog.js` | `test_desktop_catalog.cjs`, `tst_DockMatcher.qml`, `test_window_history.cjs`, `test_app_identity.cjs` |
+| Popup selection and editing | `components/DockInteraction.qml`; `FolderIconPicker.qml` takes data and emits actions | `tst_DockInteraction.qml`, `tst_FolderIconPicker.qml` |
 | Notification and title badge grouping | `AppIdentity.js`, `components/NotificationTracker.qml` | `tst_NotificationTracker.qml` |
 | Runtime icon sources | `IconResolver.js`, using candidates and disk cache supplied by `DockModel.js` | `test_app_identity.cjs` |
 | Pins, folders and launching | `DockPinned.js`, `DockAutoName.js`, `DockLauncher.js`; menu/popup QML | Node model checks, desktop smoke |
 | Left/right hosted widgets | `components/DockWidgetSlot.qml`, `HostedWidgets.js`, `DockWidgets.js`; service action adapter | `test_widget_anchor.cjs`, `tst_DockWidgetSlot.qml` |
 | Ordinary preference requests | `components/BackendRequest.qml`; small Caps Lock, Gestures, InputPreference, WindowMode and Taskbar controllers | Corresponding QtTest controller tests |
-| Native configuration changes | Feature modules in `backend/src`; shared `config_file::apply_generated` transaction | `backend/tests/config_transactions.rs` and feature integration tests |
+| Native configuration changes | Feature modules in `backend/src`; shared `config_file::apply_generated` transaction | `backend/tests/config_file.rs`, `backend/tests/config_transactions.rs` and feature integration tests |
 | Titlebar reconciliation | `components/TitlebarController.qml`, `backend/src/titlebars.rs`, `hyprbars/` | Titlebar backend/QtTest tests; exact-build desktop acceptance |
 | Setup, downloads and repair | `components/SetupController.qml`, `setup-in-app.sh`, installer scripts | Setup QtTest, installer Node fixtures |
 | Taskbar shell-layout snapshot | `backend/src/taskbar.rs`, `components/TaskbarApps.qml` | Taskbar backend/QtTest tests and bar placement fixtures |
@@ -36,6 +37,14 @@ Malformed external settings are preserved and surfaced as an error.
 
 Pins have a separate `familiar-desktop-pinned.json` file. Window focus history,
 hover/drag state, widget instances and icon lookup caches are session state.
+DockInteraction owns the single popup selection and editor state. Service
+properties such as `activeStackItem`, `contextApp` and `isEditMode` are read-only
+views. Call interaction methods to open, dismiss or edit; do not assign those
+properties. Selection uses an ID resolved against current dock items, so model
+refreshes and reordering update open popups and removed items dismiss them.
+FolderIconPicker emits icon/dissolve requests; its window receives placement,
+appearance and interaction inputs rather than the entire service.
+
 The matcher library's disk icons and CLI hints are updated by the service and
 shared through `DockModel`; settings views do not mutate them. Notification event
 counts and urgency persist, while title-derived unread counts are a live snapshot.
@@ -46,6 +55,15 @@ Keep exact desktop/PWA IDs for launching and pins. `AppCatalog` contains static
 metadata; changes to an alias should have a grouping regression test. Icon lookup
 uses the same candidate priority everywhere, with an explicit friendly fallback
 for app tiles and a generic fallback for previews.
+
+DesktopCatalog normalizes installed entries once per dock rebuild and applies
+one ordered lookup for both indexed and ordinary callers. App identity keys
+outrank shared icon aliases, and web-app URLs outrank browser launch commands.
+DockMatcher prepares each window once and builds the same app item shape for
+pinned, running and folder apps. Original entries, launch commands and window
+objects remain the source of actions; normalized metadata only assists matching.
+DockGeometry supplies edge anchors, exclusion-aware popup margins, surface sizes
+and app-menu clamping for the dock and popup windows.
 
 ## Backend boundaries
 
@@ -71,8 +89,10 @@ imports; they do not prove compositor behaviour. Installer fixtures use temporar
 homes and fake desktops. Add behaviour tests at exported JS functions or component
 APIs; avoid extracting functions using nearby comments or layout text.
 
-For a preference: extend SettingsSchema/SettingsStore, bind the settings view to
-the service, and test restore/save/defaults. For a native operation: keep parsing
+For a preference: extend SettingsSchema/SettingsStore, bind a PreferenceToggle
+or the appropriate control to the service setter, and test restore/save/defaults.
+The toggle emits a requested value; it never mutates or breaks the owner binding.
+For a native operation: keep parsing
 and Lua in its feature module and use the shared transaction. For a hosted widget:
 use DockWidgetSlot on both sides and supply the narrow action adapter.
 

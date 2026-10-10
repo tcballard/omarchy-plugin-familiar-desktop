@@ -433,107 +433,14 @@ ColumnLayout {
         visible: content.navigation.page === "dock"
         spacing: Style.space(8)
         // 1. Enable dock toggle row
-        Rectangle {
-            id: dockEnabledRow
-            visible: content.navigation.section === "appearance"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Enable dock"
-            Accessible.checkable: true
-            Accessible.checked: content.service.dockEnabled
-            Accessible.onPressAction: content.service.setDockEnabled(!content.service.dockEnabled)
-            Keys.onSpacePressed: content.service.setDockEnabled(!content.service.dockEnabled)
-            Keys.onReturnPressed: content.service.setDockEnabled(!content.service.dockEnabled)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-enabled"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleDockEnabledMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Enable dock"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Show dock panel on screen"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                // Custom Smooth Toggle Switch
-                Rectangle {
-                    id: switchDockEnabledTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.minimumWidth: 36
-                    Layout.maximumWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: content.service.dockEnabled ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchDockEnabledThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: content.service.dockEnabled ? (switchDockEnabledTrack.width - width - 3) : 3
-                        color: content.service.dockEnabled ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleDockEnabledMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setDockEnabled(!content.service.dockEnabled);
-                }
-            }
+            visible: content.navigation.section === "appearance"
+            label: "Enable dock"
+            description: "Show dock panel on screen"
+            checked: content.service.dockEnabled
+            onToggled: function(value) { content.service.setDockEnabled(value) }
         }
 
         DockDropdown {
@@ -605,213 +512,25 @@ ColumnLayout {
         }
 
         // 3. Autohide dock (edge hover)
-        Rectangle {
-            id: autohideRow
-            visible: content.navigation.section === "visibility"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Autohide dock"
-            Accessible.checkable: true
-            Accessible.checked: autohideRow.active
-            Accessible.onPressAction: content.service.setAutohide(!autohideRow.active)
-            Keys.onSpacePressed: content.service.setAutohide(!autohideRow.active)
-            Keys.onReturnPressed: content.service.setAutohide(!autohideRow.active)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-autohide"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            readonly property bool active: content.service.dockEnabled && (content.service.visibilityMode === "hover" || content.service.visibilityMode === "hybrid")
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Autohide dock"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Reveal on screen-edge hover"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                Rectangle {
-                    id: switchTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.minimumWidth: 36
-                    Layout.maximumWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: autohideRow.active ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: autohideRow.active ? (switchTrack.width - width - 3) : 3
-                        color: autohideRow.active ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setAutohide(!autohideRow.active);
-                }
-            }
+            visible: content.navigation.section === "visibility"
+            label: "Autohide dock"
+            description: "Reveal on screen-edge hover"
+            checked: content.service.dockEnabled && (content.service.visibilityMode === "hover" || content.service.visibilityMode === "hybrid")
+            onToggled: function(value) { content.service.setAutohide(value) }
         }
 
         // 4. Keyboard shortcut toggle
-        Rectangle {
-            id: keybindRow
-            visible: content.navigation.section === "visibility"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Keyboard shortcut"
-            Accessible.checkable: true
-            Accessible.checked: keybindRow.active
-            Accessible.onPressAction: content.service.setKeybindMode(!keybindRow.active)
-            Keys.onSpacePressed: content.service.setKeybindMode(!keybindRow.active)
-            Keys.onReturnPressed: content.service.setKeybindMode(!keybindRow.active)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-keybind"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleKeybindMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            readonly property bool active: content.service.dockEnabled && (content.service.visibilityMode === "keybind" || content.service.visibilityMode === "hybrid")
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Keyboard shortcut"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Summon dock on demand"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                Rectangle {
-                    id: switchKeybindTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.minimumWidth: 36
-                    Layout.maximumWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: keybindRow.active ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchKeybindThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: keybindRow.active ? (switchKeybindTrack.width - width - 3) : 3
-                        color: keybindRow.active ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleKeybindMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setKeybindMode(!keybindRow.active);
-                }
-            }
+            visible: content.navigation.section === "visibility"
+            label: "Keyboard shortcut"
+            description: "Summon dock on demand"
+            checked: content.service.dockEnabled && (content.service.visibilityMode === "keybind" || content.service.visibilityMode === "hybrid")
+            onToggled: function(value) { content.service.setKeybindMode(value) }
         }
 
         // 5. Shortcut Hint (smoothly appears ONLY when Keyboard shortcut is active)
@@ -923,105 +642,14 @@ ColumnLayout {
         }
 
         // Toggle Overlay Mode Row
-        Rectangle {
-            id: overlayRow
-            visible: content.navigation.section === "visibility"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Overlay mode"
-            Accessible.checkable: true
-            Accessible.checked: content.service.overlayMode
-            Accessible.onPressAction: content.service.setOverlayMode(!content.service.overlayMode)
-            Keys.onSpacePressed: content.service.setOverlayMode(!content.service.overlayMode)
-            Keys.onReturnPressed: content.service.setOverlayMode(!content.service.overlayMode)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-overlay"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleOverlayMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Overlay mode"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Float on top of application windows"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                // Custom Smooth Toggle Switch
-                Rectangle {
-                    id: switchOverlayTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: content.service.overlayMode ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchOverlayThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: content.service.overlayMode ? (switchOverlayTrack.width - width - 3) : 3
-                        color: content.service.overlayMode ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleOverlayMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setOverlayMode(!content.service.overlayMode);
-                }
-            }
+            visible: content.navigation.section === "visibility"
+            label: "Overlay mode"
+            description: "Float on top of application windows"
+            checked: content.service.overlayMode
+            onToggled: function(value) { content.service.setOverlayMode(value) }
         }
 
         ActionButton {
@@ -1035,207 +663,25 @@ ColumnLayout {
         }
 
         // Toggle Notification Badges Row
-        Rectangle {
-            id: badgesRow
-            visible: content.navigation.section === "extras"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Notification badges"
-            Accessible.checkable: true
-            Accessible.checked: content.service.showBadges
-            Accessible.onPressAction: content.service.setPreference("showBadges", !content.service.showBadges)
-            Keys.onSpacePressed: content.service.setPreference("showBadges", !content.service.showBadges)
-            Keys.onReturnPressed: content.service.setPreference("showBadges", !content.service.showBadges)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-badges"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleBadgesMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Notification badges"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Show unread counter on app icons"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                // Custom Smooth Toggle Switch
-                Rectangle {
-                    id: switchBadgesTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: content.service.showBadges ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchBadgesThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: content.service.showBadges ? (switchBadgesTrack.width - width - 3) : 3
-                        color: content.service.showBadges ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleBadgesMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setPreference("showBadges", !content.service.showBadges);
-                }
-            }
+            visible: content.navigation.section === "extras"
+            label: "Notification badges"
+            description: "Show unread counter on app icons"
+            checked: content.service.showBadges
+            onToggled: function(value) { content.service.setPreference("showBadges", value) }
         }
 
         // Toggle Widgets in Dock Row
-        Rectangle {
-            id: widgetsRow
-            visible: content.navigation.section === "extras"
-            activeFocusOnTab: true
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: "Dock widgets"
-            Accessible.checkable: true
-            Accessible.checked: content.service.widgetsEnabled
-            Accessible.onPressAction: content.service.setWidgetsEnabled(!content.service.widgetsEnabled)
-            Keys.onSpacePressed: content.service.setWidgetsEnabled(!content.service.widgetsEnabled)
-            Keys.onReturnPressed: content.service.setWidgetsEnabled(!content.service.widgetsEnabled)
-            border.width: activeFocus ? 2 : 0
-            border.color: Commons.Color.accent
+        PreferenceToggle {
+            objectName: "dock-widgets"
             Layout.fillWidth: true
-            height: 42
-            radius: 8
-            color: toggleWidgetsMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-            Behavior on color  {
-                ColorAnimation {
-                    duration: 120
-                }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Dock widgets"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: Commons.Color.popups.text
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Integrate app menu and bar widgets"
-                        textFormat: Text.PlainText
-                        font.family: Style.font.family
-                        font.pixelSize: 10
-                        color: Commons.Color.muted
-                        elide: Text.ElideRight
-                    }
-                }
-
-                // Custom Smooth Toggle Switch
-                Rectangle {
-                    id: switchWidgetsTrack
-                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 20
-                    width: 36
-                    height: 20
-                    radius: 10
-                    color: content.service.widgetsEnabled ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
-                    Behavior on color  {
-                        ColorAnimation {
-                            duration: 180
-                        }
-                    }
-
-                    Rectangle {
-                        id: switchWidgetsThumb
-                        width: 14
-                        height: 14
-                        radius: 7
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: content.service.widgetsEnabled ? (switchWidgetsTrack.width - width - 3) : 3
-                        color: content.service.widgetsEnabled ? Commons.Color.background : Commons.Color.popups.text
-                        Behavior on x  {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: toggleWidgetsMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    content.service.setWidgetsEnabled(!content.service.widgetsEnabled);
-                }
-            }
+            visible: content.navigation.section === "extras"
+            label: "Dock widgets"
+            description: "Integrate app menu and bar widgets"
+            checked: content.service.widgetsEnabled
+            onToggled: function(value) { content.service.setWidgetsEnabled(value) }
         }
 
         // Configure Widgets Action Button

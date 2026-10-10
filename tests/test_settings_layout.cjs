@@ -20,6 +20,8 @@ TestCase {
     visible: true
     when: windowShown
     property int writes: 0
+    property var lastPreference: null
+    function recordPreference(key, value) { writes++; lastPreference = {key: key, value: value} }
     SettingsStore {
         id: owner
         path: "/fictional/settings.json"
@@ -42,15 +44,15 @@ TestCase {
         property bool dockAvailable: true
         property bool titlebarBusy: false
         property string titlebarMessage: ""
-        function setPreference(key, value) { root.writes++ }
-        function setDockEnabled(value) { root.writes++ }
+        function setPreference(key, value) { root.recordPreference(key, value) }
+        function setDockEnabled(value) { root.recordPreference("dockEnabled", value) }
         function setProfile(value) { root.writes++ }
         function setTitlebarMode(value) { root.writes++ }
-        function setAutohide(value) { root.writes++ }
-        function setKeybindMode(value) { root.writes++ }
-        function setOverlayMode(value) { root.writes++ }
+        function setAutohide(value) { root.recordPreference("autohide", value) }
+        function setKeybindMode(value) { root.recordPreference("keybindMode", value) }
+        function setOverlayMode(value) { root.recordPreference("overlayMode", value) }
         function setVisibleWorkspace(value) { root.writes++ }
-        function setWidgetsEnabled(value) { root.writes++ }
+        function setWidgetsEnabled(value) { root.recordPreference("widgetsEnabled", value) }
         function refreshTitlebars() { root.writes++ }
         function openWidgetPicker() { root.writes++ }
     }
@@ -121,6 +123,42 @@ TestCase {
         compare(closes.count, 2)
         compare(root.writes, 0)
         owner.setup = null
+    }
+    function test_switchesUseTheirExistingSetters() {
+        var cases = [
+            {name: "dock-enabled", section: "appearance", key: "dockEnabled"},
+            {name: "dock-autohide", section: "visibility", key: "autohide"},
+            {name: "dock-keybind", section: "visibility", key: "keybindMode"},
+            {name: "dock-overlay", section: "visibility", key: "overlayMode"},
+            {name: "dock-badges", section: "extras", key: "showBadges"},
+            {name: "dock-widgets", section: "extras", key: "widgetsEnabled"}
+        ]
+        settingsWindow.page = "dock"
+        for (var test of cases) {
+            settingsWindow.section = test.section
+            wait(20)
+            var row = findChild(cardColumn, test.name)
+            verify(row !== null && row.visible)
+            compare(row.height, 42)
+            var expected = !row.checked
+            root.writes = 0
+            mouseClick(row, 20, row.height / 2)
+            compare(root.writes, 1)
+            compare(root.lastPreference.key, test.key)
+            compare(root.lastPreference.value, expected)
+            row.forceActiveFocus()
+            keyClick(Qt.Key_Space)
+            compare(root.writes, 2, "one request per activation")
+            compare(root.lastPreference.value, expected, "the service owns the value")
+        }
+        var saved = owner.snapshot()
+        for (var mode of ["always", "hover", "keybind", "hybrid"]) {
+            owner.visibilityMode = mode
+            compare(findChild(cardColumn, "dock-autohide").checked, mode === "hover" || mode === "hybrid")
+            compare(findChild(cardColumn, "dock-keybind").checked, mode === "keybind" || mode === "hybrid")
+        }
+        owner.patch(saved)
+        root.writes = 0
     }
     function test_pages() {
         for (var width of [800, 560]) {

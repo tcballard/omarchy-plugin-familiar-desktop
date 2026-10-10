@@ -2,7 +2,7 @@ import QtQuick
 import qs.Commons as Commons
 
 QtObject {
-    Component.onCompleted: {
+    Component.onCompleted: Qt.callLater(function() {
         var colours = [Commons.Color.accent, Commons.Color.popups.text,
                        Commons.Color.popups.background, Commons.Color.popups.border,
                        Commons.Color.bar.text, Commons.Color.bar.background]
@@ -15,5 +15,5 @@ QtObject {
         }
         console.log("PASS: qualified Commons palette resolves on the native runtime")
         Qt.quit()
-    }
+    })
 }

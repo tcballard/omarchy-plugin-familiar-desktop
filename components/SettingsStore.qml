@@ -35,6 +35,9 @@ Item {
     property var dockWidgets: ["omarchy.apps"]
     property var widgetSavedPositions: ({})
 
+    function reload() {
+        file.reload();
+    }
     function restore(text) {
         try {
             var raw = text && text.trim() ? JSON.parse(text) : {};

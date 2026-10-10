@@ -46,7 +46,7 @@ Item {
         active: root.pluginEnabled
         canStart: !titlebars.busy
         onInstalled: function(style) {
-            root.readSettings()
+            settings.reload()
             if (setupController.applyLayout) root.setProfile(style)
             root.refresh()
             titlebars.refresh()
@@ -2579,7 +2579,7 @@ Item {
                 }
             }
         } catch(e) {}
-        root.readSettings()
+        settings.reload()
         root.refreshHyprlandOptions()
         if (shell && shell.appLibrary && typeof shell.appLibrary.refreshIcons === "function") {
             shell.appLibrary.refreshIcons()

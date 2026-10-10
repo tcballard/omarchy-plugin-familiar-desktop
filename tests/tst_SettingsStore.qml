@@ -35,7 +35,7 @@ TestCase {
         compare(store.dockPosition, position)
         verify(store.error !== "")
         file.contents = '{"dockPosition":"left"}'
-        file.reload()
+        store.reload()
         compare(store.dockPosition, "left")
         compare(store.error, "")
     }

@@ -38,6 +38,8 @@ TestCase {
         property var windowMode: null
         property var taskbar: null
         property var setup: null
+        property bool taskbarSelected: false
+        property bool dockAvailable: true
         property bool titlebarBusy: false
         property string titlebarMessage: ""
         function setPreference(key, value) { root.writes++ }
@@ -52,6 +54,20 @@ TestCase {
         function refreshTitlebars() { root.writes++ }
         function openWidgetPicker() { root.writes++ }
     }
+    QtObject {
+        id: shellFixture
+        function serviceFor(name) { return owner }
+    }
+    QtObject {
+        id: barFixture
+        property var shell: shellFixture
+        property var activePopout: null
+        function moduleWidgets(name) { return [firstBar, secondBar] }
+        function requestPopout(widget) { activePopout = widget }
+        function releasePopout(widget) { activePopout = null }
+    }
+    ProductionBarWidget { id: firstBar; bar: barFixture }
+    ProductionBarWidget { id: secondBar; bar: barFixture }
     QtObject {
         id: setupFixture
         property var repairs: []
@@ -69,6 +85,27 @@ TestCase {
             workspaceOptions: [{value: "all", label: "All workspaces"}]
             taskbarActive: false
         }
+    }
+    function test_barInstancesShareSettingsAndLoadTheProductionContent() {
+        compare(firstBar.desktopService, owner)
+        compare(secondBar.desktopService, owner)
+        var original = owner.snapshot()
+        verify(owner.patch({showFolderTitles: false, dockWidgets: [], dockSize: "large"}))
+        compare(firstBar.showFolderTitles, false)
+        compare(secondBar.showFolderTitles, false)
+        compare(firstBar.dockWidgets.length, 0)
+        compare(secondBar.dockSize, "large")
+        firstBar.open()
+        compare(firstBar.settingsOpen, true)
+        compare(secondBar.settingsOpen, false)
+        var loader = findChild(firstBar, "settings-content")
+        verify(loader.item !== null)
+        compare(loader.item.service, owner)
+        verify(loader.implicitHeight > 0)
+        compare(loader.implicitHeight, loader.item.implicitHeight)
+        firstBar.close()
+        compare(firstBar.settingsOpen, false)
+        verify(owner.patch(original))
     }
     function test_repairUsesTheSavedStyleOnlyWhenClicked() {
         compare(setupFixture.repairs.length, 0)
@@ -113,10 +150,45 @@ TestCase {
 }
 `;
 fs.writeFileSync(path.join(dir, 'tst_SettingsLayout.qml'), fixture);
+// Load the complete production bar with only its shell/window boundaries inert.
+// This catches component-load errors that rendering SettingsContent alone misses.
+for (const name of fs.readdirSync('.').filter(name => /\.(qml|js)$/.test(name) && name !== 'BarWidget.qml'))
+    fs.copyFileSync(name, path.join(dir, name));
+fs.copyFileSync('BarWidget.qml', path.join(dir, 'ProductionBarWidget.qml'));
+fs.cpSync('components', path.join(dir, 'components'), {recursive: true});
+fs.writeFileSync(path.join(dir, 'components/SettingsModal.qml'), `import QtQuick
+SettingsFrame {
+    required property Item anchorItem
+    required property var owner
+    required property var bar
+    property bool open: false
+    property real contentWidth: 800
+    width: contentWidth; height: 560
+    visible: open
+}`);
+fs.writeFileSync(path.join(dir, 'components/TaskbarApps.qml'), 'import QtQuick\nItem { property var service; property var bar }\n');
 fs.mkdirSync(path.join(dir, 'qs/Ui'), {recursive:true});
-fs.writeFileSync(path.join(dir, 'qs/Ui/qmldir'), 'module qs.Ui\nBorderSurface 1.0 BorderSurface.qml\n');
+fs.writeFileSync(path.join(dir, 'qs/Ui/qmldir'), 'module qs.Ui\nBorderSurface 1.0 BorderSurface.qml\nBarWidget 1.0 BarWidget.qml\nWidgetButton 1.0 WidgetButton.qml\n');
 fs.writeFileSync(path.join(dir, 'qs/Ui/BorderSurface.qml'), 'import QtQuick\nRectangle { property var borderSpec; property int borderLeft: 1; property int borderRight: 1 }\n');
-const run = spawnSync(process.env.QMLTESTRUNNER || '/usr/lib/qt6/bin/qmltestrunner', ['-input',dir,'-import',dir,'-import',path.resolve('tests/imports')], {stdio:'inherit'});
+fs.writeFileSync(path.join(dir, 'qs/Ui/BarWidget.qml'), 'import QtQuick\nItem { property string moduleName; property var bar; property bool vertical: false }\n');
+fs.writeFileSync(path.join(dir, 'qs/Ui/WidgetButton.qml'), `import QtQuick
+Item {
+    property var bar
+    property bool interactive: true
+    property string text
+    property int fixedWidth: -1
+    property string tooltipText
+    implicitWidth: fixedWidth > 0 ? fixedWidth : 40
+    implicitHeight: 32
+    signal pressed(int buttonCode)
+}`);
+const run = spawnSync(process.env.QMLTESTRUNNER || '/usr/lib/qt6/bin/qmltestrunner', ['-input',dir,'-import',path.resolve('tests/imports'),'-import',dir], {encoding: 'utf8'});
+process.stdout.write(run.stdout || '');
+process.stderr.write(run.stderr || '');
 if (run.error) throw run.error;
 fs.rmSync(dir, {recursive:true,force:true});
 process.exitCode = run.status === null ? 1 : run.status;
+if (/TypeError:|ReferenceError:/.test((run.stdout || '') + (run.stderr || ''))) {
+    console.error('Production settings or bar bindings raised a JavaScript error.');
+    process.exitCode = 1;
+}

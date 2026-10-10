@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import ".."
 import "../DockSettings.js" as DockSettings
@@ -25,7 +26,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
-        color: Color.popups.text
+        color: Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
     }
@@ -40,7 +41,7 @@ ColumnLayout {
             Layout.fillWidth: true
             font.family: Style.font.family
             font.pixelSize: 11
-            color: Color.popups.text
+            color: Commons.Color.popups.text
             opacity: 0.8
         }
 
@@ -63,9 +64,9 @@ ColumnLayout {
                     Layout.fillWidth: true
                     height: 35
                     radius: 7
-                    color: content.service.profile === modelData.key ? Color.accent : (presetMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent")
+                    color: content.service.profile === modelData.key ? Commons.Color.accent : (presetMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent")
                     border.width: content.service.profile === modelData.key ? 0 : 1
-                    border.color: Color.popups.border
+                    border.color: Commons.Color.popups.border
                     Text {
                         anchors.centerIn: parent
                         text: modelData.title
@@ -73,7 +74,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: content.service.profile === modelData.key
-                        color: content.service.profile === modelData.key ? Color.background : Color.popups.text
+                        color: content.service.profile === modelData.key ? Commons.Color.background : Commons.Color.popups.text
                     }
                     MouseArea {
                         id: presetMouse
@@ -109,7 +110,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: 12
-            color: Color.popups.text
+            color: Commons.Color.popups.text
         }
     }
     Text {
@@ -120,7 +121,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
-        color: Color.popups.text
+        color: Commons.Color.popups.text
     }
     GettingStarted {
         visible: content.navigation.page === "help"
@@ -146,7 +147,7 @@ ColumnLayout {
                 textFormat: Text.PlainText
                 font.family: Style.font.family
                 font.pixelSize: 12
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -228,7 +229,7 @@ ColumnLayout {
             text: "Shortcut labels"
             textFormat: Text.PlainText
             font.family: Style.font.family
-            color: Color.popups.text
+            color: Commons.Color.popups.text
         }
         Repeater {
             model: [{
@@ -255,7 +256,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: 12
-            color: Color.popups.text
+            color: Commons.Color.popups.text
         }
     }
 
@@ -291,7 +292,7 @@ ColumnLayout {
             text: "Title bars with close, minimise and maximise. Restore minimised windows from the dock."
             font.family: Style.font.family
             font.pixelSize: 11
-            color: Color.popups.text
+            color: Commons.Color.popups.text
         }
         RowLayout {
             Layout.fillWidth: true
@@ -315,15 +316,15 @@ ColumnLayout {
                     Layout.fillWidth: true
                     height: 32
                     radius: 7
-                    color: selected ? Color.accent : "transparent"
+                    color: selected ? Commons.Color.accent : "transparent"
                     border.width: selected ? 0 : 1
-                    border.color: Color.popups.border
+                    border.color: Commons.Color.popups.border
                     Text {
                         anchors.centerIn: parent
                         text: modelData.title
                         font.family: Style.font.family
                         font.pixelSize: 12
-                        color: parent.selected ? Color.background : Color.popups.text
+                        color: parent.selected ? Commons.Color.background : Commons.Color.popups.text
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -343,21 +344,21 @@ ColumnLayout {
             text: content.service ? content.service.titlebarMessage : "Window controls require the Familiar Desktop service."
             font.family: Style.font.family
             font.pixelSize: 10
-            color: Color.muted
+            color: Commons.Color.muted
         }
         Rectangle {
             Layout.fillWidth: true
             height: 32
             radius: 6
-            color: titlebarSetupMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: titlebarSetupMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             border.width: 1
-            border.color: Color.popups.border
+            border.color: Commons.Color.popups.border
             Text {
                 anchors.centerIn: parent
                 text: "Set up or repair window controls"
                 font.family: Style.font.family
                 font.pixelSize: 11
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
             MouseArea {
                 id: titlebarSetupMouse
@@ -380,7 +381,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: 10
-            color: Color.muted
+            color: Commons.Color.muted
         }
         Rectangle {
             visible: content.service.titlebarMode !== "off"
@@ -389,7 +390,7 @@ ColumnLayout {
             radius: 6
             color: "transparent"
             border.width: 1
-            border.color: titlebarExclusionsInput.activeFocus ? Color.accent : Color.popups.border
+            border.color: titlebarExclusionsInput.activeFocus ? Commons.Color.accent : Commons.Color.popups.border
             TextInput {
                 id: titlebarExclusionsInput
                 anchors.fill: parent
@@ -399,7 +400,7 @@ ColumnLayout {
                 clip: true
                 font.family: Style.font.family
                 font.pixelSize: 11
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 selectByMouse: true
                 onEditingFinished: {
                     content.service.setPreference("titlebarExclusions", text);
@@ -416,7 +417,7 @@ ColumnLayout {
                 text: content.service && content.service.titlebarBusy ? "Applying…" : "Refresh window controls"
                 font.family: Style.font.family
                 font.pixelSize: 11
-                color: Color.popups.text
+                color: Commons.Color.popups.text
             }
             MouseArea {
                 anchors.fill: parent
@@ -444,11 +445,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setDockEnabled(!content.service.dockEnabled)
             Keys.onReturnPressed: content.service.setDockEnabled(!content.service.dockEnabled)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleDockEnabledMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleDockEnabledMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -473,7 +474,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -483,7 +484,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -499,7 +500,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: content.service.dockEnabled ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: content.service.dockEnabled ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -513,7 +514,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: content.service.dockEnabled ? (switchDockEnabledTrack.width - width - 3) : 3
-                        color: content.service.dockEnabled ? Color.background : Color.popups.text
+                        color: content.service.dockEnabled ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -566,7 +567,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
-            color: Color.muted
+            color: Commons.Color.muted
         }
 
         // File shortcuts
@@ -575,11 +576,11 @@ ColumnLayout {
             Layout.fillWidth: true
             implicitHeight: 38
             radius: 8
-            color: Color.composed("popups.text", "popups.text-alpha", Color.text, 0.08)
+            color: Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.08)
             Text {
                 anchors.centerIn: parent
                 text: (content.service.fileShortcutsEnabled ? "✓  " : "+  ") + "Home, Downloads and Bin shortcuts"
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 font.family: Style.font.family
                 font.pixelSize: 11
             }
@@ -616,11 +617,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setAutohide(!autohideRow.active)
             Keys.onReturnPressed: content.service.setAutohide(!autohideRow.active)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -647,7 +648,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -657,7 +658,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -672,7 +673,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: autohideRow.active ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: autohideRow.active ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -686,7 +687,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: autohideRow.active ? (switchTrack.width - width - 3) : 3
-                        color: autohideRow.active ? Color.background : Color.popups.text
+                        color: autohideRow.active ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -721,11 +722,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setKeybindMode(!keybindRow.active)
             Keys.onReturnPressed: content.service.setKeybindMode(!keybindRow.active)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleKeybindMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleKeybindMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -752,7 +753,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -762,7 +763,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -777,7 +778,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: keybindRow.active ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: keybindRow.active ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -791,7 +792,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: keybindRow.active ? (switchKeybindTrack.width - width - 3) : 3
-                        color: keybindRow.active ? Color.background : Color.popups.text
+                        color: keybindRow.active ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -846,7 +847,7 @@ ColumnLayout {
                 font.family: Style.font.family
                 font.pixelSize: 10
                 font.bold: true
-                color: Color.popups.text
+                color: Commons.Color.popups.text
                 elide: Text.ElideRight
             }
 
@@ -857,9 +858,9 @@ ColumnLayout {
                 Layout.minimumHeight: 44
                 Layout.maximumHeight: 44
                 radius: 6
-                color: cmdMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : Color.composed("popups.border", "popups.border-alpha", Color.border, 0.25)
+                color: cmdMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : Commons.Color.composed("popups.border", "popups.border-alpha", Commons.Color.border, 0.25)
                 border.width: 1
-                border.color: cmdMouse.containsMouse ? Color.accent : Color.composed("popups.border", "popups.border-alpha", Color.border, 0.4)
+                border.color: cmdMouse.containsMouse ? Commons.Color.accent : Commons.Color.composed("popups.border", "popups.border-alpha", Commons.Color.border, 0.4)
                 Behavior on color  {
                     ColorAnimation {
                         duration: 120
@@ -890,7 +891,7 @@ ColumnLayout {
                         font.pixelSize: !cmdPill.copied ? 9 : 10
                         lineHeight: 1.18
                         font.bold: cmdPill.copied
-                        color: cmdPill.copied ? Color.accent : Color.popups.text
+                        color: cmdPill.copied ? Commons.Color.accent : Commons.Color.popups.text
                         wrapMode: Text.Wrap
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -901,7 +902,7 @@ ColumnLayout {
                         text: cmdPill.copied ? "󰄬" : "󰆏"
                         fontFamily: Style.font.family
                         fontSize: 11
-                        color: cmdPill.copied ? Color.accent : Color.muted
+                        color: cmdPill.copied ? Commons.Color.accent : Commons.Color.muted
                     }
                 }
 
@@ -934,11 +935,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setOverlayMode(!content.service.overlayMode)
             Keys.onReturnPressed: content.service.setOverlayMode(!content.service.overlayMode)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleOverlayMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleOverlayMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -963,7 +964,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -973,7 +974,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -987,7 +988,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: content.service.overlayMode ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: content.service.overlayMode ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -1001,7 +1002,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: content.service.overlayMode ? (switchOverlayTrack.width - width - 3) : 3
-                        color: content.service.overlayMode ? Color.background : Color.popups.text
+                        color: content.service.overlayMode ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -1046,11 +1047,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setPreference("showBadges", !content.service.showBadges)
             Keys.onReturnPressed: content.service.setPreference("showBadges", !content.service.showBadges)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleBadgesMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleBadgesMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -1075,7 +1076,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -1085,7 +1086,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -1099,7 +1100,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: content.service.showBadges ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: content.service.showBadges ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -1113,7 +1114,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: content.service.showBadges ? (switchBadgesTrack.width - width - 3) : 3
-                        color: content.service.showBadges ? Color.background : Color.popups.text
+                        color: content.service.showBadges ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -1148,11 +1149,11 @@ ColumnLayout {
             Keys.onSpacePressed: content.service.setWidgetsEnabled(!content.service.widgetsEnabled)
             Keys.onReturnPressed: content.service.setWidgetsEnabled(!content.service.widgetsEnabled)
             border.width: activeFocus ? 2 : 0
-            border.color: Color.accent
+            border.color: Commons.Color.accent
             Layout.fillWidth: true
             height: 42
             radius: 8
-            color: toggleWidgetsMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
+            color: toggleWidgetsMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -1177,7 +1178,7 @@ ColumnLayout {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: Color.popups.text
+                        color: Commons.Color.popups.text
                         elide: Text.ElideRight
                     }
 
@@ -1187,7 +1188,7 @@ ColumnLayout {
                         textFormat: Text.PlainText
                         font.family: Style.font.family
                         font.pixelSize: 10
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                     }
                 }
@@ -1201,7 +1202,7 @@ ColumnLayout {
                     width: 36
                     height: 20
                     radius: 10
-                    color: content.service.widgetsEnabled ? Color.accent : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+                    color: content.service.widgetsEnabled ? Commons.Color.accent : Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.25)
                     Behavior on color  {
                         ColorAnimation {
                             duration: 180
@@ -1215,7 +1216,7 @@ ColumnLayout {
                         radius: 7
                         anchors.verticalCenter: parent.verticalCenter
                         x: content.service.widgetsEnabled ? (switchWidgetsTrack.width - width - 3) : 3
-                        color: content.service.widgetsEnabled ? Color.background : Color.popups.text
+                        color: content.service.widgetsEnabled ? Commons.Color.background : Commons.Color.popups.text
                         Behavior on x  {
                             NumberAnimation {
                                 duration: 180
@@ -1246,9 +1247,9 @@ ColumnLayout {
             radius: 8
             opacity: content.service.widgetsEnabled ? 1.0 : 0.4
             enabled: content.service.widgetsEnabled
-            color: configureWidgetsMouse.containsMouse ? Color.composed("accent", "accent-alpha", Color.accent, 0.2) : Color.composed("popups.text", "popups.text-alpha", Color.text, 0.08)
+            color: configureWidgetsMouse.containsMouse ? Commons.Color.composed("accent", "accent-alpha", Commons.Color.accent, 0.2) : Commons.Color.composed("popups.text", "popups.text-alpha", Commons.Color.text, 0.08)
             border.width: 1
-            border.color: configureWidgetsMouse.containsMouse ? Color.accent : "transparent"
+            border.color: configureWidgetsMouse.containsMouse ? Commons.Color.accent : "transparent"
             Behavior on color  {
                 ColorAnimation {
                     duration: 120
@@ -1273,7 +1274,7 @@ ColumnLayout {
                 font.family: Style.font.family
                 font.pixelSize: 11
                 font.bold: true
-                color: configureWidgetsMouse.containsMouse ? Color.accent : Color.popups.text
+                color: configureWidgetsMouse.containsMouse ? Commons.Color.accent : Commons.Color.popups.text
                 renderType: Text.CurveRendering
                 font.hintingPreference: Font.PreferNoHinting
                 Behavior on color  {

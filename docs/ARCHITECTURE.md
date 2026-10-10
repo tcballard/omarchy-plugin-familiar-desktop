@@ -8,7 +8,7 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | Behaviour | Owner and entry point | Focused coverage |
 | --- | --- | --- |
 | Durable dock and titlebar preferences | `components/SettingsStore.qml`, `components/SettingsSchema.js`; service aliases in `DockPanel.qml` | `tst_SettingsStore.qml`, `test_widget_config.cjs`, `test_dock_opacity.cjs` |
-| Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`, `PreferenceToggle.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml`, `tst_PreferenceToggle.qml` |
+| Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`, `PreferenceToggle.qml`, `PreferenceSection.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml`, `tst_PreferenceToggle.qml`, `tst_PreferenceSection.qml` |
 | Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`; shared placement in `DockGeometry.js` | `test_dock_position.cjs`, `tst_DockSettings.qml`, desktop smoke |
 | App matching and window history | `DockModel.js` facade → `DockMatcher.js`; normalized lookup in `DesktopCatalog.js`, curated data in `AppCatalog.js` | `test_desktop_catalog.cjs`, `tst_DockMatcher.qml`, `test_window_history.cjs`, `test_app_identity.cjs` |
 | Popup selection and editing | `components/DockInteraction.qml`; `FolderIconPicker.qml` takes data and emits actions | `tst_DockInteraction.qml`, `tst_FolderIconPicker.qml` |
@@ -97,6 +97,9 @@ APIs; avoid extracting functions using nearby comments or layout text.
 For a preference: extend SettingsSchema/SettingsStore, bind a PreferenceToggle
 or the appropriate control to the service setter, and test restore/save/defaults.
 The toggle emits a requested value; it never mutates or breaks the owner binding.
+Controller-backed choice panels use PreferenceSection: each feature supplies
+its choices and copy, while the component reads selection/status and requests
+the controller's existing operations. Rendering never applies a preference.
 For a native operation: keep parsing
 and Lua in its feature module and use the shared transaction. For a hosted widget:
 use DockWidgetSlot on both sides and supply the narrow action adapter.

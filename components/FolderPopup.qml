@@ -19,9 +19,6 @@ PanelWindow {
     visible: stackWindow.root.isStackOpen && stackWindow.root.dockRevealed
 
     readonly property bool isOverlay: stackWindow.root.overlayMode === true
-    readonly property int dockThickness: stackWindow.root.slotSize + 8
-    readonly property int dockGap: (Style.gapsOut || 5)
-    readonly property int dockOffset: stackWindow.root.taskbarActive ? (stackWindow.root.taskbarItemSize + 4) : (isOverlay ? (dockGap + dockThickness + dockGap) : dockGap)
 
     WlrLayershell.namespace: "omarchy-dock-stack"
     WlrLayershell.layer: isOverlay ? WlrLayer.Overlay : WlrLayer.Top
@@ -32,19 +29,20 @@ PanelWindow {
     color: "transparent"
     mask: Region { item: stackCard }
 
+    readonly property var placement: stackWindow.root.folderPopupLayout
     anchors {
-        top: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "bottom") ? true : (stackWindow.root.isVertical ? true : false)
-        bottom: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "top") ? true : (stackWindow.root.isVertical ? true : false)
-        left: (stackWindow.root.isVertical && stackWindow.root.barPosition === "right") ? true : (!stackWindow.root.isVertical ? true : false)
-        right: (stackWindow.root.isVertical && stackWindow.root.barPosition === "left") ? true : (!stackWindow.root.isVertical ? true : false)
+        top: placement.anchors.top
+        bottom: placement.anchors.bottom
+        left: placement.anchors.left
+        right: placement.anchors.right
+    }
+    margins {
+        top: placement.margins.top
+        bottom: placement.margins.bottom
+        left: placement.margins.left
+        right: placement.margins.right
     }
 
-    margins {
-        bottom: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "top") ? dockOffset : 0
-        top: (!stackWindow.root.isVertical && stackWindow.root.barPosition === "bottom") ? dockOffset : 0
-        right: (stackWindow.root.isVertical && stackWindow.root.barPosition === "left") ? dockOffset : 0
-        left: (stackWindow.root.isVertical && stackWindow.root.barPosition === "right") ? dockOffset : 0
-    }
 
         implicitWidth: stackWindow.root.isVertical ? stackCard.width : (dockWindow.screen ? dockWindow.screen.width : 1920)
         implicitHeight: stackWindow.root.isVertical ? (dockWindow.screen ? dockWindow.screen.height : 1080) : stackCard.height
@@ -58,9 +56,9 @@ PanelWindow {
                 if (stackWindow.root.isEditingFolderTitle && typeof titleInput !== "undefined") {
                     titleInput.saveAndClose()
                 }
-                stackWindow.root.activeStackItem = null
-                stackWindow.root.isEditMode = false
-                stackWindow.root.isEditingFolderTitle = false
+                stackWindow.root.interaction.dismissFolder()
+                stackWindow.root.interaction.setEditing(false)
+                stackWindow.root.interaction.renameFolder(false)
             }
         }
 
@@ -91,14 +89,14 @@ PanelWindow {
                     if (typeof titleInput !== "undefined") {
                         titleInput.text = (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.name !== undefined) ? stackWindow.root.activeStackItem.name : ""
                     }
-                    stackWindow.root.isEditingFolderTitle = false
+                    stackWindow.root.interaction.renameFolder(false)
                     stackCard.forceActiveFocus()
                     return
                 }
                 if (stackWindow.root.isEditMode) {
-                    stackWindow.root.isEditMode = false
+                    stackWindow.root.interaction.setEditing(false)
                 }
-                stackWindow.root.activeStackItem = null
+                stackWindow.root.interaction.dismissFolder()
             }
 
             readonly property int totalApps: (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.subApps) ? stackWindow.root.activeStackItem.subApps.length : 0
@@ -141,7 +139,7 @@ PanelWindow {
                         titleInput.saveAndClose()
                     }
                     if (mouse.button === Qt.RightButton || mouse.button === Qt.LeftButton) {
-                        stackWindow.root.isEditMode = false
+                        stackWindow.root.interaction.setEditing(false)
                     }
                 }
             }
@@ -293,9 +291,8 @@ PanelWindow {
                             var n = text.trim()
                             if (stackWindow.root.activeStackItem) {
                                 stackWindow.root.setPinned(DockModel.renameStack(stackWindow.root.pinnedIds, stackWindow.root.activeStackItem.id, n))
-                                stackWindow.root.activeStackItem.name = n
                             }
-                            stackWindow.root.isEditingFolderTitle = false
+                            stackWindow.root.interaction.renameFolder(false)
                             focus = false
                             stackCard.forceActiveFocus()
                         }
@@ -305,7 +302,7 @@ PanelWindow {
                         Keys.onEscapePressed: function(event) {
                             event.accepted = true
                             text = (stackWindow.root.activeStackItem && stackWindow.root.activeStackItem.name !== undefined) ? stackWindow.root.activeStackItem.name : ""
-                            stackWindow.root.isEditingFolderTitle = false
+                            stackWindow.root.interaction.renameFolder(false)
                             focus = false
                             stackCard.forceActiveFocus()
                         }
@@ -321,7 +318,7 @@ PanelWindow {
                         cursorShape: (stackWindow.root.folderDragActiveIndex >= 0 || titleHoverArea.containsMouse) ? Qt.BlankCursor : Qt.IBeamCursor
                         onClicked: {
                             if (stackWindow.root.activeStackItem) {
-                                stackWindow.root.isEditingFolderTitle = true
+                                stackWindow.root.interaction.renameFolder(true)
                             }
                         }
                     }
@@ -557,7 +554,7 @@ PanelWindow {
                                 onTriggered: {
                                     if (stackWindow.root.activeStackItem && stackWindow.root.folderDragActiveIndex < 0) {
                                         subMouse.didSubLongPress = true
-                                        stackWindow.root.isEditMode = true
+                                        stackWindow.root.interaction.setEditing(true)
                                     }
                                 }
                             }
@@ -595,7 +592,7 @@ PanelWindow {
                                     cursorShape: (stackWindow.root.folderDragActiveIndex >= 0) ? Qt.BlankCursor : Qt.PointingHandCursor
                                     onClicked: function(mouse) {
                                         if (mouse.button === Qt.RightButton) {
-                                            stackWindow.root.isEditMode = false
+                                            stackWindow.root.interaction.setEditing(false)
                                             return
                                         }
                                         if (stackWindow.root.activeStackItem) {
@@ -603,8 +600,8 @@ PanelWindow {
                                             var remaining = (stackWindow.root.activeStackItem.subApps ? stackWindow.root.activeStackItem.subApps.length : 0) - 1
                                             stackWindow.root.setPinned(DockModel.extractFromStackToDock(stackWindow.root.pinnedIds, stackId, modelData.appId, stackWindow.root.activeStackItemIndex + 1))
                                             if (remaining <= 1) {
-                                                stackWindow.root.activeStackItem = null
-                                                stackWindow.root.isEditMode = false
+                                                stackWindow.root.interaction.dismissFolder()
+                                                stackWindow.root.interaction.setEditing(false)
                                             }
                                         }
                                     }
@@ -692,7 +689,7 @@ PanelWindow {
                                     } else if (mouse.button === Qt.RightButton) {
                                         if (stackWindow.root.isEditMode) {
                                             subClickEffectAnim.restart()
-                                            stackWindow.root.isEditMode = false
+                                            stackWindow.root.interaction.setEditing(false)
                                             return
                                         }
                                         if (modelData) {

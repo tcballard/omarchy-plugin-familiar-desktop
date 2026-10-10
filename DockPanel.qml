@@ -12,6 +12,7 @@ import "DockModel.js" as DockModel
 import "HostedWidgets.js" as HostedWidgets
 import "IconResolver.js" as Icons
 import "DockSettings.js" as DockSettings
+import "DockGeometry.js" as Geometry
 import "ShortcutLabels.js" as ShortcutLabels
 import "DockCommands.js" as DockCommands
 import "WindowPreviews.js" as WindowPreviews
@@ -142,7 +143,7 @@ Item {
         function setAppMenuPosition(pos: string): string { root.setAppMenuPosition(pos); return "ok" }
         function setWidgetsEnabled(val: string): string { root.setWidgetsEnabled(val === "true" || val === "1"); return "ok" }
         function setWidgetPosition(pos: string): string { root.setWidgetPosition(pos); return "ok" }
-        function setEditMode(val: string): string { root.isEditMode = (val === "true" || val === "1"); return "ok" }
+        function setEditMode(val: string): string { root.interaction.setEditing((val === "true" || val === "1")); return "ok" }
         function setDockEnabled(val: string): string { root.dockEnabled = (val === "true" || val === "1"); root.saveSettings(); return "ok" }
         function setAutohide(val: string): string { root.setAutohide(val === "true" || val === "1"); return "ok" }
         function setVisibilityMode(mode: string): string { root.setVisibilityMode(mode); return "ok" }
@@ -193,8 +194,7 @@ Item {
 
     function close() {
         root.opened = false
-        root.activeMenuItem = null
-        root.activeStackItem = null
+        root.interaction.dismiss()
         root.dockDragActiveIndex = -1
         root.dockDragTargetIndex = -1
         root.currentMergeTargetIndex = -1
@@ -204,8 +204,7 @@ Item {
 
     function toggle() {
         root.opened = !root.opened
-        root.activeMenuItem = null
-        root.activeStackItem = null
+        root.interaction.dismiss()
         root.dockDragActiveIndex = -1
         root.dockDragTargetIndex = -1
         root.currentMergeTargetIndex = -1
@@ -213,22 +212,7 @@ Item {
         root.folderDragTargetIndex = -1
     }
 
-    function toggleStack(item, index) {
-        root.activeMenuItem = null
-        if (!item) {
-            root.activeStackItem = null
-            return
-        }
-        var itemId = item.id || item.appId || ""
-        if (root.activeStackItem && (root.activeStackItem.id === itemId || root.activeStackItem.appId === itemId || root.activeStackItemIndex === index)) {
-            root.activeStackItem = null
-        } else {
-            root.activeStackItemIndex = index
-            if (item.isStack) {
-                root.activeStackItem = item
-            }
-        }
-    }
+    function toggleStack(item, index) { interaction.toggleFolder(item) }
 
     // Persistent stable chronological window registry (never reordered on focus or workspace switch)
     property var knownWindows: []
@@ -317,7 +301,23 @@ Item {
         }
         return false
     }
-    readonly property real popupDockOffset: root.taskbarActive ? root.taskbarItemSize : root.slotSize + 2 * (Style.gapsOut || 5) + 8
+    readonly property var dockLayout: Geometry.panelLayout(root.dockScreenPosition, Style.gapsOut || 5, false)
+    readonly property var edgeLayout: Geometry.panelLayout(root.dockScreenPosition, 0, false)
+    function popupLayout(ignoreDockExclusion) {
+        return Geometry.popupLayout({
+            edge: root.dockScreenPosition, slotSize: root.slotSize, gap: Style.gapsOut || 5,
+            taskbar: root.taskbarActive, taskbarSize: root.taskbarItemSize,
+            overlay: root.overlayMode, ignoreDockExclusion: ignoreDockExclusion
+        })
+    }
+    readonly property var appPopupLayout: popupLayout(true)
+    readonly property var folderPopupLayout: popupLayout(false)
+    readonly property real popupDockOffset: appPopupLayout.offset
+    readonly property var popupAppearance: ({
+        transparent: root.isBarTransparent, rounding: root.systemRounding,
+        borderSpec: root.dockBorderSpec, borderAnimated: root.borderAngleAnimationEnabled,
+        borderAnimationDuration: root.borderAngleAnimationDuration
+    })
     readonly property real taskbarAnchorX: root.taskbarAnchorItem
         ? root.taskbarAnchorItem.mapToItem(null, root.taskbarAnchorItem.width / 2, 0).x : 0
     TaskbarController {
@@ -331,10 +331,8 @@ Item {
         }
     }
     onTaskbarActiveChanged: {
-        root.contextAppId = ""
-        root.activeMenuItem = null
-        root.activeStackItem = null
-        root.isEditMode = false
+        root.interaction.dismissApp()
+        root.interaction.dismiss()
         root.taskbarAnchorItem = null
     }
 
@@ -371,7 +369,7 @@ Item {
             if (code !== 0 || !result || result.state !== "ok") {
                 root.desktopActionError = result && result.message ? String(result.message).slice(0, 300) : "Action failed. Check the installed Familiar backend."
             } else {
-                root.contextAppId = ""
+                root.interaction.dismissApp()
                 root.updateDockItems()
                 minimizeRefreshTimer.restart()
             }
@@ -392,51 +390,22 @@ Item {
         return "Workspace unavailable"
     }
 
-    // The app menu is keyed by app id, so window updates do not leave a stale
-    // snapshot behind while the user is choosing a window.
-    property string contextAppId: ""
-    property int contextAppIndex: -1
-    readonly property var contextApp: {
-        for (var i = 0; i < root.dockItems.length; i++) {
-            var item = root.dockItems[i]
-            if (item && !item.isStack && item.appId === root.contextAppId) return item
-        }
-        return null
+    readonly property var interaction: dockInteraction
+    DockInteraction { id: dockInteraction; items: root.dockItems }
+    readonly property string contextAppId: interaction.app ? interaction.app.appId : ""
+    readonly property int contextAppIndex: interaction.app ? interaction.selectedIndex : -1
+    readonly property var contextApp: interaction.app
+    readonly property bool hasActiveDockInteraction: interaction.popup !== "none" || isEditMode || (root.widgetPicker && root.widgetPicker.opened)
+    Connections {
+        target: dockInteraction
+        function onPopupChanged() { root.evaluateHoverState() }
     }
 
     function toggleAppMenu(item, index) {
-        if (!item || item.isStack || !item.appId) return
-        if (root.contextAppId === item.appId) {
-            root.contextAppId = ""
-            root.contextAppIndex = -1
-        } else {
-            root.activeStackItem = null
-            root.activeMenuItem = null
-            root.desktopActionError = ""
-            root.contextAppIndex = index
-            root.contextAppId = item.appId
-        }
+        root.desktopActionError = ""
+        interaction.toggleApp(item)
     }
-
-    // Folder icon picker remains separate from the app action menu.
-    function toggleMenu(item, index, fromFolder) {
-        if (!item || !item.isStack) {
-            root.activeMenuItem = null
-            root.isMenuFromFolder = false
-            return
-        }
-        var appId = item.appId || item.id || ""
-        if (root.activeMenuItem && root.activeMenuItem.appId === appId) {
-            root.activeMenuItem = null
-            root.isMenuFromFolder = false
-        } else {
-            root.contextAppId = ""
-            root.activeStackItem = null
-            root.isMenuFromFolder = !!fromFolder
-            root.activeMenuItemIndex = index
-            root.activeMenuItem = item
-        }
-    }
+    function toggleMenu(item, index) { interaction.toggleFolderMenu(item) }
 
     // Standalone plugin lifecycle: enabled by default, disabled ONLY if in disabledPlugins
     function updatePluginEnabled() {
@@ -779,7 +748,7 @@ Item {
         if (!root.autohide) return
         var anyOpenWidget = checkWidgetPanelsOpen()
         var isDockWinHovered = !root.shouldSlideOut && root.anyDockSurfaceHovered()
-        var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
+        var anyPopupsActive = root.hasActiveDockInteraction
         var anyHover = isDockWinHovered || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
         if (anyHover) {
             autohideLeaveTimer.stop()
@@ -796,7 +765,7 @@ Item {
         onTriggered: {
             if (!root.autohide) return
             var anyOpenWidget = root.checkWidgetPanelsOpen()
-            var anyPopupsActive = root.isStackOpen || root.isMenuOpen || root.isEditingFolderTitle || root.isEditMode || (root.widgetPicker && root.widgetPicker.opened)
+            var anyPopupsActive = root.hasActiveDockInteraction
             var anyHover = root.anyDockSurfaceHovered() || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
             if (!anyHover) {
                 root.isDockHovered = false
@@ -1041,6 +1010,8 @@ Item {
 
     readonly property real leftSeparatorSize: hasLeftWidgets ? 8 : 0
     readonly property real rightSeparatorSize: hasRightWidgets ? 8 : 0
+    readonly property real appRailOffset: root.hasLeftWidgets ? root.leftWidgetsWidth + root.leftSeparatorSize : 0
+    readonly property var dockSurfaceSize: Geometry.surfaceSize(root.isVertical, root.slotSize, root.totalDockDimension)
     readonly property real itemsWidth: (root.dockItems.length * root.slotSize)
 
     // Dynamic max items limit for dock bar based on logical screen dimensions & scale (15 items on 1080p @ 1.6x, scales dynamically for Ultrawide 21:9 / 32:9)
@@ -1074,10 +1045,7 @@ Item {
 
     onDockEnabledChanged: {
         if (!dockEnabled) {
-            root.activeStackItem = null
-            root.activeMenuItem = null
-            root.contextAppId = ""
-            root.isEditMode = false
+            root.interaction.dismiss()
         }
     }
 
@@ -1118,9 +1086,8 @@ Item {
         root.overlayMode = defaults.overlayMode
         root.titlebarStyle = defaults.titlebarStyle
         if (root.titlebarMode !== "theme" && root.titlebarMode !== "off") root.titlebarMode = defaults.titlebarStyle
-        root.contextAppId = ""
-        root.activeMenuItem = null
-        root.activeStackItem = null
+        root.interaction.dismissApp()
+        root.interaction.dismiss()
         root.saveSettings()
     }
 
@@ -1410,7 +1377,7 @@ Item {
     function handleWidgetSlotClick(widgetId, mouse) {
         if (root.isEditMode) {
             if (mouse && mouse.button === Qt.RightButton) {
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
             return
         }
@@ -1460,7 +1427,7 @@ Item {
         windowPreview.close()
         if (root.isEditMode) {
             if (mouse && mouse.button === Qt.RightButton) {
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
             return
         }
@@ -1562,7 +1529,7 @@ Item {
         if (root.lastRemapBarPosition !== root.barPosition) {
             if (root.lastRemapBarPosition !== "") {
                 root.closePopups()
-                root.contextAppId = ""
+                root.interaction.dismissApp()
                 root.dockDragActiveIndex = -1
                 root.dockDragTargetIndex = -1
             }
@@ -1827,8 +1794,7 @@ Item {
         onFileChanged: root.refreshHyprlandOptions()
     }
 
-    // Unified Edit Mode State (Jiggle Mode across dock and open folders)
-    property bool isEditMode: false
+    readonly property bool isEditMode: interaction.editingItems
 
     function closeAppWindows(appIdOrItem) {
         if (!appIdOrItem) return
@@ -1917,24 +1883,12 @@ Item {
     }
 
     // Right-Click Menu State
-    property var activeMenuItem: null
-    property int activeMenuItemIndex: 0
-    property bool isMenuFromFolder: false
-    property int activeMenuItemFolderIndex: 0
+    readonly property var activeMenuItem: interaction.folderMenu
     readonly property bool isMenuOpen: activeMenuItem !== null
-
-    property var activeStackItem: null
-    property int activeStackItemIndex: 0
-    property bool isEditingFolderTitle: false
+    readonly property var activeStackItem: interaction.folder
+    readonly property int activeStackItemIndex: interaction.folder ? interaction.selectedIndex : -1
+    readonly property bool isEditingFolderTitle: interaction.renamingFolder
     readonly property bool isStackOpen: activeStackItem !== null
-
-    onActiveStackItemChanged: {
-        if (activeStackItem) {
-            if (stackWindow && stackWindow.stackCard) stackWindow.stackCard.forceActiveFocus()
-        } else {
-            root.isEditingFolderTitle = false
-        }
-    }
 
     // Pinned apps persistence
     property string userPinnedPath: Quickshell.env("HOME") + "/.config/omarchy/familiar-desktop-pinned.json"
@@ -1956,33 +1910,9 @@ Item {
         })
     }
 
-    // Exact Geometric Horizontal Center for Stack Popup Card (100% centered over folder icon in dock)
-    readonly property real calculatedStackLeft: {
-        var screenW = (dockWindow && dockWindow.screen) ? dockWindow.screen.width : 1920
-        var dockW = root.isVertical ? (root.slotSize + 4) : (root.totalDockDimension + 8)
-        var dockLeft = (screenW - dockW) / 2
-        var appBaseOffset = (root.widgetPosition === "left" && root.hasWidgets) ? (root.widgetsWidth + root.separatorSize) : 0
-        var iconCenterX = dockLeft + 4 + appBaseOffset + root.activeStackItemIndex * root.slotSize + (root.slotSize / 2)
-        var cardW = (stackWindow && stackWindow.stackCard) ? stackWindow.stackCard.width : 180
-        return Math.round(Math.max(6, Math.min(screenW - cardW - 6, iconCenterX - cardW / 2)))
-    }
-
-    readonly property real calculatedStackTop: {
-        var screenH = (dockWindow && dockWindow.screen) ? dockWindow.screen.height : 1080
-        var dockH = root.isVertical ? (root.totalDockDimension + 8) : (root.slotSize + 4)
-        var dockTop = (screenH - dockH) / 2
-        var appBaseOffset = (root.widgetPosition === "left" && root.hasWidgets) ? (root.widgetsWidth + root.separatorSize) : 0
-        var iconCenterY = dockTop + 4 + appBaseOffset + root.activeStackItemIndex * root.slotSize + (root.slotSize / 2)
-        var cardH = (stackWindow && stackWindow.stackCard) ? stackWindow.stackCard.height : 180
-        return Math.round(Math.max(6, Math.min(screenH - cardH - 6, iconCenterY - cardH / 2)))
-    }
-
     function closePopups() {
         windowPreview.close()
-        root.activeStackItem = null
-        root.activeMenuItem = null
-        root.isEditMode = false
-        root.isEditingFolderTitle = false
+        root.interaction.dismiss()
         root.folderDragActiveIndex = -1
         root.folderDragTargetIndex = -1
         root.currentMergeTargetIndex = -1
@@ -2147,55 +2077,9 @@ Item {
         root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, toplevels, active)
         root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
 
-        // Refresh active stack item contents if open
-        if (root.activeStackItem) {
-            var found = false
-            for (var i = 0; i < root.dockItems.length; i++) {
-                var it = root.dockItems[i]
-                if (it && (it.id === root.activeStackItem.id || it.appId === root.activeStackItem.appId)) {
-                    if (it.isStack && it.subApps && it.subApps.length >= 2) {
-                        root.activeStackItem = it
-                        root.activeStackItemIndex = i
-                        found = true
-                    }
-                    break
-                }
-            }
-            if (!found) {
-                root.activeStackItem = null
-                root.folderDragActiveIndex = -1
-                root.folderDragTargetIndex = -1
-            }
-        }
-
-        // Refresh active menu item (multi-window menu) if open
-        if (root.activeMenuItem && !root.activeMenuItem.isStack && root.activeMenuItem.windows) {
-            var mAppId = root.activeMenuItem.appId
-            var mWinList = []
-            for (var mw = 0; mw < toplevels.length; mw++) {
-                var mTop = toplevels[mw]
-                if (mTop && DockModel.matchToplevel(mTop, mAppId, null)) {
-                    var mActive = (active && mTop === active)
-                    mWinList.push({
-                        index: mWinList.length,
-                        title: mTop.title || root.activeMenuItem.name || "",
-                        isActive: !!mActive
-                    })
-                }
-            }
-            if (mWinList.length === 0) {
-                root.activeMenuItem = null
-            } else {
-                root.activeMenuItem = {
-                    id: root.activeMenuItem.id,
-                    appId: root.activeMenuItem.appId,
-                    name: root.activeMenuItem.name,
-                    icon: root.activeMenuItem.icon,
-                    rawIcon: root.activeMenuItem.rawIcon,
-                    isStack: false,
-                    windows: mWinList
-                }
-            }
+        if (!root.isStackOpen) {
+            root.folderDragActiveIndex = -1
+            root.folderDragTargetIndex = -1
         }
     }
 
@@ -2640,7 +2524,7 @@ Item {
         active: root.isMenuOpen
         windows: [menuWindow]
         onCleared: {
-            root.activeMenuItem = null
+            root.interaction.dismissFolderMenu()
         }
     }
 
@@ -2650,7 +2534,7 @@ Item {
         active: root.isEditMode && !root.isStackOpen && !root.isMenuOpen
         windows: root.taskbarActive && root.dockWindow ? [root.dockWindow] : dockVariants.instances
         onCleared: {
-            root.isEditMode = false
+            root.interaction.setEditing(false)
         }
     }
 
@@ -2669,21 +2553,7 @@ Item {
         root.evaluateHoverState()
     }
 
-    onIsMenuOpenChanged: {
-        if (isMenuOpen) {
-            if (menuWindow && menuWindow.menuCard) {
-                menuWindow.menuCard.forceActiveFocus()
-                if (root.activeMenuItem && root.activeMenuItem.isStack) {
-                    var curIcon = root.activeMenuItem.icon || "grid"
-                    var foundIdx = root.availableFolderIcons.indexOf(curIcon)
-                    menuWindow.menuCard.selectedIndex = (foundIdx >= 0) ? foundIdx : 0
-                } else {
-                    menuWindow.menuCard.selectedIndex = -1
-                }
-            }
-        }
-        root.evaluateHoverState()
-    }
+    onIsMenuOpenChanged: root.evaluateHoverState()
 
     onIsEditingFolderTitleChanged: {
         root.evaluateHoverState()
@@ -2790,17 +2660,17 @@ Item {
                 }
 
                 anchors {
-                    top: root.barPosition === "bottom"
-                    bottom: root.barPosition === "top"
-                    left: root.barPosition === "right"
-                    right: root.barPosition === "left"
+                    top: root.dockLayout.anchors.top
+                    bottom: root.dockLayout.anchors.bottom
+                    left: root.dockLayout.anchors.left
+                    right: root.dockLayout.anchors.right
                 }
 
                 margins {
-                    bottom: (!root.isVertical && root.barPosition === "top") ? (Style.gapsOut || 5) : 0
-                    top: (!root.isVertical && root.barPosition === "bottom") ? (Style.gapsOut || 5) : 0
-                    right: (root.isVertical && root.barPosition === "left") ? (Style.gapsOut || 5) : 0
-                    left: (root.isVertical && root.barPosition === "right") ? (Style.gapsOut || 5) : 0
+                    top: root.dockLayout.margins.top
+                    bottom: root.dockLayout.margins.bottom
+                    left: root.dockLayout.margins.left
+                    right: root.dockLayout.margins.right
                 }
 
                 // Hosted KeyboardPanel anchors use screen-relative coordinates along the bar.
@@ -2820,8 +2690,8 @@ Item {
         Rectangle {
             id: dockSurface
             anchors.centerIn: parent
-            width: root.isVertical ? (root.slotSize + 4) : Math.max(root.slotSize + 4, root.totalDockDimension + 8)
-            height: root.isVertical ? Math.max(root.slotSize + 4, root.totalDockDimension + 8) : (root.slotSize + 4)
+            width: root.dockSurfaceSize.width
+            height: root.dockSurfaceSize.height
             visible: root.dockMapped
             opacity: root.isDockVisualReady ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
@@ -2830,13 +2700,13 @@ Item {
             Keys.onEscapePressed: function(event) {
                 event.accepted = true
                 if (root.isEditingFolderTitle) {
-                    root.isEditingFolderTitle = false
+                    root.interaction.renameFolder(false)
                     return
                 }
                 if (root.isStackOpen) {
-                    root.activeStackItem = null
+                    root.interaction.dismissFolder()
                 }
-                root.isEditMode = false
+                root.interaction.setEditing(false)
             }
 
             color: root.dockBackgroundColor
@@ -2868,9 +2738,9 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: (root.dockDragActiveIndex >= 0) ? Qt.BlankCursor : (root.isEditMode ? Qt.PointingHandCursor : Qt.ArrowCursor)
                 onClicked: {
-                    root.isEditMode = false
-                    root.activeMenuItem = null
-                    root.activeStackItem = null
+                    root.interaction.setEditing(false)
+                    root.interaction.dismissFolderMenu()
+                    root.interaction.dismissFolder()
                 }
             }
 
@@ -2977,11 +2847,11 @@ Item {
                         iconsReady: root.iconsReady
                         systemBorderSize: root.systemBorderSize
                         systemRounding: root.systemRounding
-                        isSelected: (!root.isMenuFromFolder && root.activeMenuItem && (root.activeMenuItem.appId === modelData.appId || root.activeMenuItem.id === modelData.id)) || (root.activeStackItem && (root.activeStackItem.id === modelData.id || root.activeStackItem.appId === modelData.appId))
+                        isSelected: (root.activeMenuItem && root.activeMenuItem.id === modelData.id) || (root.activeStackItem && root.activeStackItem.id === modelData.id)
                         isMergeTarget: (root.currentMergeTargetIndex === index)
 
                         // 1D Live Rail Displacement (with Left Widget offset)
-                        readonly property real appBaseOffset: (root.hasLeftWidgets ? (root.leftWidgetsWidth + root.leftSeparatorSize) : 0)
+                        readonly property real appBaseOffset: root.appRailOffset
                         readonly property int visualSlot: (root.dockDragActiveIndex === index) ? index : root.getDockVisualSlot(index, root.dockDragActiveIndex, root.dockDragTargetIndex)
                         x: root.isVertical ? 0 : (appBaseOffset + visualSlot * root.slotSize)
                         y: root.isVertical ? (appBaseOffset + visualSlot * root.slotSize) : 0
@@ -2994,12 +2864,12 @@ Item {
                         dockDragActiveIndex: root.dockDragActiveIndex
 
                         onEditModeRequested: {
-                            root.isEditMode = true
-                            root.activeMenuItem = null
+                            root.interaction.setEditing(true)
+                            root.interaction.dismissFolderMenu()
                         }
 
                         onEditModeExitRequested: {
-                            root.isEditMode = false
+                            root.interaction.setEditing(false)
                         }
 
                         onTogglePinRequested: function(appId) {
@@ -3020,30 +2890,30 @@ Item {
 
                         onDissolveRequested: function(stackId) {
                             root.setPinned(DockModel.dissolveStack(root.pinnedIds, stackId))
-                            root.isEditMode = false
+                            root.interaction.setEditing(false)
                         }
 
                         onItemLeftClicked: function(item) {
-                            root.contextAppId = ""
+                            root.interaction.dismissApp()
                             if (item && !item.isStack) {
                                 root.clearBadge(item)
                             }
                             if (item && item.isStack) {
                                 root.toggleStack(item, index)
                             } else {
-                                root.activeStackItem = null
-                                root.activeMenuItem = null
+                                root.interaction.dismissFolder()
+                                root.interaction.dismissFolderMenu()
                                 if (root.isEditMode) return
                             }
                         }
 
                         onItemRightClicked: function(item, targetItem) {
                             if (root.isEditMode) {
-                                root.isEditMode = false
+                                root.interaction.setEditing(false)
                                 return
                             }
                             if (item && item.isStack) {
-                                root.toggleMenu(item, index, false)
+                                root.toggleMenu(item, index)
                                 return
                             }
                             if (item) {
@@ -3144,9 +3014,15 @@ Item {
     // 2. The Isolated Action Card Popup Overlay Window (Folder Icon Picker)
     FolderMenu {
         id: menuWindow
-        root: root
+        interaction: root.interaction
+        placement: root.folderPopupLayout
+        appearance: root.popupAppearance
+        revealed: root.dockRevealed
+        icons: root.availableFolderIcons
         dockWindow: root.dockWindow
-        stackWindow: stackWindow
+        onHoverChanged: function(hovered) { root.isMenuHovered = hovered; root.evaluateHoverState() }
+        onIconChosen: function(id, icon) { root.setPinned(DockModel.setStackIcon(root.pinnedIds, id, icon)) }
+        onDissolveRequested: function(id) { root.setPinned(DockModel.dissolveStack(root.pinnedIds, id)) }
     }
 
     AppMenu {
@@ -3196,10 +3072,10 @@ Item {
 
                 // Anchor to the same edge as the dock, no margins — hug the screen edge
                 anchors {
-                    top:    root.dockScreenPosition === "top"
-                    bottom: root.dockScreenPosition === "bottom"
-                    left:   root.dockScreenPosition === "left"
-                    right:  root.dockScreenPosition === "right"
+                    top: root.edgeLayout.anchors.top
+                    bottom: root.edgeLayout.anchors.bottom
+                    left: root.edgeLayout.anchors.left
+                    right: root.edgeLayout.anchors.right
                 }
 
                 margins {

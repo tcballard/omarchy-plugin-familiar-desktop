@@ -114,21 +114,21 @@ Item {
                         onOriginalAppLaunched: function(appId) { root.service.requestFocusOnLaunch(appId) }
                         onItemLeftClicked: function(item) {
                             root.anchor(app)
-                            root.service.contextAppId = ""
+                            root.service.interaction.dismissApp()
                             if (item && item.isStack) root.service.toggleStack(item, index)
-                            else { root.service.clearBadge(item); root.service.activeStackItem = null; root.service.activeMenuItem = null }
+                            else { root.service.clearBadge(item); root.service.interaction.dismissFolder(); root.service.interaction.dismissFolderMenu() }
                         }
                         onItemRightClicked: function(item, target) {
                             root.anchor(app)
                             preview.close()
-                            if (root.service.isEditMode) { root.service.isEditMode = false; return }
-                            if (item && item.isStack) root.service.toggleMenu(item, index, false)
+                            if (root.service.isEditMode) { root.service.interaction.setEditing(false); return }
+                            if (item && item.isStack) root.service.toggleMenu(item, index)
                             else root.service.toggleAppMenu(item, index)
                         }
-                        onEditModeRequested: { root.anchor(app); root.service.isEditMode = true }
-                        onEditModeExitRequested: root.service.isEditMode = false
+                        onEditModeRequested: { root.anchor(app); root.service.interaction.setEditing(true) }
+                        onEditModeExitRequested: root.service.interaction.setEditing(false)
                         onTogglePinRequested: function(id) { root.service.setPinned(DockModel.togglePinned(root.service.pinnedIds, id, root.service.maxDockItems)) }
-                        onDissolveRequested: function(id) { root.service.setPinned(DockModel.dissolveStack(root.service.pinnedIds, id)); root.service.isEditMode = false }
+                        onDissolveRequested: function(id) { root.service.setPinned(DockModel.dissolveStack(root.service.pinnedIds, id)); root.service.interaction.setEditing(false) }
                         onDragStarted: function(index) { root.service.dockDragActiveIndex = index }
                         onDragEnded: root.service.dockDragActiveIndex = -1
                         onMoveRequested: function(from, to) { root.service.dockDragActiveIndex = -1; root.service.setPinned(DockModel.reorderPinned(root.service.pinnedIds, root.items, from, to)) }

@@ -125,7 +125,7 @@ rss_icon_ready() {
 wait_for rss_icon_ready
 omarchy-shell "$plugin_id" panelStatus > "$EVIDENCE/plugin-panel-icons.json"
 rss_window=$(hyprctl -j clients | jq -er '.[] | select(.title == "RSS Feed") | .address')
-hyprctl dispatch focuswindow "address:$rss_window"
+"$helper" dock activate-instance "$rss_window"
 rss_active() { omarchy-shell "$plugin_id" panelStatus | jq -e --arg id "$rss_id" 'any(.[]; .id == $id and .active == true)' >/dev/null; }
 wait_for rss_active
 omarchy-shell shell hide "$rss_id"

@@ -1,16 +1,17 @@
 # Official titlebar migration — issue #74
 
 Status: preparatory coexistence safeguards, **not a completed migration**.
-Checked 8 October 2026. Keep #74 open until the migration and live acceptance
+Rechecked 10 October 2026. Keep #74 open until the migration and live acceptance
 criteria are met. Tom approved including the safeguards with the Windows taskbar
 and dock opacity in the v0.1.3 integration candidate on 8 October 2026. The full
-official-package migration targets v0.1.4, conditional on the work below.
+official-package migration was not completed in v0.1.4; it remains conditional
+on the work below.
 
 ## Verified upstream contracts
 
 - [Package PR #852](https://github.com/omacom/omarchy-pkgs/pull/852) merged.
-  Source inspected at `efc09808c6ce98a243b02796f65dbcafd67f97c6`.
-  `omarchy-hyprland-titlebars` 0.1.0-1 was present in the x86_64 **edge** database,
+  Source rechecked at `0a906801f1a876a739a6de902c9a366d295f43c9`.
+  `omarchy-hyprland-titlebars` 0.1.0-2 was present in the x86_64 **edge** database,
   absent from **rc** and **stable**. This is a dated observation, not a promise
   about later channel availability. Do not switch a user's package channel.
 - Package path: `/usr/lib/omarchy-hyprland-titlebars/titlebars.so`.
@@ -62,6 +63,26 @@ are not a complete solution to another integration dynamically loading a fork.
 The old binary may remain mapped until restart. A restart is required after
 installing the official package over an existing Familiar titlebar session.
 No existing system package is removed or upgraded by these safeguards.
+
+## Completion blockers rechecked on 10 October
+
+The package databases at `https://pkgs.omarchy.org/x86_64/omarchy.db`,
+`https://pkgs.omarchy.org/rc/x86_64/omarchy.db`, and
+`https://pkgs.omarchy.org/edge/x86_64/omarchy.db` were downloaded and inspected.
+Only edge contained the package. Core PR #14482 remains open at the same head.
+
+The current package still renders button icons as text in `barDeco.cpp`, so
+Familiar's `familiar-mac-*` / `familiar-windows-*` renderer names would appear as
+literal text. Its buttons and `workspace_tag` remain global. The supported
+Hyprland's plugin-list JSON still contains name, author, handle, version and
+description, without the loaded library path or configuration owner.
+
+These are outstanding integration requirements. The existing safeguards remain
+active: the dock works while Familiar pauses its private loader in the presence
+of the official package. Full migration requires supported-channel availability,
+verified backend ownership, one shared configuration owner, and working control
+rendering/targeting. No package-channel change or control-parity waiver has been
+approved, and the migration is not marked complete by the separate browser fix.
 
 ## Migration still required
 

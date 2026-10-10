@@ -9,7 +9,9 @@ branch. Run `tests/check` before preparing a source-bound development build.
 | --- | --- | --- |
 | Durable dock and titlebar preferences | `components/SettingsStore.qml`, `components/SettingsSchema.js`; service aliases in `DockPanel.qml` | `tst_SettingsStore.qml`, `test_widget_config.cjs`, `test_dock_opacity.cjs` |
 | Settings navigation and controls | `components/SettingsContent.qml`, `SettingsFrame.qml`, `PreferenceToggle.qml`, `PreferenceSection.qml`; `BarWidget.qml` opens the modal and reads the service | `test_settings_layout.cjs`, `tst_SettingsFrame.qml`, `tst_PreferenceToggle.qml`, `tst_PreferenceSection.qml` |
-| Dock lifecycle, monitors and visibility | `DockPanel.qml`, `DockSettings.js`; shared placement in `DockGeometry.js` | `test_dock_position.cjs`, `tst_DockSettings.qml`, desktop smoke |
+| Dock lifecycle, monitors and visibility | `DockPanel.qml` wires `components/DockVisibility.qml`; policy in `DockSettings.js`, placement in `DockGeometry.js` | `tst_DockVisibility.qml`, `test_dock_position.cjs`, `tst_DockSettings.qml`, desktop smoke |
+| Window observations and focus history | `components/DockWindowTracker.qml` owns live-window ordering, focus requests and terminal title settling | `tst_DockWindowTracker.qml`, `test_window_history.cjs`, desktop smoke |
+| Dock appearance observations | `components/DockAppearance.qml` owns compositor border/rounding/animation queries and background alpha | `tst_DockAppearance.qml`, desktop smoke |
 | App matching and window history | `DockModel.js` facade → `DockMatcher.js`; normalized lookup in `DesktopCatalog.js`, curated data in `AppCatalog.js` | `test_desktop_catalog.cjs`, `tst_DockMatcher.qml`, `test_window_history.cjs`, `test_app_identity.cjs` |
 | Popup selection and editing | `components/DockInteraction.qml`; `FolderIconPicker.qml` takes data and emits actions | `tst_DockInteraction.qml`, `tst_FolderIconPicker.qml` |
 | Drag ordering and cancellation | `DockDrag.js` supplies shared slot/drop calculations; `components/DockDragState.qml` owns dock/folder drag state | `test_dock_drag.cjs`, `tst_DockDragState.qml` |
@@ -54,6 +56,14 @@ AppTileInteraction owns each app tile's window preview index, smooth wheel
 accumulation and expiry. Dock and folder views route its launch/restore requests
 to the service, and keep their own visuals, edit actions and rail/grid dragging.
 Launch callers supply the current known windows explicitly for CLI hints.
+DockVisibility receives monitor/window providers, availability and surface hover
+inputs. It owns reveal overrides, target monitor, inactivity timers and the widget
+picker's temporary reveal; it requests popup closure by signal. DockWindowTracker
+receives the window providers and emits refresh, icon-refresh and validated focus
+requests. DockAppearance observes compositor/theme appearance and supplies the
+rendering properties. The service exposes read-only views of their state, rather
+than keeping additional copies. Dormant keyboard-capture state is not retained:
+the current policy shows all outputs or the configured workspace's output.
 
 The matcher library's disk icons and CLI hints are updated by the service and
 shared through `DockModel`; settings views do not mutate them. Notification event

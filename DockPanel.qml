@@ -85,12 +85,8 @@ Item {
         return detectedBarTransparent
     }
 
-    // Override only the background alpha, never the opacity of its children.
-    readonly property color dockBackgroundColor: root.dockBackgroundOpacity === "theme"
-        ? (root.isBarTransparent ? Util.alpha(Color.bar.background, 0.25) : Color.bar.background)
-        : Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, Number(root.dockBackgroundOpacity) / 100)
-    readonly property bool dockBackgroundTransparent: root.dockBackgroundOpacity === "theme"
-        ? root.isBarTransparent : Number(root.dockBackgroundOpacity) < 100
+    readonly property color dockBackgroundColor: appearance.backgroundColor
+    readonly property bool dockBackgroundTransparent: appearance.backgroundTransparent
 
     // Static Standard Dock Geometry (Strictly stable, no jumping/twitching on window state)
     readonly property real slotSize: DockSettings.dockGeometry(dockSize).slot
@@ -142,16 +138,10 @@ Item {
 
     function openWidgetPicker() {
         root.opened = true
-        root.widgetPickerRevealOwned = false
-        root.widgetPickerPreviousVisibilityOverride = root.visibilityOverride
-        if (!root.dockRevealed) {
-            var result = root.toggleReveal("internal")
-            if (result !== "shown") return
-            root.widgetPickerRevealOwned = true
-        }
+        if (!visibility.prepareWidgetPicker()) return
         if (widgetPicker) {
             widgetPicker.opened = true
-            autohideLeaveTimer.stop()
+            visibility.cancelLeave()
         }
     }
 
@@ -184,71 +174,19 @@ Item {
 
     function toggleStack(item, index) { interaction.toggleFolder(item) }
 
-    // Persistent stable chronological window registry (never reordered on focus or workspace switch)
-    property var knownWindows: []
-    property var focusedWindowHistory: []
-    property string pendingFocusAppId: ""
-    property double pendingFocusTimestamp: 0
-
-    function requestFocusOnLaunch(appId) {
-        var clean = DockModel.stripDesktop(appId || "").toLowerCase()
-        if (!clean) return
-        root.pendingFocusAppId = clean
-        root.pendingFocusTimestamp = Date.now()
+    DockWindowTracker {
+        id: windowTracker
+        toplevelManager: ToplevelManager
+        hyprland: Hyprland
+        onRefreshRequested: root.updateDockItems()
+        onIconRefreshRequested: iconScanDebounceTimer.restart()
+        onFocusRequested: function(address) { DockCommands.run(Util, ["hyprctl", "dispatch", "focuswindow", "address:" + address]) }
     }
+    readonly property var knownWindows: windowTracker.knownWindows
+    readonly property var focusedWindowHistory: windowTracker.focusedWindowHistory
+    function requestFocusOnLaunch(appId) { windowTracker.requestFocusOnLaunch(appId) }
+    function windowLocation(top) { return windowTracker.windowLocation(top) }
 
-    function syncKnownWindows() {
-        var live = ToplevelManager.toplevels ? ToplevelManager.toplevels.values : []
-        var nextKnown = []
-        // 1. Preserve existing known windows in their original creation order if still alive
-        for (var i = 0; i < root.knownWindows.length; i++) {
-            var k = root.knownWindows[i]
-            for (var j = 0; j < live.length; j++) {
-                if (live[j] === k) {
-                    nextKnown.push(k)
-                    break
-                }
-            }
-        }
-        // 2. Append newly opened windows to the end
-        for (var l = 0; l < live.length; l++) {
-            var cand = live[l]
-            if (cand && nextKnown.indexOf(cand) === -1) {
-                nextKnown.push(cand)
-            }
-        }
-
-        var unchanged = nextKnown.length === root.knownWindows.length
-        if (unchanged) {
-            for (var m = 0; m < nextKnown.length; m++) {
-                if (nextKnown[m] !== root.knownWindows[m]) {
-                    unchanged = false
-                    break
-                }
-            }
-        }
-        if (!unchanged) {
-            root.knownWindows = nextKnown
-        }
-        return root.knownWindows
-    }
-
-    function activateAppWindow(appId, winIndex) {
-        root.syncKnownWindows()
-        var tops = root.knownWindows
-        var matched = []
-        for (var i = 0; i < tops.length; i++) {
-            var t = tops[i]
-            if (t && DockModel.matchToplevel(t, appId, null)) {
-                matched.push(t)
-            }
-        }
-        if (winIndex >= 0 && winIndex < matched.length && matched[winIndex] && matched[winIndex].activate) {
-            matched[winIndex].activate()
-        }
-    }
-
-    readonly property var taskbar: taskbarController
     property string pendingTaskbarProfile: ""
     property var taskbarAnchorItem: null
     property real taskbarItemSize: 32
@@ -318,7 +256,7 @@ Item {
     InputPreferenceController { id: commandShortcutsController; kind: "command" }
 
     readonly property var desktopTools: desktopToolsAdapter
-    DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); minimizeRefreshTimer.restart() } }
+    DesktopActions { id: desktopToolsAdapter; onCompleted: function(operation) { root.updateDockItems(); windowTracker.refreshSoon() } }
 
     property alias fileShortcutsEnabled: settings.fileShortcutsEnabled
     readonly property real fileShortcutsSize: fileShortcutsEnabled ? 3 * slotSize : 0
@@ -341,25 +279,10 @@ Item {
             } else {
                 root.interaction.dismissApp()
                 root.updateDockItems()
-                minimizeRefreshTimer.restart()
+                windowTracker.refreshSoon()
             }
         }
     }
-    function windowLocation(top) {
-        var spaces = Hyprland.workspaces && Hyprland.workspaces.values ? Hyprland.workspaces.values : []
-        for (var i = 0; i < spaces.length; i++) {
-            var ws = spaces[i]
-            var tops = ws.toplevels && ws.toplevels.values ? ws.toplevels.values : []
-            for (var j = 0; j < tops.length; j++) {
-                if (tops[j] === top || tops[j].wayland === top) {
-                    var name = String(ws.name || ws.id)
-                    return name === "special:minimized" ? "Minimised" : name.indexOf("special:") === 0 ? "Special workspace: " + name.slice(8) : "Workspace " + name
-                }
-            }
-        }
-        return "Workspace unavailable"
-    }
-
     readonly property var interaction: dockInteraction
     DockInteraction { id: dockInteraction; items: root.dockItems }
     readonly property string contextAppId: interaction.app ? interaction.app.appId : ""
@@ -481,17 +404,7 @@ Item {
     property alias preferredVisibilityMode: settings.preferredVisibilityMode
     readonly property bool autohide: root.visibilityMode !== "always"
     property alias overlayMode: settings.overlayMode
-    property int visibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-    property string keyboardTargetWorkspace: ""
-    property string keyboardTargetMonitorName: ""
-    // Which screen triggered the current reveal (edge-hover screen, or the
-    // focused screen for a keyboard toggle). "" means no specific trigger is
-    // recorded, in which case screenRevealTarget() falls back to the focused
-    // monitor.
-    property string revealMonitorName: ""
-    property string baseDockMonitorName: ""
-    property bool widgetPickerRevealOwned: false
-    property int widgetPickerPreviousVisibilityOverride: DockSettings.VISIBILITY_OVERRIDE_FOLLOW
+    readonly property int visibilityOverride: visibility.overrideMode
     property alias visibleWorkspace: settings.visibleWorkspace
     property alias autohideEdgeDepth: settings.autohideEdgeDepth
     readonly property int effectiveAutohideEdgeDepth: Math.max(4, Math.min(64, root.autohideEdgeDepth))
@@ -506,140 +419,38 @@ Item {
     property alias widgetPosition: settings.widgetPosition
     property alias dockWidgets: settings.dockWidgets
     property alias widgetSavedPositions: settings.widgetSavedPositions
-    property bool isDockHovered: false
+    readonly property bool isDockHovered: visibility.hovered
     property bool isStackHovered: false
     property bool isMenuHovered: false
     property bool isWidgetPanelHovered: false
 
-    function workspaceForSelector(selector) {
-        var normalized = DockSettings.normalizeVisibleWorkspace(selector)
-        if (normalized === "all") return null
-        var workspaces = Hyprland.workspaces && Hyprland.workspaces.values ? Hyprland.workspaces.values : []
-        for (var i = 0; i < workspaces.length; i++) {
-            var workspace = workspaces[i]
-            if (workspace && DockSettings.workspaceMatches(normalized, workspace.id, workspace.name)) {
-                return workspace
-            }
-        }
-        return null
+    DockVisibility {
+        id: visibility
+        hyprland: Hyprland
+        toplevelManager: ToplevelManager
+        screens: Quickshell.screens || []
+        mode: root.visibilityMode
+        workspaceSelector: root.visibleWorkspace
+        available: setupController.ready && root.opened && root.pluginEnabled && root.dockEnabled && root.isPinnedLoaded
+        remapping: remapTimer.running
+        taskbarActive: root.taskbarActive
+        dockSurfaces: dockVariants.instances || []
+        popupHovered: root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened
+        interactionActive: root.hasActiveDockInteraction
+        dragActive: root.dockDragActiveIndex >= 0
+        widgetPanelsOpen: function() { return root.checkWidgetPanelsOpen() }
+        onClosePopupsRequested: root.closePopups()
     }
-
-    function screenForMonitorName(monitorName) {
-        var name = String(monitorName || "")
-        if (name === "") return null
-        var screens = Quickshell.screens || []
-        for (var i = 0; i < screens.length; i++) {
-            if (screens[i] && String(screens[i].name || "") === name) return screens[i]
-        }
-        return null
-    }
-
-    function screenForMonitor(monitor) {
-        return monitor ? root.screenForMonitorName(monitor.name) : null
-    }
-
-    function screenShowsDock(screen) {
-        if (!screen) return false
-        var target = DockSettings.dockScreenTarget(
-            root.visibleWorkspace,
-            root.visibilityMode,
-            root.visibilityOverride
-        )
-        var configuredName = (root.configuredWorkspace && root.configuredWorkspace.monitor)
-            ? String(root.configuredWorkspace.monitor.name || "")
-            : ""
-        var focusedName = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-        return DockSettings.screenShowsDock(
-            target,
-            screen.name,
-            configuredName,
-            root.keyboardTargetMonitorName,
-            focusedName
-        )
-    }
-
-    function anyDockSurfaceHovered() {
-        var instances = dockVariants.instances
-        if (!instances) return false
-        for (var i = 0; i < instances.length; i++) {
-            var handler = instances[i] ? instances[i].hoverHandler : null
-            if (handler && handler.hovered) return true
-        }
-        return false
-    }
-
-    function focusedWorkspaceForKeyboardToggle() {
-        var monitorWorkspace = Hyprland.focusedMonitor
-            ? Hyprland.focusedMonitor.activeWorkspace
-            : null
-        var toplevelWorkspace = Hyprland.activeToplevel
-            ? Hyprland.activeToplevel.workspace
-            : null
-        return DockSettings.keyboardToggleWorkspace(
-            monitorWorkspace,
-            Hyprland.focusedWorkspace,
-            toplevelWorkspace
-        )
-    }
-
-    readonly property bool hasExplicitWorkspace: root.visibleWorkspace !== "all"
-    readonly property var configuredWorkspace: root.hasExplicitWorkspace
-        ? root.workspaceForSelector(root.visibleWorkspace)
-        : null
-    readonly property var keyboardTargetWorkspaceObject: root.keyboardTargetWorkspace !== ""
-        ? root.workspaceForSelector(root.keyboardTargetWorkspace)
-        : null
-    readonly property var effectiveDockScreen: {
-        var target = DockSettings.dockScreenTarget(
-            root.visibleWorkspace,
-            root.visibilityMode,
-            root.visibilityOverride
-        )
-        if (target === "configured" && root.configuredWorkspace && root.configuredWorkspace.monitor) {
-            var configuredScreen = root.screenForMonitor(root.configuredWorkspace.monitor)
-            if (configuredScreen) return configuredScreen
-        }
-        if (target === "captured") {
-            var keyboardScreen = root.screenForMonitorName(root.keyboardTargetMonitorName)
-            if (keyboardScreen) return keyboardScreen
-        }
-        if (target === "all") {
-            var focusedForAll = root.screenForMonitor(Hyprland.focusedMonitor)
-            if (focusedForAll) return focusedForAll
-        }
-        if (target === "focused") {
-            var focusedScreen = root.screenForMonitor(Hyprland.focusedMonitor)
-            if (focusedScreen) return focusedScreen
-        }
-        var baseScreen = root.screenForMonitorName(root.baseDockMonitorName)
-        if (baseScreen) return baseScreen
-        return Quickshell.screens && Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
-    }
-
-    readonly property var currentDockWorkspace: {
-        if (root.hasExplicitWorkspace) return root.configuredWorkspace
-        if (root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_SHOWN && root.keyboardTargetWorkspaceObject) {
-            return root.keyboardTargetWorkspaceObject
-        }
-        var screen = root.effectiveDockScreen
-        var monitor = screen ? Hyprland.monitorFor(screen) : Hyprland.focusedMonitor
-        if (monitor && monitor.activeWorkspace) return monitor.activeWorkspace
-        return Hyprland.focusedWorkspace
-    }
-
-    readonly property bool workspaceAllowed: {
-        if (!root.hasExplicitWorkspace) return true
-        var workspace = root.currentDockWorkspace
-        return workspace !== null
-    }
-
-    readonly property bool dockAvailable: setupController.ready && root.opened
-        && root.pluginEnabled
-        && root.dockEnabled
-        && root.workspaceAllowed
-        && root.isPinnedLoaded
-    readonly property bool dockMapped: root.dockAvailable && !remapTimer.running
-    readonly property bool dockRevealed: root.dockAvailable && (root.taskbarActive || !root.shouldSlideOut)
+    readonly property var effectiveDockScreen: visibility.effectiveScreen
+    readonly property bool workspaceAllowed: visibility.workspaceAllowed
+    readonly property bool dockAvailable: visibility.dockAvailable
+    readonly property bool dockMapped: visibility.mapped
+    readonly property bool dockRevealed: visibility.revealed
+    readonly property bool shouldSlideOut: visibility.shouldSlideOut
+    readonly property string revealTargetMonitorName: visibility.revealTargetMonitorName
+    function screenForMonitor(monitor) { return visibility.screenForMonitor(monitor) }
+    function screenShowsDock(screen) { return visibility.screenShowsDock(screen) }
+    function screenSlidesOut(screen) { return visibility.screenSlidesOut(screen) }
 
     property var loadedWidgetItems: []
 
@@ -714,191 +525,9 @@ Item {
         }
     }
 
-    function evaluateHoverState() {
-        if (!root.autohide) return
-        var anyOpenWidget = checkWidgetPanelsOpen()
-        var isDockWinHovered = !root.shouldSlideOut && root.anyDockSurfaceHovered()
-        var anyPopupsActive = root.hasActiveDockInteraction
-        var anyHover = isDockWinHovered || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
-        if (anyHover) {
-            autohideLeaveTimer.stop()
-            root.isDockHovered = true
-        } else {
-            autohideLeaveTimer.restart()
-        }
-    }
-
-    Timer {
-        id: autohideLeaveTimer
-        interval: 1500
-        repeat: false
-        onTriggered: {
-            if (!root.autohide) return
-            var anyOpenWidget = root.checkWidgetPanelsOpen()
-            var anyPopupsActive = root.hasActiveDockInteraction
-            var anyHover = root.anyDockSurfaceHovered() || root.isStackHovered || root.isMenuHovered || root.isWidgetPanelHovered || windowPreview.opened || anyOpenWidget || anyPopupsActive
-            if (!anyHover) {
-                root.isDockHovered = false
-                if (DockSettings.shouldAutoDismissKeyboardReveal(root.visibilityMode, root.visibilityOverride)) {
-                    root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-                }
-            }
-        }
-    }
-
-    function getActiveWorkspaceWindowCount() {
-        var workspace = root.currentDockWorkspace
-        if (workspace && workspace.toplevels && workspace.toplevels.values) {
-            return workspace.toplevels.values.length
-        }
-        return 0
-    }
-
-    property int activeWorkspaceWindowCount: root.getActiveWorkspaceWindowCount()
-
-    function refreshActiveWorkspaceWindowCount() {
-        root.activeWorkspaceWindowCount = root.getActiveWorkspaceWindowCount()
-    }
-
-    Connections {
-        target: Hyprland
-        function onFocusedWorkspaceChanged() { root.refreshActiveWorkspaceWindowCount() }
-        function onRawEvent(event) { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Connections {
-        target: Hyprland.workspaces
-        function onValuesChanged() { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Connections {
-        target: ToplevelManager.toplevels
-        function onValuesChanged() { root.refreshActiveWorkspaceWindowCount() }
-    }
-
-    Timer {
-        id: workspaceCheckTimer
-        interval: 200
-        running: (root.visibilityMode === "hover" || root.visibilityMode === "hybrid") && root.workspaceAllowed
-        repeat: true
-        onTriggered: root.refreshActiveWorkspaceWindowCount()
-    }
-
-    readonly property bool isWorkspaceEmpty: root.activeWorkspaceWindowCount === 0
-    readonly property bool isDockActive: root.isDockHovered
-        || root.isStackHovered
-        || root.isMenuHovered
-        || root.isWidgetPanelHovered
-        || root.isStackOpen
-        || root.isMenuOpen
-        || root.isEditingFolderTitle
-        || root.isEditMode
-        || (root.widgetPicker && root.widgetPicker.opened)
-        || root.checkWidgetPanelsOpen()
-        || (root.dockDragActiveIndex >= 0)
-    readonly property bool shouldSlideOut: DockSettings.shouldSlideOut(
-        root.visibilityMode,
-        root.visibilityOverride,
-        root.isDockActive,
-        root.isWorkspaceEmpty
-    )
-
-    // The screen whose dock should slide in for the current reveal, or "" if
-    // every screen's dock should (always mode, or an explicit visibleWorkspace
-    // selector).
-    readonly property string revealTargetMonitorName: DockSettings.screenRevealTarget(
-        root.visibilityMode,
-        root.visibleWorkspace,
-        root.revealMonitorName,
-        Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-    )
-
-    function screenSlidesOut(screen) {
-        return DockSettings.screenSlidesOut(
-            root.shouldSlideOut,
-            root.revealTargetMonitorName,
-            screen ? screen.name : ""
-        )
-    }
-
-    function closeDockPopups() {
-        root.closePopups()
-    }
-
-    property double lastToggleRevealTime: 0
-
-    function toggleReveal(revealSource) {
-        if (!root.opened || !root.dockEnabled || !root.pluginEnabled || !root.isPinnedLoaded) return "unavailable"
-        var source = revealSource === "internal" ? "internal" : "keyboard"
-        if (!DockSettings.revealRequestAllowed(root.visibilityMode, source)) return "inactive"
-
-        var now = Date.now()
-        if (now - root.lastToggleRevealTime < 300) {
-            return root.dockRevealed ? "shown" : "hidden"
-        }
-        root.lastToggleRevealTime = now
-
-        if (root.dockRevealed) {
-            autohideLeaveTimer.stop()
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_HIDDEN
-            root.isDockHovered = false
-            root.closeDockPopups()
-            return "hidden"
-        } else {
-            autohideLeaveTimer.stop()
-            root.revealMonitorName = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_SHOWN
-            root.isDockHovered = true
-            return "shown"
-        }
-    }
-
-    function handleWidgetPickerOpenedChanged(opened) {
-        if (opened) {
-            autohideLeaveTimer.stop()
-            return
-        }
-
-        root.visibilityOverride = DockSettings.releaseInteractionVisibilityOverride(
-            root.widgetPickerRevealOwned,
-            root.widgetPickerPreviousVisibilityOverride,
-            root.visibilityOverride
-        )
-        root.widgetPickerRevealOwned = false
-        root.isDockHovered = false
-        root.evaluateHoverState()
-    }
-
-    onDockRevealedChanged: {
-        if (!dockRevealed) {
-            root.closeDockPopups()
-            root.revealMonitorName = ""
-        }
-    }
-
-    onVisibilityModeChanged: {
-        root.widgetPickerRevealOwned = false
-        root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-        root.keyboardTargetWorkspace = ""
-        root.keyboardTargetMonitorName = ""
-        root.revealMonitorName = ""
-        root.isDockHovered = false
-        autohideLeaveTimer.stop()
-    }
-
-    onWorkspaceAllowedChanged: {
-        if (!workspaceAllowed && root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_SHOWN) {
-            root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_HIDDEN
-            root.closeDockPopups()
-        }
-    }
-
-    onVisibleWorkspaceChanged: {
-        root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-        root.keyboardTargetWorkspace = ""
-        root.keyboardTargetMonitorName = ""
-        root.revealMonitorName = ""
-    }
+    function evaluateHoverState() { visibility.evaluateHoverState() }
+    function toggleReveal(source) { return visibility.toggleReveal(source) }
+    function handleWidgetPickerOpenedChanged(opened) { visibility.widgetPickerOpenedChanged(opened) }
 
     property var lastRemapScreen: null
     onEffectiveDockScreenChanged: {
@@ -1506,7 +1135,7 @@ Item {
             // Drop the sticky hover flag before the surfaces are rebuilt: the
             // pointer cannot be over a dock that does not exist yet, and the
             // edge trigger re-reveals the dock the moment it really is.
-            root.isDockHovered = false
+            visibility.clearHover()
             remapTimer.restart()
         }
     }
@@ -1558,210 +1187,18 @@ Item {
         if (!layersProc.running) layersProc.running = true
     }
 
-    // Dynamic system tiling border size, rounding & active gradient border
-    property int systemBorderSize: 2
-    property int systemRounding: Style.cornerRadius >= 0 ? Style.cornerRadius : 12
-    property string hyprlandActiveBorderRaw: ""
-
-    function parseHyprlandColor(str) {
-        var s = String(str || "").trim()
-        var m8 = s.match(/^(?:0x|#|rgba\()?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})\)?$/)
-        if (m8) {
-            var a = parseInt(m8[1], 16) / 255
-            var r = parseInt(m8[2], 16)
-            var g = parseInt(m8[3], 16)
-            var b = parseInt(m8[4], 16)
-            return Qt.rgba(r / 255, g / 255, b / 255, a)
-        }
-        var m6 = s.match(/^(?:0x|#|rgb\()?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})\)?$/)
-        if (m6) {
-            var r = parseInt(m6[1], 16)
-            var g = parseInt(m6[2], 16)
-            var b = parseInt(m6[3], 16)
-            return Qt.rgba(r / 255, g / 255, b / 255, 1.0)
-        }
-        return s
+    DockAppearance {
+        id: appearance
+        hyprland: Hyprland
+        backgroundOpacity: root.dockBackgroundOpacity
+        barTransparent: root.isBarTransparent
     }
-
-    function parseHyprlandGradient(raw, fallbackColor) {
-        var s = String(raw || "").trim()
-        if (!s) return { colors: [fallbackColor], angle: 0, enabled: false }
-        var parts = s.split(/\s+/)
-        var colors = []
-        var angle = 0
-        for (var i = 0; i < parts.length; i++) {
-            var p = parts[i]
-            if (p.match(/^-?\d+(?:\.\d+)?deg$/)) {
-                angle = Number(p.replace(/deg$/, ""))
-            } else {
-                var c = root.parseHyprlandColor(p)
-                if (c) colors.push(c)
-            }
-        }
-        if (colors.length === 0) colors.push(fallbackColor)
-        return {
-            colors: colors,
-            angle: angle,
-            enabled: colors.length > 1
-        }
-    }
-
-    property var dockBorderSpec: {
-        if (root.dockBackgroundTransparent || root.systemBorderSize <= 0) {
-            return Border.none()
-        }
-        var raw = root.hyprlandActiveBorderRaw
-        if (raw && raw.length > 0) {
-            var grad = root.parseHyprlandGradient(raw, Color.accent)
-            return {
-                color: grad.colors[0],
-                widths: { top: root.systemBorderSize, right: root.systemBorderSize, bottom: root.systemBorderSize, left: root.systemBorderSize },
-                gradient: grad
-            }
-        }
-        return Border.hyprlandActiveSpec(Color.accent, root.systemBorderSize)
-    }
-
-    Process {
-        id: roundingProc
-        command: ["hyprctl", "-j", "getoption", "decoration:rounding"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var n = Number(json.int)
-                    if (isFinite(n) && n >= 0) {
-                        if (root.systemRounding !== n) {
-                            root.systemRounding = n
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Process {
-        id: borderSizeProc
-        command: ["hyprctl", "-j", "getoption", "general:border_size"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var n = Number(json.int)
-                    if (isFinite(n) && n >= 0) {
-                        if (root.systemBorderSize !== n) {
-                            root.systemBorderSize = n
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Process {
-        id: activeBorderProc
-        command: ["hyprctl", "-j", "getoption", "general:col.active_border"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}")
-                    var grad = String(json.gradient || json.str || "").trim()
-                    if (grad.length > 0) {
-                        if (root.hyprlandActiveBorderRaw !== grad) {
-                            root.hyprlandActiveBorderRaw = grad
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    property bool borderAngleAnimationEnabled: true
-    property real borderAngleAnimationDuration: 6000
-
-    Process {
-        id: animationsProc
-        command: ["hyprctl", "animations"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var str = text || ""
-                    var match = str.match(/name:\s*borderangle[\s\S]*?enabled:\s*([0-9-]+)[\s\S]*?speed:\s*([0-9.]+)/)
-                    if (match) {
-                        var en = Number(match[1])
-                        var sp = Number(match[2])
-                        root.borderAngleAnimationEnabled = (en === 1)
-                        if (isFinite(sp) && sp > 0) {
-                            root.borderAngleAnimationDuration = Math.max(1000, sp * 200)
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer {
-        id: hyprlandRefreshDebounceTimer
-        interval: 150
-        repeat: false
-        onTriggered: root.doRefreshHyprlandOptions()
-    }
-
-    function refreshHyprlandOptions() {
-        hyprlandRefreshDebounceTimer.restart()
-    }
-
-    function doRefreshHyprlandOptions() {
-        if (!roundingProc.running) roundingProc.running = true
-        if (!borderSizeProc.running) borderSizeProc.running = true
-        if (!activeBorderProc.running) activeBorderProc.running = true
-        if (!animationsProc.running) animationsProc.running = true
-    }
-
-    Connections {
-        target: Hyprland
-        function onRawEvent(event) {
-            if (event && event.name === "configreloaded") {
-                root.refreshHyprlandOptions()
-            }
-        }
-    }
-
-    Connections {
-        target: Style
-        function onCornerRadiusChanged() {
-            if (Style.cornerRadius >= 0) root.systemRounding = Style.cornerRadius
-        }
-        function onNormalBorderWidthChanged() {
-            if (Style.normalBorderWidth >= 0) root.systemBorderSize = Style.normalBorderWidth
-        }
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-        onLoaded: root.refreshHyprlandOptions()
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.config/hypr/hyprland.conf"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-    }
-
-    FileView {
-        path: Quickshell.env("HOME") + "/.local/state/omarchy/toggles/hypr/window-no-gaps.lua"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.refreshHyprlandOptions()
-    }
+    readonly property int systemBorderSize: appearance.systemBorderSize
+    readonly property int systemRounding: appearance.systemRounding
+    readonly property var dockBorderSpec: appearance.dockBorderSpec
+    readonly property bool borderAngleAnimationEnabled: appearance.borderAngleAnimationEnabled
+    readonly property real borderAngleAnimationDuration: appearance.borderAngleAnimationDuration
+    function refreshHyprlandOptions() { appearance.refresh() }
 
     readonly property bool isEditMode: interaction.editingItems
 
@@ -1820,7 +1257,7 @@ Item {
         var scriptPath = Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, "")
         DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
-        minimizeRefreshTimer.restart()
+        windowTracker.refreshSoon()
     }
 
     function restoreOrLaunchItem(itemData, targetIndex) {
@@ -1848,7 +1285,7 @@ Item {
         DockModel.setPendingCliHint(itemData.appId || itemData.desktopId || "", root.knownWindows)
         DockCommands.run(Util, [scriptPath, "dock"].concat(args))
         root.updateDockItems()
-        minimizeRefreshTimer.restart()
+        windowTracker.refreshSoon()
     }
 
     // Right-Click Menu State
@@ -2000,33 +1437,9 @@ Item {
         })
     }
 
-    function getMinimizedToplevels() {
-        var minTops = []
-        if (typeof Hyprland !== "undefined" && Hyprland.workspaces && Hyprland.workspaces.values) {
-            var wsArr = Hyprland.workspaces.values
-            for (var w = 0; w < wsArr.length; w++) {
-                var ws = wsArr[w]
-                if (ws && String(ws.name || "").indexOf("special:") === 0) {
-                    if (ws.toplevels && ws.toplevels.values) {
-                        var tops = ws.toplevels.values
-                        for (var wt = 0; wt < tops.length; wt++) {
-                            var ht = tops[wt]
-                            if (ht) {
-                                if (ht.wayland) minTops.push(ht.wayland)
-                                minTops.push(ht)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return minTops
-    }
-
     function doUpdateDockItems() {
-        root.syncKnownWindows()
-        var toplevels = root.knownWindows
-        var minTops = root.getMinimizedToplevels()
+        var toplevels = windowTracker.syncKnownWindows()
+        var minTops = windowTracker.getMinimizedToplevels()
         var active = ToplevelManager.activeToplevel
         if (active) {
             if (minTops.indexOf(active) !== -1) {
@@ -2042,7 +1455,7 @@ Item {
         var allEntries = (typeof DesktopEntries !== "undefined" && DesktopEntries.applications && DesktopEntries.applications.values && DesktopEntries.applications.values.length > 0)
             ? DesktopEntries.applications.values
             : (lib && typeof lib.sortedEntries === "function" ? lib.sortedEntries("") : root.appRows)
-        root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, toplevels, active)
+        windowTracker.recordFocus(toplevels, active)
         root.dockItems = DockModel.buildDockItems(root.pinnedIds, toplevels, active, allEntries, lib, notifTracker.canonicalCounts, notifTracker.canonicalUrgent, root.maxDockItems, minTops, root.focusedWindowHistory)
 
         if (!root.isStackOpen) {
@@ -2055,66 +1468,6 @@ Item {
     onShellChanged: {
         root.appRows = (shell && shell.appLibrary) ? shell.appLibrary.sortedEntries("") : []
         root.updateDockItems()
-    }
-
-    Connections {
-        target: ToplevelManager.toplevels
-        function onValuesChanged() {
-            var live = ToplevelManager.toplevels ? ToplevelManager.toplevels.values : []
-            var hasNewTerm = false
-            for (var i = 0; i < live.length; i++) {
-                var t = live[i]
-                if (t && (t.appId === "foot" || t.appId === "ghostty" || t.appId === "kitty" || t.appId === "alacritty" || t.appId === "wezterm")) {
-                    if (root.knownWindows.indexOf(t) === -1) {
-                        hasNewTerm = true
-                        break
-                    }
-                }
-            }
-            if (hasNewTerm) {
-                root.lastTerminalOpenTime = Date.now()
-                cliScannerProc.running = true
-                terminalSettleTimer.restart()
-            } else if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-    }
-
-    Connections {
-        target: ToplevelManager
-        function onActiveToplevelChanged() {
-            // Record each focus event even when model rebuilding is debounced.
-            root.focusedWindowHistory = DockModel.rememberWindowFocus(root.focusedWindowHistory, ToplevelManager.toplevels.values, ToplevelManager.activeToplevel)
-            if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-    }
-
-    property double lastWindowOpenTime: 0
-    property double lastTerminalOpenTime: 0
-
-    Process {
-        id: cliScannerProc
-        running: false
-        command: [Qt.resolvedUrl("bin/familiar-desktop").toString().replace(/^file:\/\//, ""), "dock", "scan-cli"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var apps = JSON.parse(text)
-                    if (Array.isArray(apps)) {
-                        DockModel.setDetectedCliApps(apps)
-                        root.updateDockItems()
-                    }
-                } catch(e) {}
-            }
-        }
     }
 
     Process {
@@ -2147,95 +1500,6 @@ Item {
         }
     }
 
-    Timer {
-        id: terminalSettleTimer
-        interval: 100
-        repeat: false
-        onTriggered: {
-            if (Date.now() - root.lastTerminalOpenTime < 2000) {
-                cliScannerProc.running = true
-            }
-            root.updateDockItems()
-        }
-    }
-
-    Timer {
-        id: titleChangeDebounceTimer
-        interval: 250
-        repeat: false
-        onTriggered: root.updateDockItems()
-    }
-
-    Timer {
-        id: minimizeRefreshTimer
-        interval: 65
-        repeat: false
-        onTriggered: root.updateDockItems()
-    }
-
-    Connections {
-        target: (typeof Hyprland !== "undefined") ? Hyprland : null
-        function onActiveToplevelChanged() {
-            if (Date.now() - root.lastTerminalOpenTime < 150) {
-                terminalSettleTimer.restart()
-            } else {
-                root.updateDockItems()
-            }
-        }
-        function onRawEvent(event) {
-            if (!event) return
-            var name = String(event.name || "")
-            if (name === "windowtitle" || name === "windowtitlev2") {
-                if (Date.now() - root.lastWindowOpenTime < 2000) {
-                    root.updateDockItems()
-                } else {
-                    titleChangeDebounceTimer.restart()
-                }
-                return
-            }
-            if (name === "movewindow" || name === "movewindowv2" || name === "activewindow" || name === "activewindowv2" || name === "closewindow" || name === "workspace" || name === "workspacev2" || name === "focusedmon") {
-                root.updateDockItems()
-                return
-            }
-            if (name === "openwindow") {
-                root.lastWindowOpenTime = Date.now()
-                iconScanDebounceTimer.restart()
-                var openArgs = String(event.args || "")
-                var openParts = openArgs.split(",")
-                var openClass = openParts.length >= 3 ? openParts[2].trim().toLowerCase() : ""
-                var isTerm = (openClass === "foot" || openClass === "ghostty" || openClass === "kitty" || openClass === "alacritty" || openClass === "wezterm")
-
-                if (isTerm) {
-                    root.lastTerminalOpenTime = Date.now()
-                    cliScannerProc.running = true
-                    terminalSettleTimer.restart()
-                } else {
-                    root.updateDockItems()
-                }
-
-                if (root.pendingFocusAppId) {
-                    if (Date.now() - root.pendingFocusTimestamp > 8000) {
-                        root.pendingFocusAppId = ""
-                        return
-                    }
-                    if (openParts.length >= 3) {
-                        var addr = openParts[0].trim()
-                        var winClass = openParts[2].trim().toLowerCase()
-                        var pending = root.pendingFocusAppId.toLowerCase()
-                        var normClass = winClass.replace(/[^a-z0-9]/g, "")
-                        var normPending = pending.replace(/[^a-z0-9]/g, "")
-                        if (winClass === pending || (normPending.length > 0 && (normClass.indexOf(normPending) !== -1 || normPending.indexOf(normClass) !== -1))) {
-                            root.pendingFocusAppId = ""
-                            var cleanAddr = (addr.indexOf("0x") === 0) ? addr : ("0x" + addr)
-                            if (/^0x[0-9a-f]+$/i.test(cleanAddr))
-                                DockCommands.run(Util, ["hyprctl", "dispatch", "focuswindow", "address:" + cleanAddr])
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     Connections {
         target: Color
         function onAccentChanged() {
@@ -2252,7 +1516,6 @@ Item {
     Connections {
         target: Style
         function onCornerRadiusChanged() {
-            root.systemRounding = Style.cornerRadius >= 0 ? Style.cornerRadius : 12
             root.doUpdateDockItems()
         }
     }
@@ -2415,9 +1678,7 @@ Item {
     }
 
     Component.onCompleted: {
-        if (Hyprland.focusedMonitor) {
-            root.baseDockMonitorName = String(Hyprland.focusedMonitor.name || "")
-        }
+        visibility.rememberBaseMonitor()
         root.parseShellConfigFile()
         taskbarController.run("status")
         try {
@@ -3053,13 +2314,7 @@ Item {
                             hoverEnabled: true
                             acceptedButtons: Qt.NoButton
                             onEntered: {
-                                // Cursor reached the screen edge — reset keyboard override and show dock
-                                if (root.visibilityOverride === DockSettings.VISIBILITY_OVERRIDE_HIDDEN) {
-                                    root.visibilityOverride = DockSettings.VISIBILITY_OVERRIDE_FOLLOW
-                                }
-                                root.revealMonitorName = edgeTriggerWindow.modelData ? String(edgeTriggerWindow.modelData.name || "") : ""
-                                root.isDockHovered = true
-                                autohideLeaveTimer.restart()
+                                visibility.edgeReveal(edgeTriggerWindow.modelData ? edgeTriggerWindow.modelData.name : "")
                             }
                         }
                     }

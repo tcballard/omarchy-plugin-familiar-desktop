@@ -14,6 +14,7 @@ Item {
     function complete(text, code) {
         stdout.text = text
         running = false
+        if (stdout && typeof stdout.streamFinished === "function") stdout.streamFinished()
         exited(code, 0)
     }
 }

@@ -289,7 +289,7 @@ Item {
     readonly property string contextAppId: interaction.app ? interaction.app.appId : ""
     readonly property int contextAppIndex: interaction.app ? interaction.selectedIndex : -1
     readonly property var contextApp: interaction.app
-    readonly property bool hasActiveDockInteraction: interaction.popup !== "none" || isEditMode || (root.widgetPicker && root.widgetPicker.opened)
+    readonly property bool hasActiveDockInteraction: interaction.popup !== "none" || isEditMode || !!(root.widgetPicker && root.widgetPicker.opened)
     Connections {
         target: dockInteraction
         function onPopupChanged() { root.evaluateHoverState() }

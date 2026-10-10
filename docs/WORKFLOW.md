@@ -50,11 +50,10 @@ binary workflow. Those remain explicit pre-merge checks under the agreement
 above. A required peer approval would not let Tom approve PRs he authored;
 do not substitute that requirement for his acceptance record.
 
-At adoption, branch protection has NOT been configured through this session:
-the available GitHub connector lacks settings controls. The manual-build
-implementation is draft PR #43, awaiting XPS acceptance. Do not merge that runtime
-change merely to activate this policy. GitHub's manual-dispatch button becomes
-available once the accepted workflow reaches the default branch.
+At adoption, branch protection was not configured through that session because
+the connector lacked settings controls. This is an adoption record, not a live
+readback of GitHub settings. The development-build workflow and installer are now
+in the repository; use [DEVELOPMENT.md](DEVELOPMENT.md) for the current path.
 
 Reference: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets
 

@@ -6,10 +6,29 @@ Changing the source invalidates acceptance for affected behaviour. Versions and
 release tags are a separate, explicitly requested step. Do not create RC releases
 for routine testing or treat a development artifact as a stable installer.
 
+## Local checks
+
+Install Rust 1.99 with rustfmt and clippy, Node 22 or newer, Lua 5.4, a C++20
+compiler with Cairo development headers, and Qt 6 tools/modules. On Ubuntu the
+Qt packages are `qt6-declarative-dev-tools`, `qml6-module-qttest`,
+`qml6-module-qtquick`, `qml6-module-qtquick-window`,
+`qml6-module-qtqml-workerscript`, `qml6-module-qtquick-controls`,
+`qml6-module-qtquick-layouts` and `qml6-module-qtquick-templates`.
+
+Run `tests/check` from the checkout. It checks Rust formatting and clippy,
+runs Rust/Node and offscreen QML tests, renders the production settings view,
+tests vector controls and parses plugin QML. `tests/run` remains the Rust/Node
+subset. Override `QMLTESTRUNNER` and `QMLFORMAT` for tool paths outside
+`/usr/lib/qt6/bin`. CI calls the same portable entry point, then builds binaries
+and checks keyboard configuration on Lua 5.5.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for feature owners and testing boundaries.
+A sandbox may block process visibility or Unix sockets; report those failures
+and rely on the complete CI result instead of disabling those tests.
+
 ## Build when needed
 
-Once this workflow has been accepted and merged to the default branch, open
-Actions → Build for testing → Run workflow and select your feature branch.
+Open Actions → Build for testing → Run workflow and select your feature branch.
 The branch must contain the workflow and development installer support.
 Alternatively:
 
@@ -28,9 +47,8 @@ source identity, an installer, checksums and build receipt. It creates no releas
 tag or version change. Artifacts expire after 30 days: keep the downloaded bundle
 and your acceptance evidence. Rebuilds are new evidence, even at the same SHA.
 
-GitHub requires the manual workflow to exist on the default branch first. The
-PR path trigger exercises this pipeline before that bootstrap merge. Runtime
-changes still require live acceptance; repository branch protection is managed
+The PR path trigger also builds changes to the development/packaging pipeline.
+Runtime changes require live acceptance; repository branch protection is managed
 separately and is not changed by this workflow.
 
 ## Download and install on the XPS

@@ -29,7 +29,7 @@ The desktop matrix includes Qt 6.12.0 / Quickshell 0.3.2 and official titlebars 
 
 - [x] Tom accepted the candidate and authorized merge/tag/release.
 - [x] Current accepted-source CI is green.
-- [ ] Measure the release-version backend from CI and commit its reviewed digest.
+- [x] Measure the release-version backend from CI and commit its reviewed digest.
 - [ ] Rebuild a strict release bundle reproducing the source pins.
 - [ ] Verify current release-candidate checks and review the metadata-only diff.
 - [ ] Merge and require successful current-main portable and binary workflows.
@@ -37,3 +37,9 @@ The desktop matrix includes Qt 6.12.0 / Quickshell 0.3.2 and official titlebars 
 - [ ] Complete public-download setup/retry verification and marketplace follow-up.
 
 Exact later source identities and results belong in PR #92 after they exist. A passing validation-only build is not publishable. Follow [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md); never move a published tag or replace immutable assets.
+
+## Release-version measurement
+
+Source `a2f56347cb615c41ab291b9048707f04e4754f85`, [binary run 38259666459](https://github.com/tcballard/omarchy-plugin-familiar-desktop/actions/runs/38259666459), attempt 1, [job 114847248291](https://github.com/tcballard/omarchy-plugin-familiar-desktop/actions/runs/38259666459/job/114847248291) built the static 0.1.6 backend and recorded SHA-256 `2c9aee02270eee876aaff933a6a459867397e097182a5008a0d2b36294cb9470`. The job passed its Rust suite, static ELF check, manifest/version packaging checks, validation-only installer tests and complete checksum verification. Measurement was read from the CI job log; no local byte-for-byte artifact inspection is claimed here.
+
+The measured backend digest is now committed in `release-binaries.sha256`; the existing independently reviewed private-renderer pin is retained. The measurement artifact `11751383907` (`familiar-desktop-packaging-validation`) is not publishable. A new build must reproduce both committed pins and pass the strict release installer smoke test before merge/publication.

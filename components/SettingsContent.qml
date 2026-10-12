@@ -15,6 +15,7 @@ ColumnLayout {
     signal closeRequested
     signal copyRequested(string text)
     enabled: service !== null
+    readonly property bool officialTitlebars: !!service && !!service.titlebarsManagedByOmarchy
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
@@ -139,6 +140,7 @@ ColumnLayout {
             }]
         delegate: ColumnLayout {
             id: sizeRow
+            objectName: modelData.key + "-choices"
             visible: modelData.key === "dockSize" ? content.navigation.shows("dock", "appearance") : content.navigation.shows("windows", "titlebars")
             required property var modelData
             Layout.fillWidth: true
@@ -165,6 +167,7 @@ ColumnLayout {
                     delegate: ActionButton {
                         required property var modelData
                         Layout.fillWidth: true
+                        objectName: sizeRow.modelData.key + "-" + modelData.key
                         text: modelData.label
                         selected: content.service[sizeRow.modelData.key] === modelData.key
                         onClicked: {
@@ -289,7 +292,7 @@ ColumnLayout {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             textFormat: Text.PlainText
-            text: "Title bars with close, minimise and maximise. Restore minimised windows from the dock."
+            text: content.officialTitlebars ? "Mac/Windows controls on Omarchy’s floating workspaces (Super+L). Restore minimised windows from the dock. Choose Omarchy for its default controls." : "Title bars with close, minimise and maximise. Restore minimised windows from the dock."
             font.family: Style.font.family
             font.pixelSize: 11
             color: Commons.Color.popups.text
@@ -302,7 +305,7 @@ ColumnLayout {
                         "title": "Theme"
                     }, {
                         "key": "off",
-                        "title": "Off"
+                        "title": content.officialTitlebars ? "Omarchy" : "Off"
                     }, {
                         "key": "mac",
                         "title": "Mac"
@@ -347,6 +350,7 @@ ColumnLayout {
             color: Commons.Color.muted
         }
         Rectangle {
+            visible: !content.officialTitlebars || content.service.titlebarState === "migration-required" || content.service.titlebarState === "failed"
             Layout.fillWidth: true
             height: 32
             radius: 6
@@ -355,7 +359,7 @@ ColumnLayout {
             border.color: Commons.Color.popups.border
             Text {
                 anchors.centerIn: parent
-                text: "Set up or repair window controls"
+                text: content.officialTitlebars ? "Use Familiar controls" : "Set up or repair window controls"
                 font.family: Style.font.family
                 font.pixelSize: 11
                 color: Commons.Color.popups.text
@@ -365,8 +369,13 @@ ColumnLayout {
                 objectName: "titlebar-repair"
                 anchors.fill: parent
                 hoverEnabled: true
+                enabled: content.service && !content.service.titlebarBusy
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
+                    if (content.officialTitlebars) {
+                        content.service.useOmarchyTitlebars();
+                        return;
+                    }
                     if (content.service && content.service.setup) {
                         content.closeRequested();
                         content.service.setup.repair(content.service.titlebarStyle);
@@ -399,7 +408,7 @@ ColumnLayout {
             color: "transparent"
             border.width: 1
             border.color: titlebarExclusionsInput.activeFocus ? Commons.Color.accent : Commons.Color.popups.border
-            TextInput {
+            SafeTextInput {
                 id: titlebarExclusionsInput
                 anchors.fill: parent
                 anchors.margins: 7

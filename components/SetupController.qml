@@ -14,6 +14,7 @@ Item {
     property bool applyLayout: true
     property string operation: "status"
     property bool timedOut: false
+    property bool officialTitlebars: false
     readonly property bool ready: state === "ready"
     readonly property bool busy: adapter.running || state === "waiting"
     readonly property string script: Qt.resolvedUrl("../setup-in-app.sh").toString().replace(/^file:\/\//, "")
@@ -56,6 +57,7 @@ Item {
     function complete(code, output) {
         watchdog.stop()
         if (!active) return
+        if (operation === "status") officialTitlebars = String(output).indexOf("Omarchy manages window controls.") >= 0
         details = String(output).slice(-3000)
         if (timedOut || code === 124 || code === 137) {
             state = "failed"

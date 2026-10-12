@@ -6,8 +6,17 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  platforms:
+    name: Portable (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,21 +31,31 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lua5.4 libcairo2-dev qt6-declarative-dev-tools qml6-module-qttest qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-templates
       - name: Run canonical portable checks
         run: tests/check
-      - name: Test keyboard configuration on Lua 5.5
+      - name: Test keyboard and titlebar configuration on Lua 5.5
         run: |
           curl -fsSL https://www.lua.org/ftp/lua-5.5.0.tar.gz -o /tmp/lua-5.5.0.tar.gz
           echo '57ccc32bbbd005cab75bcc52444052535af691789dba2b9016d5c50640d68b3d  /tmp/lua-5.5.0.tar.gz' | sha256sum --check
           tar --no-same-owner -xzf /tmp/lua-5.5.0.tar.gz -C /tmp
           make -C /tmp/lua-5.5.0 linux -j2
-          PATH="/tmp/lua-5.5.0/src:$PATH" cargo test --manifest-path backend/Cargo.toml --locked --test caps_lock
+          PATH="/tmp/lua-5.5.0/src:$PATH" cargo test --manifest-path backend/Cargo.toml --locked --test caps_lock --test titlebars
       - run: ./build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: familiar-desktop-linux-x86_64
+          name: familiar-desktop-linux-${{ matrix.architecture }}
           path: bin/familiar-desktop
       - name: Upload setup preview
         uses: actions/upload-artifact@v4
         with:
-          name: familiar-setup-preview
+          name: familiar-setup-preview-${{ matrix.architecture }}
           path: /tmp/familiar-setup-preview.png
           if-no-files-found: error
+  # Keep the existing required status-check context for stable-main rulesets.
+  test:
+    needs: platforms
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both architectures to pass
+        env:
+          PLATFORM_RESULT: ${{ needs.platforms.result }}
+        run: test "$PLATFORM_RESULT" = success

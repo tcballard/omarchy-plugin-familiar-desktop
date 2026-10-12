@@ -1,103 +1,105 @@
-# Official titlebar migration — issue #74
+# Official titlebars — issue #74
 
-Status: preparatory coexistence safeguards, **not a completed migration**.
-Rechecked 10 October 2026. Keep #74 open until the migration and live acceptance
-criteria are met. Tom approved including the safeguards with the Windows taskbar
-and dock opacity in the v0.1.3 integration candidate on 8 October 2026. The full
-official-package migration was not completed in v0.1.4; it remains conditional
-on the work below.
+On `dev/v0.1.6`, Familiar's Mac/Windows controls use Omarchy's official renderer.
+This supersedes the earlier native-only handoff which left those styles inactive.
+No release or desktop acceptance is implied.
 
-## Verified upstream contracts
+`integration/v0.1.6-arm-titlebars` combines this work with k-kostin's native ARM
+development contribution (#85). Official-host builds contain only the
+architecture-matched Familiar backend; CI now provides a static ARM development
+bundle as well as the local build path. Private-host builds still need a matching
+library/ABI pair, built locally on ARM. Both support first-run setup and rollback;
+ordinary prebuilt ARM release installation remains separate. See [development setup](DEVELOPMENT.md).
 
-- [Package PR #852](https://github.com/omacom/omarchy-pkgs/pull/852) merged.
-  Source rechecked at `0a906801f1a876a739a6de902c9a366d295f43c9`.
-  `omarchy-hyprland-titlebars` 0.1.0-2 was present in the x86_64 **edge** database,
-  absent from **rc** and **stable**. This is a dated observation, not a promise
-  about later channel availability. Do not switch a user's package channel.
-- Package path: `/usr/lib/omarchy-hyprland-titlebars/titlebars.so`.
-  PKGBUILD depends on `hyprland=0.56.2`; plugin initialization checks the exact
-  Hyprland header/runtime hash. A matching version alone is insufficient.
-- [Core PR #14482](https://github.com/omacom/omarchy/pull/14482) remains open;
-  inspected head `a417df6634157775805c7da55eb0ed1455a06806`. Core supplies a global
-  button list, theme values and workspace scope. Familiar cannot independently
-  overwrite these globals while claiming coexistence.
-- Hyprland `efb50993780079460b0cbed1363e2166a2de1d9f` exposes name/author/version/
-  description in `hl.get_loaded_plugins()` and additionally handle in
-  `hyprctl -j plugin list`. Neither exposes the library path or config ownership.
-  Both backends identify as hyprbars/Vaxry/1.0. These values are not provenance.
-  See `src/debug/HyprCtl.cpp` and
-  `src/config/lua/bindings/LuaBindingsToplevel.cpp` in that revision.
+## What changes
 
-## Parity audit
+In **Windows → Window controls**, choose **Use Familiar controls**, then Mac,
+Windows or Theme. Familiar keeps close/minimise/maximise, button alignment,
+traffic-light colours, hover symbols, size, font, theme and app exclusions.
+Minimised windows restore through the existing dock. Every action, including
+double-click, carries the clicked window's `%WINDOW%` address; a focus change
+cannot retarget it. The stock renderer uses `×`, `−`, `+` and `□` glyphs with
+round/rounded-square buttons, not the old fork's Cairo vector icons.
 
-| Behaviour | Official source evidence | Remaining work |
-| --- | --- | --- |
-| Lua buttons, colours, font, left/right alignment | `main.cpp` registers `add_button` and the corresponding config values | Live Windows/Mac verification |
-| Hover-only icons, double click | `icon_on_hover`, `on_double_click` are supported | Preserve user preferences |
-| Familiar vector icons | `barDeco.cpp` renders the icon string as font text; it has no Familiar vector renderer | Upstream renderer support or an explicitly accepted visual change; do not pass `familiar-windows-close` as visible text |
-| Button targeting | Official actions support `%WINDOW%` | Adapt Familiar actions to accept the clicked address; do not depend on later focus |
-| Floating/tiling and Core | `workspace_tag` scopes bars; global options/buttons are shared | Agree on one configuration owner and test Core Shelf/floating workspace interactions |
-| Backend identity | Registration metadata is identical; loaded path is not exposed | Obtain verifiable provenance before adopting an already-loaded backend |
+Core still owns which workspaces float, its window tags, shadows, opacity and
+loading `/usr/lib/omarchy-hyprland-titlebars/titlebars.so`. Familiar does not load
+or unload a backend, change workspace modes, or edit Core/package files. Controls
+follow Core's floating-workspace scope (Super+L), not every tiled window.
+Choosing **Omarchy**, disabling Familiar, or an unconfigured Theme restores Core's
+normal controls. This choice retains the stored `off` value for backward
+compatibility; it does not disable Core's own bars. Saved preferences survive.
 
-## Safeguards in this branch
+## Configuration contract
 
-- Setup refuses **any** already-loaded Hyprbars backend, even with an old
-  Familiar owner record. Turn off Familiar controls before rerunning setup.
-- Explicit backend paths must resolve inside this installation's private
-  `bin/hyprbars` tree. A symlink into a system/hyprpm directory is refused.
-- The old `--install-dependency` hyprpm path is refused; no competing backend is
-  installed through it.
-- Development installation and rollback refuse before any mutation when the
-  official library is present, including rollback to older code without guards.
-- If the official library is installed, download/setup refuses the bundled
-  backend. Reconciliation pauses only Familiar's generated loader and reports
-  an actionable message in its existing controls UI. Generated Lua repeats the
-  check on compositor reload, before any bundled load or configuration call.
-- With that system library present, disable/remove does not send unload or reload
-  commands. Remove deletes only the exact owned hook/record/generated file.
-  Restart Hyprland to retire an already-running Familiar backend. The system
-  package and personal settings are kept.
+The reference is Core [#14482](https://github.com/omacom/omarchy/pull/14482), commit
+`14987189695a8ae1f2270262fdf77446fafb1ba3`, merged 11 October 2026, and the official
+renderer [v0.2.1](https://github.com/omacom/omarchy-hyprland-titlebars/tree/v0.2.1)
+packaged by [#964](https://github.com/omacom/omarchy-pkgs/pull/964). This renderer
+defaults to disabled when its configuration disappears; Core explicitly enables
+it for floating workspaces. A manually loaded renderer can remain loaded after
+configuration removal, unlike the config-owned lifetime exercised separately.
 
-These checks do not infer arbitrary loaded-backend provenance from its name and
-are not a complete solution to another integration dynamically loading a fork.
-The old binary may remain mapped until restart. A restart is required after
-installing the official package over an existing Familiar titlebar session.
-No existing system package is removed or upgraded by these safeguards.
+Core currently has no per-consumer button-list API. Familiar therefore uses a
+small, explicitly tested **compatibility adapter**, not an advertised Core
+extension API. Its existing `looknfeel.lua` include runs before Core's workspace
+layout restoration. It wraps that module's one `apply()` call, temporarily
+captures its two button declarations, then restores `add_button` immediately,
+including on errors. Only after verifying those exact actions and Core's
+workspace tag does it substitute three Familiar buttons and appearance settings.
+Other Core behaviour runs unchanged. On a changed contract or unexpected load
+order, the captured Core buttons are replayed unchanged and Familiar reports an
+integration error. Repeated config reloads start fresh, never append another set.
 
-## Completion blockers rechecked on 10 October
+Do not combine this with another theme/plugin that defines its own Hyprbars
+buttons. Multiple registered backends are refused. A registration name alone is
+not treated as library provenance; only Core requests the official library.
+The package and Hyprland enforce their own exact ABI check.
 
-The package databases at `https://pkgs.omarchy.org/x86_64/omarchy.db`,
-`https://pkgs.omarchy.org/rc/x86_64/omarchy.db`, and
-`https://pkgs.omarchy.org/edge/x86_64/omarchy.db` were downloaded and inspected.
-Only edge contained the package. Core PR #14482 remains open at the same head.
+## Migration, disable and rollback
 
-The current package still renders button icons as text in `barDeco.cpp`, so
-Familiar's `familiar-mac-*` / `familiar-windows-*` renderer names would appear as
-literal text. Its buttons and `workspace_tag` remain global. The supported
-Hyprland's plugin-list JSON still contains name, author, handle, version and
-description, without the loaded library path or configuration owner.
+Migration validates the exact owned include and installation identity, journals
+its progress, replaces the old generated loader, and adds the include on a fresh
+installation. It does not reload the compositor at that point. An old private
+owner records `HYPRLAND_INSTANCE_SIGNATURE`; log out/in before applying the new
+adapter. The same or unknown session cannot be treated as a retired private
+mapping. Retry an interrupted migration with the same button. Previous native-only
+handoffs require this explicit selection too.
 
-These are outstanding integration requirements. The existing safeguards remain
-active: the dock works while Familiar pauses its private loader in the presence
-of the official package. Full migration requires supported-channel availability,
-verified backend ownership, one shared configuration owner, and working control
-rendering/targeting. No package-channel change or control-parity waiver has been
-approved, and the migration is not marked complete by the separate browser fix.
+After migration, style changes use the shared write/reload/verify transaction.
+A failure restores the previous generated file without overwriting external
+configuration edits. Stale instance teardown cannot remove a newer instance's
+controls. Disable/removal reload Core defaults, never unload its library.
+Missing package/Core support cannot resurrect Familiar's private loader.
+Generated configuration checks the installed source's controls-v2 marker, so
+rollback to an older source cannot keep invoking unsupported helper arguments.
 
-## Migration still required
+Development installation retains the old binaries for rollback and still checks
+source/artifact identity. Before replacing a helper on an official host, the
+installer uses the verified bundle helper to restore Core defaults at the installed
+path; it does not rely on asynchronous QML teardown or an older helper
+understanding native button arguments. Official hosts allow only the audited v0.1.5 commit
+`439f97480bb0803f32137dcb700fbb939dc959ff` or guarded newer source. Rolling back to
+v0.1.5 restores that version's paused-controls behaviour, never private controls
+over Core. No version, release pin, package channel or system package is changed.
 
-1. Add a trustworthy loaded-library provenance/ownership contract upstream (or
-   another verified mechanism) and a single owner of shared configuration.
-2. Resolve the vector/control-action differences above and verify the package
-   available in the user's current repository against the running Hyprland ABI.
-3. Implement an in-app package installation/migration transaction: preserve
-   preferences and owned config, retire only the old private backend, activate
-   the official package, and restore the prior state on failure. A package
-   installed for Core must remain installed on Familiar removal.
-4. Update source-matched development install/rollback receipts, smoke fixtures,
-   packaging and release workflows, then remove the redundant bundled build and
-   download path. Retained here only for existing supported installations where
-   the official package is absent; this is not a new fallback decision.
-5. Run migration/failure regressions and an exact-build desktop test covering
-   controls, theme/reload/restart, floating/tiling and Core coexistence. Record
-   Tom's XPS acceptance separately from CI before promotion.
+## Validation and acceptance
+
+Rust tests cover migration/session gates, transactional recovery, stale owners,
+explicit targets and source guards. Lua tests execute the unmodified Core module
+for Mac/Windows, tiled/floating workspaces, first load, changed Core, Core errors,
+multiple backends and late includes. The desktop CI matrix adds the actual Core
+revision and an unmodified official v0.2.1 renderer built against the guest's
+Hyprland headers. Its dedicated test exercises real pointer buttons, minimise/
+restore, reload, disable, removal and returning to tiling, and saves screenshots.
+It also retains a manually loaded renderer while removing all titlebar
+configuration, compares maximized client geometry against a no-renderer baseline,
+then restores Core/Familiar configuration and clicks the restored minimise
+button. Plugin identity and screenshots accompany those assertions; merely
+unloading the library cannot satisfy the retained-renderer case.
+This source-build test is not evidence of the published pacman artifact's delivery.
+
+Record CI outcomes and exact artifact identity in the draft PR. Before merge,
+Tom must accept that build on the XPS: migration/logout, the selected styles,
+actual buttons and double-click/drag, theme changes, exclusions, mixed scaling,
+disabling/removing Familiar and development rollback. Clipboard acceptance is
+separate. Green CI is not XPS acceptance; #74 stays open until that acceptance.

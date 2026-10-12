@@ -14,7 +14,7 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## Release and development builds
 
-[v0.1.5 release notes and thanks](docs/v0.1.5.md) describe the plugin-panel icons, desktop fixes and simplification. General, Windows and Mac layouts remain available. For development testing, use the exact source/binary bundle recorded in [PR #81](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/81) and follow [DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[v0.1.6 release notes and thanks](docs/v0.1.6.md) cover official titlebar integration, bounded clipboard handling and installer/input/dock fixes. General, Windows and Mac layouts remain available. Build and acceptance evidence is recorded in [PR #92](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/92).
 
 ## Install
 
@@ -28,19 +28,26 @@ Familiar opens its setup screen automatically. Choose Windows or Mac controls an
 
 You can close setup and reopen it from Familiar's computer icon in the bar. Existing complete installations skip the setup screen. **Windows → Set up or repair window controls** opens the same flow later. Personal settings and pinned apps are retained; choosing a starting layout applies that layout's dock defaults.
 
-Build identities, automated checks and Tom's XPS test report for the v0.1.5 development candidate are recorded in [PR #81](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/81). Desktop testing, merge authorization and release authorization follow [WORKFLOW.md](docs/WORKFLOW.md).
+Build identities, automated checks and Tom's XPS test report for the v0.1.6 development candidate are recorded in [PR #92](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/92). Desktop testing, merge authorization and release authorization follow [WORKFLOW.md](docs/WORKFLOW.md).
 
 Setup requires the standard Omarchy tools (including curl, jq and coreutils), Linux x86_64 and the supported Hyprland ABI below. Missing tools or unsupported desktops are reported inside setup; it never opens a terminal or silently installs system packages. Both downloaded binaries must match `release-binaries.sha256` in the installed source. See [source identity and limits](docs/INSTALLER-SOURCE-PIN.md).
 
 ### Standalone release installer
 
-The [v0.1.5 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.5) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
+The [v0.1.6 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.6) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
 
-The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores windows on v0.1.0 updates, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
+The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores Show Desktop windows when updating from v0.1.0 or later, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 
-Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. Full migration to Omarchy’s official titlebar package remains tracked separately in #74. The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
+Broader monitor, scaling and app coverage remains open; marketplace re-review is pending. On the v0.1.6 development branch, choose **Use Familiar controls** to apply Mac/Windows styling and close/minimise/maximise through Omarchy’s official renderer. Core retains its floating-workspace scope; choosing **Omarchy** restores its defaults. This requires desktop acceptance before release; see [migration details](docs/TITLEBAR-MIGRATION.md) and #74. The curated app collection is planned for v0.2.0; installed apps continue to work with the dock.
 
 Window controls also download as a checksum-verified prebuilt Hyprbars library. The initial supported target is Linux x86_64, Hyprland 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f`, ABI `efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6`. Unsupported ABIs stop before backend installation or title-bar configuration. The normal installer never runs Hyprpm, clones Hyprland, or installs a compiler. Missing assets, checksum failures and loader failures stop setup; they never trigger a source build. Existing Hyprbars ownership protections still apply.
+
+ARM (Linux aarch64) contributors can download a source-bound static development
+bundle from CI for Omarchy's official titlebars, including first-run setup and
+rollback, without compiling on their desktop. Private-renderer hosts can build
+a matching native bundle locally. See [ARM development builds](docs/DEVELOPMENT.md#arm-ci-builds-with-official-titlebars).
+The current stable release still publishes x86_64 binaries only; ARM release
+assets and reviewed checksums require a separate maintainer release.
 
 For a fresh installation, the installer fetches the pinned release commit into a temporary local repository and verifies its identity before passing that checkout to `omarchy plugin add`. It then verifies the registered checkout and completes setup before enabling Familiar. You do not need to run registration separately.
 
@@ -58,7 +65,7 @@ Windows controls sit on the right. Minimise uses the dock's existing window
 helper, so the window can be restored from the same dock. The title is supplied
 by the app, rather than a separate desktop-entry app name.
 
-The installer above sets up both the dock and window controls. The installer downloads a verified prebuilt Hyprbars library for the supported Hyprland version; Hyprpm is not required.
+On hosts with Omarchy's official titlebar package, setup keeps Core's renderer. Choose **Use Familiar controls** in Window controls to opt in; migrating from the private renderer requires logout/login. Disabling Familiar restores Core's defaults. Older hosts use the verified private Hyprbars library for the supported Hyprland ABI; Hyprpm is not required. See [titlebar migration](docs/TITLEBAR-MIGRATION.md).
 
 If Familiar is already installed, open **Windows → Set up or repair window controls**
 in its settings to run setup inside Familiar. Then select **Mac**, **Windows**,

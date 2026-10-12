@@ -16,6 +16,7 @@ Item {
     property color background: "#202020"
     property color foreground: "#ffffff"
     property string state: "checking"
+    property string backend: "familiar"
     property string message: "Checking window controls…"
     readonly property bool busy: adapter.running
     readonly property string helper: Qt.resolvedUrl("../bin/familiar-desktop").toString().replace(/^file:\/\//, "")
@@ -35,6 +36,12 @@ Item {
         reconcileTimer.restart()
     }
     function refresh() { schedule() }
+    function useOmarchy() {
+        if (disposed || !available || adapter.running) return
+        requestedRevision = revision
+        adapter.command = [helper, "titlebars", "migrate"]
+        adapter.running = true
+    }
     function reconcile() {
         if (disposed || !available || adapter.running) return
         requestedRevision = revision
@@ -98,7 +105,9 @@ Item {
             try {
                 var result = JSON.parse(resultCollector.text)
                 root.state = exitCode === 0 ? (result.state || "failed") : "failed"
+                if (exitCode === 0) root.backend = String(result.backend || "familiar")
                 root.message = String(result.message || "Window-control update failed.").slice(0, 300)
+                if (exitCode === 0 && adapter.command[2] === "migrate") root.schedule()
             } catch (error) {
                 root.state = "failed"
                 root.message = "Window-control helper failed. Build the Rust helper and check that hyprctl is installed."

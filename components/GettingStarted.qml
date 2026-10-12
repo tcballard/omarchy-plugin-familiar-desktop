@@ -38,7 +38,7 @@ ColumnLayout {
         font.pixelSize: 11
         color: Commons.Color.popups.text
     }
-    TextInput {
+    SafeTextInput {
         id: filter
         Layout.fillWidth: true
         Layout.minimumHeight: 36

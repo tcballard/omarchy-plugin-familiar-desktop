@@ -7,7 +7,7 @@ main() {
 plugin_id='io.github.tcballard.familiar-desktop'
 plugin_dir="$HOME/.config/omarchy/plugins/$plugin_id"
 repository='https://github.com/tcballard/omarchy-plugin-familiar-desktop.git'
-release='v0.1.5'
+release='v0.1.6'
 # Release CI inserts the exact built commit into the standalone release asset.
 # The repository template intentionally refuses to install without this pin.
 release_sha='@SOURCE_SHA@'
@@ -44,11 +44,13 @@ if (( ${#packages[@]} )); then
   sudo pacman -S --needed "${packages[@]}"
 fi
 step 2 "Installing Familiar Desktop $release"
-# Check the release ABI before registration or changes to a running installation.
+# Core owns renderer compatibility on official-package hosts. Only the private
+# renderer needs Familiar's pinned ABI; never reject or replace Core's library.
+official_library=/usr/lib/omarchy-hyprland-titlebars/titlebars.so
 expected_abi='efb50993780079460b0cbed1363e2166a2de1d9f_aq_0.15_hu_0.14_hg_0.5_hc_0.1_hlg_0.6'
 [[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]] || { echo 'Familiar requires Linux x86_64.' >&2; exit 1; }
 abi="$(hyprctl version | sed -n 's/^Version ABI string: //p')"
-[[ "$abi" == "$expected_abi" ]] || { printf 'Unsupported Hyprland ABI: %s\nExpected: %s\nNothing installed.\n' "$abi" "$expected_abi" >&2; exit 1; }
+[[ -f "$official_library" || "$abi" == "$expected_abi" ]] || { printf 'Unsupported Hyprland ABI: %s\nExpected: %s\nNothing installed.\n' "$abi" "$expected_abi" >&2; exit 1; }
 if [[ -L "$plugin_dir" || ( -e "$plugin_dir" && ! -d "$plugin_dir/.git" ) ]]; then
   echo "Refusing to replace an unmanaged directory: $plugin_dir" >&2; exit 1
 fi
@@ -85,7 +87,8 @@ git -C "$plugin_dir" fetch --no-tags "$repository" "$release_sha"
 helper="$plugin_dir/bin/familiar-desktop"
 if [[ -x "$helper" ]]; then
   previous_version="$("$helper" --version)"
-  if [[ "$previous_version" == 'familiar-desktop 0.1.0'* ]]; then
+  # Helpers since 0.1.0 can restore Show Desktop windows; 0.0.x predates the command.
+  if [[ "$previous_version" != 'familiar-desktop 0.0.'* ]]; then
     "$helper" desktop restore
   fi
   "$helper" titlebars disable
@@ -96,14 +99,16 @@ git -C "$plugin_dir" checkout --detach "$release_sha"
 [[ "$(git -C "$plugin_dir" rev-parse --verify HEAD)" == "$release_sha" ]] || { echo 'Checked-out source does not match the pinned release commit; Familiar remains disabled for this update.' >&2; exit 1; }
 check_clean
 step 3 'Checking compatibility and installing the verified release backend'
-bash "$plugin_dir/install-titlebars.sh" --check
+if [[ ! -f "$official_library" ]]; then bash "$plugin_dir/install-titlebars.sh" --check; fi
 bash "$plugin_dir/install-backend.sh"
-step 4 'Installing verified prebuilt window controls'
+step 4 'Preparing window controls'
 helper="$plugin_dir/bin/familiar-desktop"
-library="$(bash "$plugin_dir/install-titlebars.sh")"
 source "$plugin_dir/bar-placement.sh"
 familiar_prepare_bar_placement
-"$helper" titlebars setup --library "$library" --enable --style "$style"
+if [[ ! -f "$official_library" ]]; then
+  library="$(bash "$plugin_dir/install-titlebars.sh")"
+  "$helper" titlebars setup --library "$library" --enable --style "$style"
+fi
 step 5 'Enabling the dock and window controls'
 omarchy plugin enable "$plugin_id"
 familiar_apply_bar_placement
@@ -112,5 +117,8 @@ shell_call refreshTitlebars
 update_started=false
 "$helper" --version
 printf '\nFamiliar Desktop %s is installed. Open Familiar Desktop in the bar to adjust Window controls.\n' "$release"
+if [[ -f "$official_library" ]]; then
+  echo 'Omarchy manages the renderer. Choose Use Familiar controls in Window controls; a private-renderer migration requires logout/login.'
+fi
 }
 main "$@"

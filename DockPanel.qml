@@ -392,7 +392,9 @@ Item {
     readonly property string titlebarState: titlebars.state
     readonly property string titlebarMessage: titlebars.message
     readonly property bool titlebarBusy: titlebars.busy
+    readonly property bool titlebarsManagedByOmarchy: titlebars.backend === "omarchy"
     function refreshTitlebars() { titlebars.refresh() }
+    function useOmarchyTitlebars() { titlebars.useOmarchy() }
     TitlebarController {
         id: titlebars
         available: setupController.ready

@@ -30,6 +30,19 @@ TestCase {
         verify(item.ready)
         verify(!item.opened)
     }
+    function test_officialHostExplainsCoreOwnershipBeforeInstall() {
+        var item = make()
+        proc(item).complete("Omarchy manages window controls.\nSetup required", 3)
+        compare(item.officialTitlebars, true)
+        compare(item.ready, false)
+        item.start()
+        proc(item).complete("Familiar is ready.", 0)
+        compare(item.officialTitlebars, true)
+        compare(item.ready, true)
+        item.check()
+        proc(item).complete("Familiar is ready.", 0)
+        compare(item.officialTitlebars, false)
+    }
     function test_failureRetryAndBoundedDetails() {
         var item = make(), adapter = proc(item)
         adapter.complete("needed", 3)

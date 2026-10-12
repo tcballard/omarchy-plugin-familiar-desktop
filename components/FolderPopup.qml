@@ -264,7 +264,7 @@ PanelWindow {
                     }
 
                     // === EDIT: TextInput с прокруткой, виден только при фокусе ===
-                    TextInput {
+                    SafeTextInput {
                         id: titleInput
                         anchors.centerIn: parent
                         width: parent.width - 12

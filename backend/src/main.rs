@@ -9,6 +9,7 @@ fn main() {
         return;
     }
     let result=match args.first().map(String::as_str) {
+        Some("clipboard") if args.len() == 2 && args[1] == "paste" => familiar_desktop::clipboard::paste(),
         Some("taskbar")=>taskbar::execute(&args[1..]),
         Some("input-preference")=>input_preferences::execute(&args[1..]),
         Some("gestures")=>gestures::execute(&args[1..]),

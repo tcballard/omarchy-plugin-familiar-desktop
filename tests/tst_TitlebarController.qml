@@ -73,6 +73,25 @@ TestCase {
         compare(item.state, "failed")
         verify(item.message.indexOf("timed out") >= 0)
     }
+    function test_officialHandoffIsExplicitAndSerialized() {
+        var item = makeController()
+        var adapter = adapterFor(item)
+        tryCompare(adapter, "running", true)
+        item.useOmarchy()
+        compare(adapter.starts, 1)
+        adapter.complete('{"state":"migration-required","backend":"omarchy"}', 0)
+        compare(item.backend, "omarchy")
+        item.useOmarchy()
+        compare(adapter.command[2], "migrate")
+        compare(adapter.starts, 2)
+        adapter.complete('{"state":"restart-required","backend":"omarchy","message":"Log in again"}', 0)
+        compare(item.state, "restart-required")
+        item.refresh()
+        tryCompare(adapter, "starts", 3)
+        adapter.complete('{"state":"managed","backend":"omarchy"}', 0)
+        compare(item.state, "managed")
+        compare(item.backend, "omarchy")
+    }
     function test_palette_change_reapplies_colours() {
         var item = makeController()
         var adapter = adapterFor(item)

@@ -14,7 +14,7 @@ Familiar Desktop adds a mouse-friendly app dock to Omarchy Quattro. Launch or re
 
 ## Release and development builds
 
-[v0.1.6 release notes and thanks](docs/v0.1.6.md) cover official titlebar integration, bounded clipboard handling and installer/input/dock fixes. General, Windows and Mac layouts remain available. Build and acceptance evidence is recorded in [PR #92](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/92).
+[v0.1.7 release notes and thanks](docs/v0.1.7.md) cover the foreign app-ID icon fix. This patch retains v0.1.6’s official titlebar integration, bounded clipboard handling and installer/input/dock fixes. General, Windows and Mac layouts remain available. Build and acceptance evidence is recorded in [PR #92](https://github.com/tcballard/omarchy-plugin-familiar-desktop/pull/92).
 
 ## Install
 
@@ -34,7 +34,7 @@ Setup requires the standard Omarchy tools (including curl, jq and coreutils), Li
 
 ### Standalone release installer
 
-The [v0.1.6 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.6) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
+The [v0.1.7 release](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.7) also includes a standalone installer and checksums for recovery. Normal setup uses the native plugin command above.
 
 The installer refuses local source changes, untracked files and unexpected ignored files. It checks compatibility, restores Show Desktop windows when updating from v0.1.0 or later, unloads controls and disables Familiar before checkout, then verifies binaries before setup and enablement. A failed update stops for repair. Missing download tools may prompt for a package-manager password.
 

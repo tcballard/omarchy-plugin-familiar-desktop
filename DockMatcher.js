@@ -5,6 +5,7 @@
 .import "PluginPanels.js" as Panels
 .import "AppCatalog.js" as Catalog
 .import "DesktopCatalog.js" as Entries
+.import "IconResolver.js" as Icons
 
 var stripDesktop = Entries.stripDesktop;
 var cleanWindowAppId = Entries.cleanWindowAppId;
@@ -208,6 +209,11 @@ function getDiskIcon(name) {
 }
 
 function resolveIcon(entry, appId, appLibrary) {
+    // A foreign client's app ID is an icon name, never an image location.
+    if (!entry) return Icons.resolve({ appId: appId, iconIdentifierOnly: true }, {
+        candidates: getCandidates, diskIcon: getDiskIcon, library: appLibrary,
+        iconPath: function() { return ""; }, friendlyFallback: false
+    });
     if (entry && entry.iconSource && entry.iconSource.length > 0 && entry.iconSource.indexOf("application-x-executable") === -1) {
         return entry.iconSource;
     }
@@ -920,6 +926,7 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
             pluginId: entry && entry.pluginId ? entry.pluginId : "",
             iconGlyph: entry && entry.iconGlyph ? entry.iconGlyph : "",
             rawIcon: entry && entry.icon ? entry.icon : (appId || "application-x-executable"),
+            iconIdentifierOnly: !(entry && entry.icon),
             iconSource: entry && entry.iconSource ? entry.iconSource : "",
             isStack: false, isPinned: isPinned, isDuplicate: false,
             isRunning: result.windowCount > 0, isActive: result.isActive,

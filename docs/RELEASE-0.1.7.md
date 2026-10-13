@@ -21,3 +21,9 @@ No physical XPS or ARM desktop acceptance is claimed. Stable release binaries re
 The release-version binary must first be measured by CI, its digest committed, and a subsequent strict build must reproduce both committed binary pins. Current main portable and release-binary checks must pass before the existing Tag verified release workflow creates an immutable annotated tag, verifies draft assets and public onboarding downloads.
 
 Exact promotion source, build identities and publication results are recorded in the release-preparation PR and the published release. Validation-only artifacts are not publishable.
+
+## Release-version measurement
+
+Source `fee5d652b3059ff12c655fe987d2590a902776e0`, [binary run 38442083003](https://github.com/tcballard/omarchy-plugin-familiar-desktop/actions/runs/38442083003), attempt 1, job `115451477913`, successfully built and tested the static 0.1.7 backend. Its measured SHA-256 is `11d63ea8077cf7c3fb001e746efe56aa309cd36dc9b527290dda6462faa92870`. The existing private-renderer digest is unchanged. The next build must reproduce both committed hashes with strict installer checks.
+
+The installed release preflight reports a broad passwordless-sudo rule in `tests/desktop/vm.sh`. Manual review confirms this is cloud-init for a disposable QEMU guest under a temporary runner directory, with a locked password and per-run SSH keys; it is not installed on a user host. The scanner result is retained, not suppressed. Local canonical Rust/Qt checks are unavailable on this host; current CI supplies those checks.

@@ -70,9 +70,28 @@ TestCase {
         icon.glyph = ""
         compare(glyph.visible, false)
         compare(image.visible, true)
-        icon.source = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        icon.source = Qt.resolvedUrl("../preview.png")
         tryCompare(image, "status", Image.Ready)
         verify(image.sourceSize.width >= 128)
+    }
+    function test_appIconRejectsNetworkSourcesBeforeImageLoading() {
+        var icon = createTemporaryObject(iconFactory, this)
+        var image = findChild(icon, "app-icon-image")
+        var fallback = findChild(icon, "app-icon-fallback-image")
+        var unsafe = ["https://127.0.0.1:9/huge.png", "HTTP://localhost:9/huge.png",
+                      "//example.org/icon", "file://example.org/icon", "data:image/png;base64,large"]
+        for (var i = 0; i < unsafe.length; i++) {
+            icon.source = unsafe[i]
+            compare(String(image.source), "")
+            compare(image.status, Image.Null)
+            icon.source = Qt.resolvedUrl("missing-icon.png")
+            tryCompare(image, "status", Image.Error)
+            icon.fallbackSource = unsafe[i]
+            compare(String(fallback.source), "")
+            compare(fallback.status, Image.Null)
+        }
+        icon.source = Qt.resolvedUrl("../preview.png")
+        tryCompare(image, "status", Image.Ready)
     }
     function test_repeaterSuppliesInheritedRequiredProperties() {
         var group = createTemporaryObject(repeatedFactory, this)

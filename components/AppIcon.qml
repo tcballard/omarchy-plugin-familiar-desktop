@@ -3,6 +3,7 @@ import QtQuick.Window
 import qs.Commons
 import qs.Commons as Commons
 import ".."
+import "../IconResolver.js" as Icons
 
 // App icons can be theme images or the same font glyph used by a shell widget.
 Item {
@@ -18,7 +19,7 @@ Item {
         objectName: "app-icon-image"
         anchors.fill: parent
         visible: root.glyph === "" && status !== Image.Error
-        source: root.glyph === "" ? root.source : ""
+        source: root.glyph === "" ? Icons.localSource(String(root.source)) : ""
         fillMode: Image.PreserveAspectFit
         sourceSize: Qt.size(Math.max(128, width * 4 * Screen.devicePixelRatio), Math.max(128, height * 4 * Screen.devicePixelRatio))
         mipmap: true
@@ -26,9 +27,10 @@ Item {
         antialiasing: true
     }
     Image {
+        objectName: "app-icon-fallback-image"
         anchors.fill: parent
         visible: root.glyph === "" && image.status === Image.Error
-        source: visible ? root.fallbackSource : ""
+        source: visible ? Icons.localSource(String(root.fallbackSource)) : ""
         fillMode: Image.PreserveAspectFit
         sourceSize: image.sourceSize
         smooth: true

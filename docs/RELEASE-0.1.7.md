@@ -19,3 +19,9 @@ Production QML/JS and Rust implementation remain identical to that merged runtim
 ## Promotion status
 
 Release-version backend measurement, strict pin reproduction, exact-main checks and verified publication must complete before shipping. Their exact source/run/digest identities will be recorded in the release PR and appended to the published notes by the publication workflow. No unchecked gate is claimed complete.
+
+## Release-version measurement
+
+Source `0f39b99d5b4b24b425566e1e4bde410cab20537f`, [binary run 38441119339](https://github.com/tcballard/omarchy-plugin-familiar-desktop/actions/runs/38441119339), attempt 1, job `115448274187` built the static 0.1.7 backend with SHA-256 `11d63ea8077cf7c3fb001e746efe56aa309cd36dc9b527290dda6462faa92870`. Rust tests, static ELF checks, version checks, validation-only packaging fixtures and checksums passed. The digest was read from the CI log; independent local byte inspection is not claimed. The validation-only artifact is not publishable.
+
+The measured backend pin is committed; the reviewed private titlebar-library pin remains unchanged. A subsequent strict build must reproduce both before promotion.

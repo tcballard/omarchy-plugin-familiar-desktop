@@ -6,7 +6,7 @@ main() {
     echo "Omarchy's titlebar package is installed. Familiar will not download a competing backend. Official-package migration is pending (issue #74); keep your existing settings and use the dock independently." >&2
     return 1
   fi
-  local release='v0.1.6'
+  local release='v0.1.7'
   local root_dir architecture abi asset base expected actual destination
   root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   [[ "$(uname -s)" == Linux ]] || { echo 'Window controls require Linux.' >&2; return 1; }

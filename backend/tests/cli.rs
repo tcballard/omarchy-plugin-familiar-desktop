@@ -78,6 +78,29 @@ esac
         unreachable!()
     }
 }
+#[cfg(target_os = "linux")]
+#[test]
+fn fixture_launch_waits_for_transient_writable_descriptor() {
+    let f = Fixture::new();
+    let writer = fs::OpenOptions::new().write(true).open(&f.binary).unwrap();
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        drop(writer);
+    });
+    let output = f.run(&["--version"]);
+    release.join().unwrap();
+    assert!(output.status.success());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[should_panic(expected = "Text file busy")]
+fn fixture_launch_fails_if_writable_descriptor_remains_open() {
+    let f = Fixture::new();
+    let _writer = fs::OpenOptions::new().write(true).open(&f.binary).unwrap();
+    f.run(&["--version"]);
+}
+
 #[test]
 fn executable_setup_apply_disable_remove_preserves_user_config() {
     let f = Fixture::new();

@@ -2,7 +2,7 @@
 
 > Retirement policy: [MAINTENANCE.md](MAINTENANCE.md). Feature development ended on 13 October 2026. The gates below continue to apply to scoped maintenance; they are not a future-release commitment.
 
-Agreed with Tom on 7 October 2026. This is Familiar's default workflow and the
+I adopted this workflow on 7 October 2026. This is Familiar's default workflow and the
 source of truth for future assistant sessions, contributor work and handoffs.
 
 1. Start a feature branch from `main` and open a draft PR. Keep related changes
@@ -11,12 +11,12 @@ source of truth for future assistant sessions, contributor work and handoffs.
    ready for desktop testing, without changing the product version.
 3. Identify the test build by its full commit SHA, CI run URL and attempt, and
    artifact name/digest. Its source and binaries must match. Include rollback.
-4. Tom tests that exact build on the XPS. Record scenarios, environment, results,
-   limitations and his explicit acceptance or rejection in the PR.
+4. I test that exact build on the XPS. Record scenarios, environment, results,
+   limitations and my explicit acceptance or rejection in the PR.
 5. Fixes remain on the branch. Each new source/build needs fresh acceptance for
    affected behaviour. A stale approval, label or checked box is not acceptance
    of a later commit. If the merge changes the accepted content, retest it.
-6. Merge only with current green CI, applicable desktop acceptance and Tom's
+6. Merge only with current green CI, applicable desktop acceptance and my
    merge authorization. Green CI alone is never enough for runtime changes.
 7. Create a versioned release only when separately requested. Routine test builds
    create no RC tags, GitHub Releases, version bumps or stable binary-pin changes.
@@ -31,7 +31,7 @@ packaging, workflow execution or runtime changes.
 - CI run URL, attempt and artifact name/digest.
 - XPS model, Omarchy / Hyprland versions and monitor scaling.
 - Scenarios tested, outcome and remaining limitations.
-- Tom's explicit decision and a link or quotation identifying its provenance.
+- My explicit decision and a link or quotation identifying its provenance.
 - Merge authorization; release authorization is separate.
 
 Assistant summaries and handoffs must preserve this workflow and distinguish
@@ -49,7 +49,7 @@ apply it in Settings → Rules → Rulesets, then read back its active state.
 
 This baseline does not claim to mechanically verify XPS acceptance or every
 binary workflow. Those remain explicit pre-merge checks under the agreement
-above. A required peer approval would not let Tom approve PRs he authored;
+above. A required peer approval would not let me approve PRs I authored;
 do not substitute that requirement for his acceptance record.
 
 At adoption, branch protection was not configured through that session because

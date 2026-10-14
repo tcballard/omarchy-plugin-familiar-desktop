@@ -39,5 +39,5 @@ build.
 Start with [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the feature-to-file map and
 ownership boundaries. [DEVELOPMENT.md](docs/DEVELOPMENT.md) explains local checks,
 exact-source development builds and rollback. [WORKFLOW.md](docs/WORKFLOW.md)
-requires green current CI, Tom's acceptance of the exact build on the XPS and
+requires green current CI, my acceptance of the exact build on the XPS and
 merge authorization. Release authorization is separate.

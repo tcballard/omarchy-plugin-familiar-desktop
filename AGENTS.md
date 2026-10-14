@@ -5,7 +5,7 @@
 Read `docs/WORKFLOW.md` before making changes or merging. Use
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for owners, entry points and tests;
 `tests/check` is the canonical portable check command. This is the standing
-workflow agreed with Tom on 7 October 2026. Carry it into handoffs and summaries;
+workflow I adopted on 7 October 2026. Carry it into handoffs and summaries;
 do not fall back to earlier instructions treating green CI alone as merge approval.
 
 - Keep `main` stable. Start coherent changes on feature branches and draft PRs.
@@ -15,9 +15,9 @@ do not fall back to earlier instructions treating green CI alone as merge approv
 - Use ad-hoc development artifacts identified by exact commit SHA, CI run and
   attempt, with matching source/binaries, checksums and rollback. Do not mix a new
   source checkout with old binaries and call that a complete development test.
-- Runtime and installer changes require Tom's explicit acceptance of that build
+- Runtime and installer changes require my explicit acceptance of that build
   on the XPS, then merge authorization and green current CI. Never manufacture an
-  acceptance record or mark a checklist complete on Tom's behalf without evidence.
+  acceptance record or mark a checklist complete on my behalf without evidence.
 - Subsequent changes require a new build and relevant retesting. Documentation
   or process changes may proceed without desktop testing when no runtime or
   installer behaviour changes; record that rationale rather than inventing a test.
@@ -29,5 +29,5 @@ do not fall back to earlier instructions treating green CI alone as merge approv
 - For each handoff, state the branch/PR, source SHA, CI/build evidence, desktop
   acceptance status, outstanding work and whether merge/release is authorized.
 
-An explicit later instruction from Tom can change this workflow. Record the
+An explicit later instruction from me can change this workflow. Record the
 scope of any exception; do not infer a permanent waiver from a one-off request.

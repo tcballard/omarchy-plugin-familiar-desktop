@@ -1,11 +1,11 @@
 # Familiar Desktop — end-of-life transition
 
-**Feature development has ended. New installations are not recommended.**
+**I’ve ended feature development and don’t recommend new installations.**
 
-On 13 October 2026, Tom decided to retire Familiar Desktop after Omarchy
+On 13 October 2026, I decided to retire Familiar Desktop after Omarchy
 incorporated much of its mouse-friendly desktop functionality into Core.
 [v0.1.7](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases/tag/v0.1.7)
-subsequently shipped the foreign app-ID icon-loading fix. That release does not
+was the patch I shipped afterwards to fix foreign app-ID icon loading. That release does not
 restart the feature roadmap.
 
 As of 14 October, the replacement functionality has merged into **Quattro
@@ -43,11 +43,11 @@ perform this cleanup. Disabling alone also does not reset all native preferences
 
 ## Maintenance expectations
 
-- No v0.2.0, Mac/Windows split, curated app collection or new feature roadmap is
-  planned. The earlier plan in [#87](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/87) is superseded.
-- Security, safe removal, migration and narrowly scoped compatibility fixes may
-  be considered for existing users. There is **no guaranteed response time,
-  support period, future release or compatibility with future Omarchy updates**.
+- I’m no longer planning v0.2.0, a Mac/Windows split, a curated app collection or
+  a new feature roadmap. The earlier plan in [#87](https://github.com/tcballard/omarchy-plugin-familiar-desktop/issues/87) is superseded.
+- Security, safe removal, migration and narrowly scoped compatibility fixes are work
+  I may consider for existing users. I can’t guarantee **a response time, support
+  period, future release or compatibility with future Omarchy updates**.
 - Bug reports remain open where unresolved. An open issue or PR is not a promise
   to fix or ship it. Report sensitive vulnerabilities privately through GitHub's
   security reporting route if available; do not post exploit details publicly.

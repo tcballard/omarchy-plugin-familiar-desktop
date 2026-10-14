@@ -1,8 +1,10 @@
 # Official titlebars — issue #74
 
-On `dev/v0.1.6`, Familiar's Mac/Windows controls use Omarchy's official renderer.
-This supersedes the earlier native-only handoff which left those styles inactive.
-No release or desktop acceptance is implied.
+The official-renderer integration shipped in v0.1.6 through PR #92 and is retained
+in v0.1.7. That does not establish availability of Core's replacement desktop
+on every Omarchy channel. During retirement, start with [END-OF-LIFE.md](END-OF-LIFE.md).
+The implementation notes below describe Familiar's adapter, not a recommendation
+to install Familiar or an assurance of future Core compatibility.
 
 `integration/v0.1.6-arm-titlebars` combines this work with k-kostin's native ARM
 development contribution (#85). Official-host builds contain only the

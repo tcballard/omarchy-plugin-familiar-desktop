@@ -1,5 +1,7 @@
 # Branch builds and desktop acceptance
 
+> Familiar is retiring. These instructions remain for scoped maintenance, recovery and independent forks. Read [MAINTENANCE.md](MAINTENANCE.md) first; no feature roadmap or future release is promised.
+
 Work on a feature branch with a draft PR. Green CI means ready for desktop
 testing. Merge only after Tom accepts the exact build on the XPS and CI passes.
 Changing the source invalidates acceptance for affected behaviour. Versions and

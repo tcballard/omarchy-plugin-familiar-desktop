@@ -1,5 +1,7 @@
 # Stable main, tested feature branches
 
+> Retirement policy: [MAINTENANCE.md](MAINTENANCE.md). Feature development ended on 13 October 2026. The gates below continue to apply to scoped maintenance; they are not a future-release commitment.
+
 Agreed with Tom on 7 October 2026. This is Familiar's default workflow and the
 source of truth for future assistant sessions, contributor work and handoffs.
 

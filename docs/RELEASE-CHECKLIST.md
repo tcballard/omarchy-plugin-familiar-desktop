@@ -1,5 +1,7 @@
 # Release and Merge and Tell checklist
 
+> Retirement policy: [MAINTENANCE.md](MAINTENANCE.md). This checklist is retained in case a separately authorized maintenance release is needed; it does not schedule or promise one.
+
 ## Prepare and accept
 
 - Keep work on the feature/hotfix branch and draft PR. Record the exact tested source SHA, CI run/attempt, artifact digest and rollback snapshot.

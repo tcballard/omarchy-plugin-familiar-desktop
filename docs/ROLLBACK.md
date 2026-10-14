@@ -19,9 +19,10 @@ it does not rewrite the include. Choosing **Use configuration** removes the
 include and generated keyboard config. No keyboard override is installed merely
 by enabling Familiar.
 
-## Remove the v0.1.1 candidate
+## Remove an existing installation
 
-Run the script from the installed candidate, before deleting its folder:
+Read [the EOL guide](END-OF-LIFE.md) first. Run the script from the installed
+plugin with its matching helper, before deleting its folder:
 
 ```bash
 bash ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/uninstall.sh
@@ -29,8 +30,8 @@ bash ~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/uninstall.sh
 
 It restores Show Desktop windows recorded for the current session, refuses to
 continue if hidden/minimised windows remain, disables Familiar, resets the
-keyboard and floating-window overrides, removes the owned title-bar include, explicitly unloads
-Hyprbars, and checks the reload before asking Omarchy to delete the plugin.
+keyboard and floating-window overrides, removes the owned title-bar include, cleans up Familiar-owned controls
+without unloading Core's official renderer, and checks the reload before asking Omarchy to delete the plugin.
 If it asks you to restore minimised windows, use the dock and rerun the command.
 The shared `special:minimized` workspace does not identify who minimised each
 window, so the uninstaller does not guess their ownership or original workspace.
@@ -43,7 +44,7 @@ merge manually rather than blindly replacing your whole config.
 
 The generic **omarchy plugin remove** command has no plugin cleanup callback.
 It is not a substitute for this script. If the folder was already removed,
-reinstall the same candidate before cleanup. Missing manifests make generated
+recover the same source and matching helper before cleanup. Missing manifests make generated
 overrides inert on the next Hyprland reload; that is not immediate removal of
 an already loaded plugin or restoration of hidden windows.
 

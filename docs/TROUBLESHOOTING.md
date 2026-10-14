@@ -1,5 +1,7 @@
 # Familiar troubleshooting
 
+> Familiar is retiring. Start with the [EOL and migration guide](END-OF-LIFE.md) before changing or removing an existing installation. No future compatibility or support turnaround is guaranteed.
+
 - **A window disappeared after Show Desktop:** use Restore windows in Familiar settings. If the shell is unavailable, run `~/.config/omarchy/plugins/io.github.tcballard.familiar-desktop/bin/familiar-desktop desktop restore` from a terminal. Restore before disablement, removal or rollback.
 - **Window controls won't load:** the prebuilt library supports the exact Hyprland ABI in the README. Do not rebuild Hyprland or install Cargo. Report the output of `hyprctl version` and Familiar's displayed error.
 - **Onboarding fails while downloading the backend or window controls:** the setup log ends with the exact failing download URL. An HTTP 404 means the release tag exists but its binaries were not published yet, as happened with v0.1.3 (issue #79). Check the [releases page](https://github.com/tcballard/omarchy-plugin-familiar-desktop/releases), wait for the assets to appear, then retry setup. A failed download changes nothing; existing verified binaries are kept.

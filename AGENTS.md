@@ -1,5 +1,7 @@
 # Familiar's default development workflow
 
+> Read `docs/MAINTENANCE.md` and `docs/END-OF-LIFE.md` first. Feature development ended on 13 October 2026; only retirement maintenance is in scope. Do not revive the v0.2.0/split roadmap, promise releases or archive the repository.
+
 Read `docs/WORKFLOW.md` before making changes or merging. Use
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for owners, entry points and tests;
 `tests/check` is the canonical portable check command. This is the standing

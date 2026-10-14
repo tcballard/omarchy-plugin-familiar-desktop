@@ -2,8 +2,8 @@
 
 Decision: 13 October 2026. Guidance reviewed: 14 October 2026.
 
-Familiar's feature development has ended. v0.1.7 remains available, including
-its icon-loading security fix; no further release is promised. See
+I’ve ended feature development on Familiar. v0.1.7 remains available, including
+its icon-loading security fix; I’m not promising another release. See
 [maintenance policy](MAINTENANCE.md). This notice does not change installed code.
 
 ## Check Core availability first
@@ -144,7 +144,7 @@ before cleanup. The repository's `install.sh` is a CI template; use the generate
 installer asset for the selected release if recovery requires installation.
 Compatibility and checksum checks still apply. If recovery cannot pass them,
 leave the files/configuration for targeted review and report the failure with
-private data removed. There is no guaranteed support turnaround.
+private data removed. I can’t guarantee a support turnaround.
 
 See [troubleshooting](TROUBLESHOOTING.md) and [configuration rollback](ROLLBACK.md).
 After successful removal, check visible windows, bar placement, input behaviour

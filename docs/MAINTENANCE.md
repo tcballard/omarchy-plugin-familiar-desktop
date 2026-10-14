@@ -2,21 +2,21 @@
 
 Effective decision: 13 October 2026. Review: 14 October 2026.
 
-Familiar Desktop is moving to end of life because Omarchy Core now implements
+I’m retiring Familiar Desktop because Omarchy Core now implements
 much of the mouse-friendly desktop direction in Quattro development. Stable
 availability must be checked independently. New installation is discouraged;
 [existing-user migration and removal](END-OF-LIFE.md) take priority.
 
 ## Scope and expectations
 
-Feature development has ended. The v0.2.0 dock-only roadmap, Windows/Mac split,
-curated app collection and expansion of platform support are no longer planned.
-No replacement fork, new maintainer, future release, response SLA or support
-end date is promised. Existing bugs are not declared fixed by retirement.
+I’ve ended feature development. I’m no longer planning the v0.2.0 dock-only
+roadmap, Windows/Mac split, curated app collection or platform expansion.
+I’m not promising a replacement fork, a new maintainer, another release, a
+response SLA or a support end date. Existing bugs are not declared fixed by retirement.
 
 Security, data/configuration preservation, safe disable/uninstall, migration and
-narrow compatibility fixes for existing installations may be considered. Review
-cost and risk still matter. A retained PR is a candidate, not accepted code or a
+narrow compatibility fixes for existing installations are work I may consider.
+Review cost and risk still matter. A retained PR is a candidate, not accepted code or a
 release commitment. Keep sensitive vulnerability details out of public issues;
 use the repository's private GitHub security reporting route if available.
 

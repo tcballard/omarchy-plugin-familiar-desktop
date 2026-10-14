@@ -54,13 +54,28 @@ esac
         }
     }
     fn run(&self, args: &[&str]) -> Output {
-        Command::new(&self.binary)
+        let mut command = Command::new(&self.binary);
+        command
             .args(args)
             .env("HOME", &self.home)
             .env("XDG_CONFIG_HOME", self.home.join(".config"))
-            .env("PATH", format!("{}:/usr/bin:/bin", self.tools.display()))
-            .output()
-            .unwrap()
+            .env("PATH", format!("{}:/usr/bin:/bin", self.tools.display()));
+        // Parallel fixture creation/spawning can briefly leave a writable copy
+        // descriptor inherited by another child until exec closes it. Linux
+        // rejects this executable with ETXTBSY before the program starts.
+        // Retry only that launch error, never a completed command or assertion.
+        for attempt in 0..20 {
+            match command.output() {
+                Ok(output) => return output,
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 19 =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(error) => panic!("could not launch fixture {:?}: {error}", self.binary),
+            }
+        }
+        unreachable!()
     }
 }
 #[test]

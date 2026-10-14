@@ -4,7 +4,7 @@ Familiar gives Omarchy users visible app and window controls, with General,
 Windows and Mac starting layouts. It runs as a hosted service and bar widget
 inside Omarchy's Quickshell process under `io.github.tcballard.familiar-desktop`.
 
-## Current scope
+## Retained implementation
 
 - App dock, optional Windows taskbar, pins and folders, window previews, app and
   window actions, badge counts, file shortcuts and hosted Omarchy widgets.
@@ -27,7 +27,9 @@ and keeps a reversible snapshot. Ordinary dock widgets leave bar layout alone.
 No hosted runtime invokes Cargo, launches a second shell, or silently installs
 companion apps or packages.
 
-The planned curated app front door remains future scope. Historical prototypes,
+Feature development ended on 13 October 2026. The curated app front door and
+v0.2.0 split are no longer planned. See [maintenance policy](docs/MAINTENANCE.md)
+and [migration guidance](docs/END-OF-LIFE.md). Historical prototypes,
 release plans and dated evidence are in the [archived product notes](docs/history/PRODUCT-2026-10-10.md)
 and the individual release documents; they do not establish acceptance of a new
 build.

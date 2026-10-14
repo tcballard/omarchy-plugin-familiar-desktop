@@ -1,3 +1,7 @@
+Familiar is retiring. Explain why this change protects existing users or enables
+safe migration/removal under [the maintenance policy](../docs/MAINTENANCE.md).
+New feature development is out of scope; no release is promised.
+
 ## Why and changes
 
 ## Build evidence

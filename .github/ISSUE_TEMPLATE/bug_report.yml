@@ -4,6 +4,9 @@ body:
   - type: markdown
     attributes:
       value: |
+        Familiar is retiring; new features and future releases are not promised.
+        Security, compatibility and safe migration/removal reports remain useful.
+        Read docs/END-OF-LIFE.md and docs/MAINTENANCE.md first.
         Please check existing issues first. One problem per report makes it easier to track a fix.
         Remove private information from logs and screenshots before posting.
   - type: textarea

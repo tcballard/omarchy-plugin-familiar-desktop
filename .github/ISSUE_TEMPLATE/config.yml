@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: End-of-life and migration guide
+    url: https://github.com/tcballard/omarchy-plugin-familiar-desktop/blob/main/docs/END-OF-LIFE.md
+    about: Read the retirement status, support limits and safe removal steps.
   - name: Installation and troubleshooting
     url: https://github.com/tcballard/omarchy-plugin-familiar-desktop/blob/main/docs/TROUBLESHOOTING.md
     about: Check the setup and troubleshooting guide before opening an issue.

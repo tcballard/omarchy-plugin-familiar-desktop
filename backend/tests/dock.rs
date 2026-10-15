@@ -149,6 +149,33 @@ fn cli_titles_and_aliases() {
     }
 }
 #[test]
+fn scan_cli_attributes_apps_to_window_addresses() {
+    let clients = [
+        json!({"address":"0xAAA","class":"foot","title":"btop","workspace":{"name":"2"}}),
+        json!({"address":"0xBBB","class":"foot","title":"ordinary shell","workspace":{"name":"2"}}),
+        json!({"address":"0xCCC","class":"firefox","title":"nvim","workspace":{"name":"2"}}),
+        json!({"class":"foot","title":"nvim","workspace":{"name":"2"}}),
+        json!({"address":"garbage","class":"foot","title":"yazi","workspace":{"name":"2"}}),
+    ];
+    // Per-window pairs, no app-level dedup: a plain shell and non-terminals
+    // contribute nothing, and entries without a usable address name no window.
+    assert_eq!(
+        dock::scan_cli_apps(&clients),
+        json!([{"address":"0xaaa","app":"btop"}])
+    );
+    let two_nvim = [
+        json!({"address":"0xAAA","class":"foot","title":"nvim a.rs","workspace":{"name":"1"}}),
+        json!({"address":"0xBBB","class":"foot","title":"nvim b.rs","workspace":{"name":"2"}}),
+    ];
+    assert_eq!(
+        dock::scan_cli_apps(&two_nvim),
+        json!([
+            {"address":"0xaaa","app":"nvim"},
+            {"address":"0xbbb","app":"nvim"}
+        ])
+    );
+}
+#[test]
 fn pwa_urls_paths_browser_variants_and_profile_isolation() {
     for (class, query) in [
         (

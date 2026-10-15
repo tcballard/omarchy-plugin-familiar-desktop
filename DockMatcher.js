@@ -438,21 +438,35 @@ function clearPendingCliHint() {
     _pendingCliHint = null;
 }
 
-var _detectedCliApps = []; // array of detected CLI command strings from /proc, e.g. ["cliamp", "btop"]
+// One entry per terminal window running a known CLI app: {address, app}.
+// The address names the window itself, so a scanner result is attributed to
+// that window alone, never to every unidentified terminal.
+var _detectedCliByAddress = {};
 var _detectedCliTimestamp = 0;
 
+function cliAddressKey(address) {
+    return String(address || "").toLowerCase().replace(/^0x/, "");
+}
+
 function setDetectedCliApps(apps) {
-    if (Array.isArray(apps)) {
-        _detectedCliApps = apps.slice();
-        _detectedCliTimestamp = Date.now();
+    if (!Array.isArray(apps)) return;
+    var byAddress = {};
+    for (var i = 0; i < apps.length; i++) {
+        var item = apps[i];
+        if (!item || typeof item !== "object") continue; // address-less entries name no window
+        var key = cliAddressKey(item.address);
+        var app = String(item.app || "").toLowerCase();
+        if (key && app) byAddress[key] = app;
     }
+    _detectedCliByAddress = byAddress;
+    _detectedCliTimestamp = Date.now();
 }
 
 function getDetectedCliApps() {
     if (Date.now() - _detectedCliTimestamp > 15000) {
-        _detectedCliApps = [];
+        _detectedCliByAddress = {};
     }
-    return _detectedCliApps;
+    return _detectedCliByAddress;
 }
 
 var _stickyCliByTopId = {}; // topId -> cliApp
@@ -849,13 +863,17 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
     //   4. When extractCliApp confirms the real title, clear the hint.
     var toplevelCliApps = {};
     var hint = getPendingCliHint();
-    var detectedCliList = getDetectedCliApps();
+    var detectedCliByAddress = getDetectedCliApps();
     for (var tc = 0; tc < toplevels.length; tc++) {
         var topObj = toplevels[tc];
         if (topObj && isTerminalApp(topObj.appId || "")) {
             var tk = getTopKey(topObj, tc);
             var title = String(topObj.title || "");
             var detected = extractCliApp(title, entryIndex);
+            // Only evidence (title or a per-window /proc result) may join the
+            // sticky cache; a predictive hint is a guess and must expire with
+            // the hint instead of clinging to whatever terminal it touched.
+            var evidence = detected ? "title" : "";
 
             // Check sticky window cache for persistent player/app matching (vital for Winamp marquee!)
             if (!detected && _stickyCliByTopId[tk]) {
@@ -877,17 +895,15 @@ function buildDockItems(pinnedList, toplevelsList, activeToplevel, desktopEntrie
                     hint.appliedToTop = topObj;
                 }
             }
-            if (!detected && detectedCliList.length > 0) {
-                for (var d = 0; d < detectedCliList.length; d++) {
-                    var candCli = detectedCliList[d];
-                    if (candCli) {
-                        detected = candCli;
-                        break;
-                    }
+            if (!detected) {
+                var scanned = detectedCliByAddress[cliAddressKey(topObj.address)];
+                if (scanned) {
+                    detected = scanned;
+                    evidence = "scan";
                 }
             }
 
-            if (detected) {
+            if (detected && evidence) {
                 _stickyCliByTopId[tk] = detected;
             }
 

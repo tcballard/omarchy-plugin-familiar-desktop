@@ -82,7 +82,7 @@ TestCase {
         verify(scanner.command[0].endsWith("/bin/familiar-desktop"))
         compare(scanner.command.slice(1), ["dock", "scan-cli"])
         refreshes.clear()
-        scanner.complete('["yazi"]', 0)
+        scanner.complete('[{"address":"0x1","app":"yazi"}]', 0)
         compare(refreshes.count, 1)
         scanner.complete('{"state":"failed"}', 1)
         compare(refreshes.count, 1, "a failed helper response never becomes a model snapshot")

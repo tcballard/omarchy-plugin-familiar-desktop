@@ -223,6 +223,25 @@ pub fn extract_cli(title: &str, pid: Option<u64>) -> String {
     }
     String::new()
 }
+/// One entry per terminal window running a known CLI app, keyed by the
+/// window's Hyprland address. The dock attributes each result to that window
+/// alone; a flat app list would label every unidentified terminal with
+/// whichever app happened to be first.
+pub fn scan_cli_apps(clients: &[Value]) -> Value {
+    let mut apps = Vec::new();
+    for c in clients {
+        if !is_terminal(c["class"].as_str().unwrap_or("")) {
+            continue;
+        }
+        let app = extract_cli(c["title"].as_str().unwrap_or(""), c["pid"].as_u64());
+        let address = c["address"].as_str().unwrap_or("").to_lowercase();
+        if !app.is_empty() && valid_address(&address) {
+            apps.push(json!({"address": address, "app": app}));
+        }
+    }
+    json!(apps)
+}
+
 pub fn split_queries(queries: &[String]) -> (Vec<String>, Option<usize>, String) {
     let mut identifiers = Vec::new();
     let mut index = None;
@@ -1089,16 +1108,7 @@ pub fn execute(mode: &str, queries: &[String]) -> Result<Value> {
     let clients: Vec<Value> = serde_json::from_str(&ipc.command("j/clients")?)
         .map_err(|_| "Hyprland returned invalid clients")?;
     if mode == "scan-cli" {
-        let mut apps = Vec::new();
-        for c in &clients {
-            if is_terminal(c["class"].as_str().unwrap_or("")) {
-                let app = extract_cli(c["title"].as_str().unwrap_or(""), c["pid"].as_u64());
-                if !app.is_empty() && !apps.contains(&app) {
-                    apps.push(app);
-                }
-            }
-        }
-        return Ok(json!(apps));
+        return Ok(scan_cli_apps(&clients));
     }
     let monitors: Vec<Value> = serde_json::from_str(&ipc.command("j/monitors")?)
         .map_err(|_| "Hyprland returned invalid monitors")?;

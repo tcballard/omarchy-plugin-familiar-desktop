@@ -10,16 +10,21 @@ inline bool drawFamiliarIcon(cairo_t* cr, std::string_view icon, double size) {
     const auto action = icon.substr(mac ? 13 : 17);
     cairo_save(cr);
     cairo_scale(cr, size, size);
-    cairo_set_line_width(cr, 0.075);
-    cairo_set_line_cap(cr, CAIRO_LINE_CAP_SQUARE);
-    cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
     if (action == "close") {
-        cairo_move_to(cr, 0.32, 0.32); cairo_line_to(cr, 0.68, 0.68);
-        cairo_move_to(cr, 0.68, 0.32); cairo_line_to(cr, 0.32, 0.68);
-    } else if (action == "minimize") {
-        cairo_move_to(cr, 0.30, mac ? 0.50 : 0.67);
-        cairo_line_to(cr, 0.70, mac ? 0.50 : 0.67);
-    } else if (action == "maximize" && mac) {
+        // One large X: thick round strokes spanning most of the button.
+        cairo_set_line_width(cr, 0.11);
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+        cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+        cairo_move_to(cr, 0.26, 0.26); cairo_line_to(cr, 0.74, 0.74);
+        cairo_move_to(cr, 0.74, 0.26); cairo_line_to(cr, 0.26, 0.74);
+    } else {
+        cairo_set_line_width(cr, 0.075);
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_SQUARE);
+        cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
+        if (action == "minimize") {
+            cairo_move_to(cr, 0.30, mac ? 0.50 : 0.67);
+            cairo_line_to(cr, 0.70, mac ? 0.50 : 0.67);
+        } else if (action == "maximize" && mac) {
         // Two outward arrows, matching the expand action rather than a plus.
         cairo_move_to(cr, 0.34, 0.55); cairo_line_to(cr, 0.34, 0.66); cairo_line_to(cr, 0.45, 0.66);
         cairo_move_to(cr, 0.34, 0.66); cairo_line_to(cr, 0.46, 0.54);
@@ -30,6 +35,7 @@ inline bool drawFamiliarIcon(cairo_t* cr, std::string_view icon, double size) {
     } else {
         cairo_restore(cr);
         return false;
+    }
     }
     cairo_stroke(cr);
     cairo_restore(cr);

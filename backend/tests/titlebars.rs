@@ -311,6 +311,7 @@ fn themes_change_enablement_and_every_visual_setting() {
     f.theme(json!({"schemaVersion":1,"titlebars":{"enabled":true,"style":"windows","height":40,"fontSize":16,"fontFamily":"Inter","background":"#fafafa","foreground":"#121212","closeColour":"#b42318","minimizeColour":"#62666c","maximizeColour":"#0067b8","buttonSize":20,"buttonPadding":12,"edgePadding":14,"textAlign":"left"}}));
     assert_eq!(f.apply().unwrap()["state"], "active");
     let text = f.generated();
+    assert_eq!(text.matches("add_button").count(), 1);
     for fragment in [
         "bar_height = 40",
         "bar_text_size = 16",
@@ -318,7 +319,9 @@ fn themes_change_enablement_and_every_visual_setting() {
         "bar_buttons_alignment = \"right\"",
         "rgb(fafafa)",
         "rgb(b42318)",
-        "size = 20",
+        // The single Windows close control keeps the accepted live size
+        // rather than the theme button size.
+        "size = 30",
         "bar_button_padding = 12",
         "bar_padding = 14",
     ] {
@@ -435,41 +438,102 @@ fn render_quotes_paths_classes_and_button_actions() {
 #[test]
 fn styles_change_order_and_alignment() {
     let f = Fixture::new();
-    for style in ["mac", "windows"] {
-        let args = Args {
-            style: style.into(),
-            ..Args::default()
-        };
-        let p = titlebars::theme_policy(&json!({}), &args).unwrap();
-        let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
-        assert!(text.contains(if style == "mac" {
-            "bar_buttons_alignment = \"left\""
-        } else {
-            "bar_buttons_alignment = \"right\""
-        }));
-        assert!(text.contains(&format!("familiar-{style}-close")));
-        assert!(text.contains(&format!("familiar-{style}-minimize")));
-        assert!(text.contains(&format!("familiar-{style}-maximize")));
-        assert!(text.contains(&format!("icon_on_hover = {}", style == "mac")));
-        let buttons = &text[text.find("add_button").unwrap()..];
-        let min = buttons.find("action minimize").unwrap();
-        let max = buttons.find("action maximize").unwrap();
-        assert_eq!(min < max, style == "mac");
-        assert!(text.contains("familiar-titlebars-browsers"));
-        let included = titlebars::theme_policy(
-            &json!({}),
-            &Args {
-                include_browsers: true,
-                ..args.clone()
-            },
-        )
-        .unwrap();
-        assert!(
-            !titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &included)
-                .unwrap()
-                .contains("familiar-titlebars-browsers")
-        );
-    }
+    // Mac keeps three controls, ordered close/minimize/maximize on the left.
+    let args = Args {
+        style: "mac".into(),
+        ..Args::default()
+    };
+    let p = titlebars::theme_policy(&json!({}), &args).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
+    assert!(text.contains("bar_buttons_alignment = \"left\""));
+    assert!(text.contains("familiar-mac-close"));
+    assert!(text.contains("familiar-mac-minimize"));
+    assert!(text.contains("familiar-mac-maximize"));
+    assert!(text.contains("icon_on_hover = true"));
+    assert_eq!(text.matches("add_button").count(), 3);
+    let buttons = &text[text.find("add_button").unwrap()..];
+    let min = buttons.find("action minimize").unwrap();
+    let max = buttons.find("action maximize").unwrap();
+    assert!(min < max);
+    assert!(text.contains("familiar-titlebars-browsers"));
+    assert!(text.contains("on_double_click = "));
+    let included = titlebars::theme_policy(
+        &json!({}),
+        &Args {
+            include_browsers: true,
+            ..args.clone()
+        },
+    )
+    .unwrap();
+    assert!(
+        !titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &included)
+            .unwrap()
+            .contains("familiar-titlebars-browsers")
+    );
+    // Windows keeps right alignment with a single close control; see
+    // windows_style_emits_single_close_with_hover_color_and_super_f_shortcut.
+    let args = Args {
+        style: "windows".into(),
+        ..Args::default()
+    };
+    let p = titlebars::theme_policy(&json!({}), &args).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
+    assert!(text.contains("bar_buttons_alignment = \"right\""));
+    assert!(text.contains("icon_on_hover = false"));
+    assert_eq!(text.matches("add_button").count(), 1);
+}
+
+#[test]
+fn windows_style_emits_single_close_with_hover_color_and_super_f_shortcut() {
+    let f = Fixture::new();
+    let args = Args {
+        style: "windows".into(),
+        ..Args::default()
+    };
+    let p = titlebars::theme_policy(&json!({}), &args).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
+    assert_eq!(text.matches("add_button").count(), 1);
+    assert!(text.contains("familiar-windows-close"));
+    assert!(!text.contains("familiar-windows-minimize"));
+    assert!(!text.contains("familiar-windows-maximize"));
+    // The configured close colour stays available for hover rendering.
+    assert!(text.contains("rgb(ff605c)"));
+    // The close control keeps the accepted live size across regeneration.
+    assert!(text.contains("size = 30"));
+    assert!(text.contains("on_double_click = \"hyprctl eval 'toggle_full_width()'\""));
+}
+
+#[test]
+fn windows_close_color_override_survives_single_button_layout() {
+    let f = Fixture::new();
+    let args = Args {
+        style: "windows".into(),
+        ..Args::default()
+    };
+    let p =
+        titlebars::theme_policy(&json!({"titlebars":{"closeColour":"#b42318"}}), &args).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
+    assert_eq!(text.matches("add_button").count(), 1);
+    assert!(text.contains("rgb(b42318)"));
+}
+
+#[test]
+fn mac_style_keeps_three_buttons_and_maximize_double_click() {
+    let f = Fixture::new();
+    let args = Args {
+        style: "mac".into(),
+        ..Args::default()
+    };
+    let p = titlebars::theme_policy(&json!({}), &args).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &p).unwrap();
+    assert_eq!(text.matches("add_button").count(), 3);
+    assert!(text.contains("familiar-mac-close"));
+    assert!(text.contains("familiar-mac-minimize"));
+    assert!(text.contains("familiar-mac-maximize"));
+    // Mac sizing still follows the theme button size.
+    assert!(text.contains("size = 18"));
+    assert!(text.contains("titlebars action maximize"));
+    assert!(!text.contains("sendshortcut"));
 }
 struct ActiveFake {
     value: String,

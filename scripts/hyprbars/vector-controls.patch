@@ -4,33 +4,63 @@ index c27653d..e879cec 100644
 +++ b/hyprbars/barDeco.cpp
 @@ -24,6 +24,7 @@
  #include <hyprland/src/state/MonitorState.hpp>
- 
+
  #include "globals.hpp"
 +#include "FamiliarIcons.hpp"
  #include "BarPassElement.hpp"
- 
+
  #include <climits>
-@@ -370,7 +371,7 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+@@ -152,5 +152,14 @@ void CHyprBar::onMouseMove(Vector2D coords) {
+     // ensure proper redraws of button icons on hover when using hardware cursors
+-    if (g_pGlobalState->config.iconOnHover->value())
++    // Familiar Windows close needs the same redraws for its red hover
++    // background, while its white X stays visible with icon_on_hover=false.
++    bool familiarHoverBg = false;
++    for (auto& b : g_pGlobalState->buttons) {
++        if (b.icon == "familiar-windows-close") {
++            familiarHoverBg = true;
++            break;
++        }
++    }
++    if (g_pGlobalState->config.iconOnHover->value() || familiarHoverBg)
+         damageOnButtonHover();
+
+     if (!m_bDragPending || m_bTouchEv || !validMapped(m_pWindow) || m_touchId != 0)
+@@ -370,7 +371,18 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
                            scaledButtonSize};
          buttonBox.round();
- 
+
 -        g_pHyprOpenGL->renderRect(buttonBox, color, {.round = static_cast<int>(std::round(scaledButtonSize / 2.0)), .roundingPower = 2.F});
-+        g_pHyprOpenGL->renderRect(buttonBox, color, {.round = button.icon.starts_with("familiar-windows-") ? static_cast<int>(std::round(3 * scale)) : static_cast<int>(std::round(scaledButtonSize / 2.0)), .roundingPower = 2.F});
- 
++        // Familiar Windows close: no button background at rest, red on hover.
++        const bool familiarClose = button.icon == "familiar-windows-close";
++        const bool familiarHovered = familiarClose && (m_iButtonHoverState & (1 << i)) != 0;
++        if (familiarClose && !familiarHovered) {
++            // Rest: the bar shows through; only the white X is drawn (see below).
++        } else {
++            if (familiarHovered) {
++                color = CHyprColor(0xFFE81123);
++                color.a *= a;
++            }
++            g_pHyprOpenGL->renderRect(buttonBox, color, {.round = button.icon.starts_with("familiar-windows-") ? static_cast<int>(std::round(3 * scale)) : static_cast<int>(std::round(scaledButtonSize / 2.0)), .roundingPower = 2.F});
++        }
+
          offset += scaledButtonsPad + scaledButtonSize;
      }
-@@ -401,11 +402,26 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+@@ -401,11 +402,29 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
          bool       hovering   = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + button.size + BARBUTTONPADDING, currentPos.y + button.size);
          noScaleOffset += BARBUTTONPADDING + button.size;
- 
+
 +        if (button.icon.starts_with("familiar-") && button.iconTex &&
 +            button.iconTex->m_size.x != std::round(scaledButtonSize))
 +            button.iconTex = nullptr;
          if ((!button.iconTex || button.iconTex->m_texID == 0) && !button.icon.empty()) {
              // render icon
              auto fgcol = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
- 
+
 -            button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.62 * scale), false, "sans", scaledButtonSize);
++            // Familiar Windows close stays a large white X at rest and on red hover.
++            if (button.icon == "familiar-windows-close")
++                fgcol = CHyprColor(0xFFFFFFFF);
 +            if (button.icon.starts_with("familiar-")) {
 +                const int pixels = std::max(1, static_cast<int>(std::round(scaledButtonSize)));
 +                auto* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, pixels, pixels);
@@ -45,5 +75,5 @@ index c27653d..e879cec 100644
 +                button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.62 * scale), false, "sans", scaledButtonSize);
 +            }
          }
- 
+
          if (!button.iconTex || button.iconTex->m_texID == 0)

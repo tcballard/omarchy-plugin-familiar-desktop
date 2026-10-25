@@ -323,6 +323,7 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
             + name
             + if official { " --window '%WINDOW%'" } else { "" }
     };
+    let windows_single_close = !official && o["style"] == "windows";
     let mut s = format!(
         "  enabled = true, bar_height = {}, bar_text_size = {},\n  bar_title_enabled = true, bar_text_font = {}, bar_text_align = {},\n  bar_color = {}, ['col.text'] = {},\n  bar_buttons_alignment = {},\n  bar_padding = {}, bar_button_padding = {}, bar_part_of_window = true,\n  icon_on_hover = {},\n  on_double_click = {},\n}} }} }})\n",
         o["height"],
@@ -339,7 +340,13 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
         o["edgePadding"],
         o["buttonPadding"],
         o["style"] == "mac",
-        lua(&action("maximize"))
+        lua(&if windows_single_close {
+            // Call the same Lua function as Super+F. sendshortcut would pass
+            // keys to the client instead of invoking Hyprland's binding.
+            "hyprctl eval 'toggle_full_width()'".to_string()
+        } else {
+            action("maximize")
+        })
     );
     if official {
         s += &format!(
@@ -347,14 +354,31 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
             if o["style"] == "mac" { -1 } else { 3 }
         );
     }
-    let mut buttons = vec![
-        ("close", "closeColour"),
-        ("minimize", "minimizeColour"),
-        ("maximize", "maximizeColour"),
-    ];
-    if o["style"] == "windows" {
-        buttons.swap(1, 2);
-    }
+    // Windows style exposes just the close control on the private renderer; the
+    // hover pass renders it transparent at rest and red on hover. Its bg_color
+    // stays the configured close colour so hover rendering always has it
+    // available, and its size is pinned to the accepted live size so
+    // settings-triggered regeneration cannot shrink it back to the theme
+    // default. Mac keeps all three controls at the theme button size, and the
+    // official Core adapter keeps its three-glyph contract in both styles.
+    let buttons: Vec<(&str, &str)> = if windows_single_close {
+        vec![("close", "closeColour")]
+    } else {
+        let mut all = vec![
+            ("close", "closeColour"),
+            ("minimize", "minimizeColour"),
+            ("maximize", "maximizeColour"),
+        ];
+        if o["style"] == "windows" {
+            all.swap(1, 2);
+        }
+        all
+    };
+    let button_size = if windows_single_close {
+        json!(30)
+    } else {
+        o["buttonSize"].clone()
+    };
     for (name, key) in buttons {
         s += &format!(
             "hl.plugin.hyprbars.add_button({{ bg_color = {}, fg_color = {}, size = {}, icon = {}, action = {} }})\n",
@@ -362,7 +386,7 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
             lua(&rgb(o["buttonForeground"]
                 .as_str()
                 .ok_or("Missing foreground")?)?),
-            o["buttonSize"],
+            button_size,
             lua(&if official {
                 match name {
                     "close" => "×",

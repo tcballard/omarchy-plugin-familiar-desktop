@@ -324,6 +324,15 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
             + if official { " --window '%WINDOW%'" } else { "" }
     };
     let windows_single_close = !official && o["style"] == "windows";
+    // The sole Windows close control always sits flush to the far-right
+    // edge: private Windows single-close layouts emit zero bar padding even
+    // when a theme supplies an edgePadding. Mac and the official renderer
+    // still follow the theme value.
+    let edge_padding = if windows_single_close {
+        json!(0)
+    } else {
+        o["edgePadding"].clone()
+    };
     let mut s = format!(
         "  enabled = true, bar_height = {}, bar_text_size = {},\n  bar_title_enabled = true, bar_text_font = {}, bar_text_align = {},\n  bar_color = {}, ['col.text'] = {},\n  bar_buttons_alignment = {},\n  bar_padding = {}, bar_button_padding = {}, bar_part_of_window = true,\n  icon_on_hover = {},\n  on_double_click = {},\n}} }} }})\n",
         o["height"],
@@ -337,7 +346,7 @@ fn render_controls(paths: &Paths, o: &Value, official: bool) -> Result<String> {
             .as_str()
             .ok_or("Missing foreground")?)?),
         lua(if o["style"] == "mac" { "left" } else { "right" }),
-        o["edgePadding"],
+        edge_padding,
         o["buttonPadding"],
         o["style"] == "mac",
         lua(&if windows_single_close {

@@ -323,7 +323,9 @@ fn themes_change_enablement_and_every_visual_setting() {
         // rather than the theme button size.
         "size = 30",
         "bar_button_padding = 12",
-        "bar_padding = 14",
+        // Windows single-close is flush by design: explicit theme edge
+        // padding does not survive on the single close control.
+        "bar_padding = 0",
     ] {
         assert!(text.contains(fragment), "{fragment}");
     }
@@ -501,6 +503,48 @@ fn windows_style_emits_single_close_with_hover_color_and_super_f_shortcut() {
     // The close control keeps the accepted live size across regeneration.
     assert!(text.contains("size = 30"));
     assert!(text.contains("on_double_click = \"hyprctl eval 'toggle_full_width()'\""));
+}
+
+#[test]
+fn windows_single_close_is_edge_flush_while_mac_keeps_theme_padding() {
+    let f = Fixture::new();
+    let windows = Args {
+        style: "windows".into(),
+        ..Args::default()
+    };
+    let policy = titlebars::theme_policy(&json!({}), &windows).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &policy).unwrap();
+    assert!(text.contains("bar_padding = 0"));
+    let mac = Args {
+        style: "mac".into(),
+        ..Args::default()
+    };
+    let policy = titlebars::theme_policy(&json!({}), &mac).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &policy).unwrap();
+    assert!(text.contains("bar_padding = 10"));
+}
+
+#[test]
+fn windows_single_close_stays_edge_flush_with_explicit_theme_padding() {
+    let f = Fixture::new();
+    let windows = Args {
+        style: "windows".into(),
+        ..Args::default()
+    };
+    let policy =
+        titlebars::theme_policy(&json!({"titlebars":{"edgePadding":14}}), &windows).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &policy).unwrap();
+    assert!(
+        text.contains("bar_padding = 0"),
+        "explicit edgePadding must not survive on single-close:\n{text}"
+    );
+    let mac = Args {
+        style: "mac".into(),
+        ..Args::default()
+    };
+    let policy = titlebars::theme_policy(&json!({"titlebars":{"edgePadding":14}}), &mac).unwrap();
+    let text = titlebars::render(&f.paths, f.args.library.as_ref().unwrap(), &policy).unwrap();
+    assert!(text.contains("bar_padding = 14"));
 }
 
 #[test]

@@ -26,7 +26,7 @@ index c27653d..e879cec 100644
          damageOnButtonHover();
 
      if (!m_bDragPending || m_bTouchEv || !validMapped(m_pWindow) || m_touchId != 0)
-@@ -370,7 +371,18 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+@@ -370,7 +371,21 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
                            scaledButtonSize};
          buttonBox.round();
 
@@ -41,7 +41,10 @@ index c27653d..e879cec 100644
 +                color = CHyprColor(0xFFE81123);
 +                color.a *= a;
 +            }
-+            g_pHyprOpenGL->renderRect(buttonBox, color, {.round = button.icon.starts_with("familiar-windows-") ? static_cast<int>(std::round(3 * scale)) : static_cast<int>(std::round(scaledButtonSize / 2.0)), .roundingPower = 2.F});
++            // Familiar Windows close hover is a square-cornered red rectangle
++            // flush to the bar edge; other buttons keep their rounding.
++            const int buttonRounding = familiarClose ? 0 : (button.icon.starts_with("familiar-windows-") ? static_cast<int>(std::round(3 * scale)) : static_cast<int>(std::round(scaledButtonSize / 2.0)));
++            g_pHyprOpenGL->renderRect(buttonBox, color, {.round = buttonRounding, .roundingPower = 2.F});
 +        }
 
          offset += scaledButtonsPad + scaledButtonSize;

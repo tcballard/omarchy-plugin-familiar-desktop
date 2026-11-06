@@ -73,3 +73,5 @@ work from outstanding proposals and retains links to the original contributions.
 Familiar derives from [rosakodu/omarchy-dock](https://github.com/rosakodu/omarchy-dock)
 at `467070386fe60e173295020d3911176202b3e0c9`. MIT licensed; original work
 © 2026 rosakodu, Familiar Desktop changes © 2026 Tom Ballard. See [LICENSE](LICENSE).
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/tcballard)
